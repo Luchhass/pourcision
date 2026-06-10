@@ -564,6 +564,13 @@ button {
   }
 }
 
+@media (max-width: 767.98px) {
+  [data-setup-water] [data-setup-controls-panel] {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1023.98px) {
   [data-home-water] > div:last-child,
   [data-setup-water] > div:last-child,

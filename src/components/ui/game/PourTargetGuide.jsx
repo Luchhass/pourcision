@@ -45,7 +45,7 @@ export default function PourTargetGuide({
           />
           <span
             className={[
-              "pc-label absolute right-6 top-0 -mt-5 inline-flex rounded-md px-3 py-2 text-white md:right-8",
+              "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 text-white md:right-8",
               isResultPhase ? "bg-[#ef2f25] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]" : "bg-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]",
             ].join(" ")}
             data-gameplay-reveal-badge="true"
@@ -95,7 +95,7 @@ export default function PourTargetGuide({
             ref={targetGuideLineRef}
           />
           <span
-            className="pc-label absolute right-6 top-0 -mt-5 inline-flex rounded-md bg-[#0d0d0c] px-3 py-2 text-white md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+            className="pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md bg-[#0d0d0c] px-3 py-2 text-white md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
             data-gameplay-reveal-badge="true"
             ref={targetGuideLabelRef}
           >

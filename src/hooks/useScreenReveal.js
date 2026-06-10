@@ -8,14 +8,24 @@ const WATER_BG_SELECTOR = '[data-screen-reveal="water-bg"]';
 const CREAM_SELECTOR = '[data-screen-reveal="cream"]';
 const WATER_CONTENT_SELECTOR = '[data-screen-reveal="water-content"]';
 const REVEAL_ROW_SELECTOR = "[data-screen-reveal-row]";
+const REVEAL_LINE_ROW_SELECTOR = "[data-screen-reveal-line-row]";
 const INTRO_COMPLETE_EVENT = "pourcision-page-intro-complete";
 const ACTIVE_SCREEN_EXIT_EVENT = "pourcision-active-screen-exit";
 const INTRO_SETTLE_DELAY = 120;
 const INTRO_TIMEOUT = 6200;
 const INTRO_APPEAR_WAIT = 240;
+const WATER_BG_REVEALED_KEY = "__pourcisionWaterBgRevealedOnce";
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function hasRevealedWaterBackground() {
+  return Boolean(window[WATER_BG_REVEALED_KEY]);
+}
+
+function markWaterBackgroundRevealed() {
+  window[WATER_BG_REVEALED_KEY] = true;
 }
 
 function waitForIntro(callback) {
@@ -105,13 +115,115 @@ function getRevealChildren(element) {
   return children.length ? children : [element];
 }
 
+function restoreParagraphLineReveal(paragraph) {
+  if (paragraph.dataset.screenRevealDynamicLines !== "true") return;
+
+  paragraph.innerHTML = paragraph.dataset.screenRevealOriginalHtml ?? "";
+  paragraph.style.overflow = "";
+  delete paragraph.dataset.screenRevealDynamicLines;
+  delete paragraph.dataset.screenRevealOriginalHtml;
+}
+
+function isLineRevealParagraph(element) {
+  if (!(element instanceof HTMLParagraphElement)) return false;
+  if (element.dataset.screenRevealLine === "false") return false;
+  if (!element.matches(REVEAL_ROW_SELECTOR)) return false;
+  if (!element.classList.contains("pc-copy") && !element.closest(".pc-copy")) {
+    return false;
+  }
+
+  const text = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  return text.includes(" ");
+}
+
+function groupWordsByRenderedLine(wordSpans) {
+  const lines = [];
+
+  wordSpans.forEach((span) => {
+    const rect = span.getBoundingClientRect();
+    const top = Math.round(rect.top);
+    const lastLine = lines[lines.length - 1];
+
+    if (lastLine && Math.abs(lastLine.top - top) <= 2) {
+      lastLine.words.push(span);
+      return;
+    }
+
+    lines.push({ top, words: [span] });
+  });
+
+  return lines;
+}
+
+function prepareParagraphLineReveals(scope) {
+  const paragraphs = Array.from(scope.querySelectorAll("p")).filter(
+    isLineRevealParagraph,
+  );
+
+  paragraphs.forEach((paragraph) => {
+    restoreParagraphLineReveal(paragraph);
+
+    const text = paragraph.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (!text) return;
+
+    paragraph.dataset.screenRevealOriginalHtml = paragraph.innerHTML;
+    paragraph.dataset.screenRevealDynamicLines = "true";
+    paragraph.style.overflow = "visible";
+    paragraph.textContent = "";
+
+    const words = text.split(" ");
+    const wordSpans = words.map((word, index) => {
+      const span = document.createElement("span");
+      span.textContent = index === words.length - 1 ? word : `${word} `;
+      paragraph.appendChild(span);
+      return span;
+    });
+
+    const lines = groupWordsByRenderedLine(wordSpans)
+      .map((line) => line.words.map((span) => span.textContent).join("").trimEnd())
+      .filter(Boolean);
+
+    paragraph.textContent = "";
+
+    lines.forEach((line) => {
+      const outer = document.createElement("span");
+      const inner = document.createElement("span");
+
+      outer.dataset.screenRevealLineRow = "true";
+      outer.className = "block overflow-hidden";
+      inner.className = "block";
+      inner.textContent = line;
+      outer.appendChild(inner);
+      paragraph.appendChild(outer);
+    });
+  });
+}
+
+function restoreParagraphLineReveals(scope) {
+  Array.from(
+    scope.querySelectorAll('[data-screen-reveal-dynamic-lines="true"]'),
+  ).forEach((paragraph) => {
+    if (paragraph instanceof HTMLParagraphElement) {
+      restoreParagraphLineReveal(paragraph);
+    }
+  });
+}
+
 function getRevealRows(groups) {
   return groups.flatMap((group) => {
     const rows = Array.from(group.querySelectorAll(REVEAL_ROW_SELECTOR)).filter(
       (row) => row instanceof HTMLElement,
     );
 
-    return rows.length ? rows : getRevealChildren(group);
+    if (!rows.length) return getRevealChildren(group);
+
+    return rows.flatMap((row) => {
+      const lineRows = Array.from(
+        row.querySelectorAll(REVEAL_LINE_ROW_SELECTOR),
+      ).filter((lineRow) => lineRow instanceof HTMLElement);
+
+      return lineRows.length ? lineRows : [row];
+    });
   });
 }
 
@@ -142,6 +254,10 @@ function shouldMask(element) {
   return element.dataset.screenRevealMask !== "none";
 }
 
+function isSectionWordRevealItem(item) {
+  return !!item.closest("[data-screen-reveal-section-word]");
+}
+
 function getRevealY(element, fallback = "down") {
   return getRevealDirection(element, fallback) === "up" ? 24 : -24;
 }
@@ -162,6 +278,7 @@ function revealRows(timeline, rows, startAt, options = {}) {
     const groupName = row.dataset.screenRevealGroup || "default";
     const groupIndex = groupIndexes[groupName] ?? 0;
     const isStats = groupName === "stats";
+    const isSectionWord = items.some(isSectionWordRevealItem);
     const delay =
       options.delayForRow?.(row, index, { groupIndex, groupName }) ??
       index * (options.rowStagger ?? 0.05);
@@ -172,7 +289,9 @@ function revealRows(timeline, rows, startAt, options = {}) {
       items,
       {
         autoAlpha: 1,
-        clearProps: "opacity,visibility",
+        clearProps: isSectionWord
+          ? "opacity,visibility,willChange"
+          : "opacity,visibility",
         duration: isStats ? 0.74 : options.duration ?? 0.62,
         ease: isStats ? "expo.out" : options.ease ?? "power4.out",
         y: 0,
@@ -183,6 +302,8 @@ function revealRows(timeline, rows, startAt, options = {}) {
 }
 
 function getRevealParts(scope) {
+  prepareParagraphLineReveals(scope);
+
   const titleGroups = toArray(TITLE_SELECTOR, scope);
   const waterBackgrounds = toArray(WATER_BG_SELECTOR, scope);
   const creamGroups = toArray(CREAM_SELECTOR, scope);
@@ -212,6 +333,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
   const timelineRef = useRef(null);
   const cancelIntroWaitRef = useRef(null);
   const cancelDelayRef = useRef(null);
+  const hasPlayedInitialRevealRef = useRef(false);
+  const shouldRevealWaterBgRef = useRef(false);
 
   const playExit = useCallback(() => {
     const scope = scopeRef.current;
@@ -223,7 +346,6 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
     const {
       creamItems,
       titleLetters,
-      waterBackgrounds,
       waterContentItems,
     } = getRevealParts(scope);
     const fadeTargets = [
@@ -250,25 +372,6 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           ease: "power2.out",
         },
         0,
-      );
-
-      exitTimeline.set(
-        waterBackgrounds,
-        {
-          clipPath: "inset(0 0% 0 0)",
-          willChange: "clip-path",
-        },
-        0,
-      );
-
-      exitTimeline.to(
-        waterBackgrounds,
-        {
-          clipPath: "inset(0 0 0 100%)",
-          duration: 0.58,
-          ease: "power3.inOut",
-        },
-        0.18,
       );
 
       timelineRef.current = exitTimeline;
@@ -336,9 +439,18 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             "clipPath,opacity,visibility,overflow,transform,willChange",
         },
       );
+
+      restoreParagraphLineReveals(scope);
     };
 
     const prepareReveal = () => {
+      const shouldRevealWaterBg =
+        !hasPlayedInitialRevealRef.current && !hasRevealedWaterBackground();
+      shouldRevealWaterBgRef.current = shouldRevealWaterBg;
+      if (shouldRevealWaterBg) {
+        markWaterBackgroundRevealed();
+      }
+
       gsap.set(scope, { autoAlpha: 1 });
       gsap.set(titleGroups, { autoAlpha: 1, overflow: "hidden" });
       gsap.set(titleLetters, {
@@ -347,8 +459,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         willChange: "transform",
       });
       gsap.set(waterBackgrounds, {
-        clipPath: "inset(0 100% 0 0)",
-        willChange: "clip-path",
+        clipPath: shouldRevealWaterBg ? "inset(0 100% 0 0)" : "inset(0 0% 0 0)",
+        willChange: shouldRevealWaterBg ? "clip-path" : "auto",
       });
       gsap.set(creamGroups, { autoAlpha: 1 });
       gsap.set(creamRows, {
@@ -374,6 +486,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
 
     const playReveal = () => {
       if (prefersReducedMotion()) {
+        hasPlayedInitialRevealRef.current = true;
         gsap.set(
           [
             ...titleGroups,
@@ -392,13 +505,26 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
               "clipPath,opacity,visibility,overflow,transform,willChange",
           },
         );
+        restoreParagraphLineReveals(scope);
         return;
       }
 
       const start = () => {
+        const shouldRevealWaterBg = shouldRevealWaterBgRef.current;
+        const sectionWordItems = waterContentItems.filter(isSectionWordRevealItem);
+        const regularWaterContentItems = waterContentItems.filter(
+          (item) => !isSectionWordRevealItem(item),
+        );
+
         timelineRef.current = gsap.timeline({
           defaults: { overwrite: "auto" },
           onComplete: () => {
+            hasPlayedInitialRevealRef.current = true;
+            markWaterBackgroundRevealed();
+            gsap.set(sectionWordItems, {
+              clearProps: "opacity,visibility,willChange",
+              y: 0,
+            });
             gsap.set(
               [
                 ...titleGroups,
@@ -409,13 +535,14 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
                 ...creamItems,
                 ...waterContentGroups,
                 ...waterContentRows,
-                ...waterContentItems,
+                ...regularWaterContentItems,
               ],
               {
                 clearProps:
                   "clipPath,opacity,visibility,overflow,transform,willChange",
               },
             );
+            restoreParagraphLineReveals(scope);
           },
         });
 
@@ -432,16 +559,21 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           "titleIn",
         );
 
-        timeline.add("waterBgIn", "titleIn+=0.16");
-        timeline.to(
-          waterBackgrounds,
-          {
-            clipPath: "inset(0 0% 0 0)",
-            duration: 0.82,
-            ease: "power3.inOut",
-          },
-          "waterBgIn",
-        );
+        if (shouldRevealWaterBg) {
+          timeline.add("waterBgIn", "titleIn+=0.16");
+          timeline.to(
+            waterBackgrounds,
+            {
+              clipPath: "inset(0 0% 0 0)",
+              duration: 0.82,
+              ease: "power3.inOut",
+            },
+            "waterBgIn",
+          );
+        } else {
+          timeline.add("waterBgIn", "titleIn+=0.16");
+          timeline.set(waterBackgrounds, { clipPath: "inset(0 0% 0 0)" }, "waterBgIn");
+        }
 
         timeline.add("creamIn", ">-0.04");
         revealRows(timeline, creamRows, "creamIn", {

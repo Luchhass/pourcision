@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
+import SectionWord from "@/components/layout/SectionWord";
 import Button from "@/components/ui/Button";
 import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import ModeSelectCard from "@/components/sections/home/ModeSelectCard";
@@ -56,30 +57,6 @@ function HomeTitleBand({ title }) {
         </h1>
       </div>
     </section>
-  );
-}
-
-function HomeWaterWords() {
-  const { t } = useTranslation();
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pc-section-word absolute right-6 top-6 flex flex-col-reverse items-end gap-0.5 text-right text-[#0d0d0c] md:right-8 md:top-8 lg:left-10 lg:right-auto lg:top-9 lg:flex-row lg:items-start lg:gap-2 lg:text-left dark:text-[#f7f7f2]/36"
-      data-screen-reveal-direction="down"
-      data-screen-reveal="water-content"
-    >
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("game.precision")}
-        </span>
-      </span>
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("game.actionPour")}
-        </span>
-      </span>
-    </div>
   );
 }
 
@@ -452,8 +429,15 @@ export default function HomeScreen({
       <ScoreboardScreen
         onMenu={handleBackToMenu}
         onPlayAgain={() => {
-          setBrowserPath(ROUTES.HOME);
-          setStep("setup");
+          const nextSettings = {
+            ...gameSettings,
+            targetSeed: createTargetSeed(gameSettings),
+          };
+
+          setRoundResults([]);
+          setGameSettings(nextSettings);
+          setBrowserPath(getPlayPath(nextSettings));
+          setStep("gameplay");
         }}
         results={roundResults}
         settings={gameSettings}
@@ -525,7 +509,7 @@ export default function HomeScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 bg-[var(--home-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--home-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
             data-home-water="true"
             data-screen-reveal="water-bg"
           >
@@ -533,8 +517,11 @@ export default function HomeScreen({
               color={selectedWaterColor.value}
               property="--home-water-color"
             />
-            <HomeWaterWords />
-            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-14 md:pt-16 lg:min-h-0 lg:justify-items-end lg:pt-0">
+            <SectionWord
+              primary={t("game.precision")}
+              secondary={t("game.actionPour")}
+            />
+            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0">
               <HomeModePanel
                 className="w-full lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]"
                 continueLabel={t("common.continue")}

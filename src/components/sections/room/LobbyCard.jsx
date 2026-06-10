@@ -479,7 +479,7 @@ export function LobbyWaterColorPanel({
           "cursor-grab active:cursor-grabbing",
           "overscroll-contain",
           "h-[var(--pc-swatch-size)]",
-          "w-full max-w-full lg:max-w-[15rem] min-[1180px]:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]",
+          "w-full max-w-full lg:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]",
           disabled ? "pointer-events-none opacity-60" : "",
         ].join(" ")}
         data-water-color-slider="true"

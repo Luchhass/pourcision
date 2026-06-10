@@ -1085,6 +1085,88 @@ export function playRoundResult(score = 0, diff = 0) {
   );
 }
 
+export function startRoundScoreCountSound({ duration = 0.95, score = 0 } = {}) {
+  const context = getPlayableContext();
+  if (!context || !allowSound("round-score-count", 180)) {
+    return { finish() {}, stop() {} };
+  }
+
+  const startTime = context.currentTime;
+  const endTime = startTime + duration;
+  const quality = clamp01(score / 10);
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+
+  oscillator.type = quality > 0.82 ? "sine" : "triangle";
+  oscillator.frequency.setValueAtTime(135 + quality * 35, startTime);
+  oscillator.frequency.exponentialRampToValueAtTime(
+    420 + quality * 210,
+    endTime,
+  );
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.006 + quality * 0.004, startTime + 0.08);
+  gain.gain.linearRampToValueAtTime(0.026 + quality * 0.018, endTime - 0.12);
+  gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
+  oscillator.connect(gain);
+  gain.connect(mixBus || context.destination);
+  oscillator.start(startTime);
+  oscillator.stop(endTime + 0.02);
+
+  [0.22, 0.48, 0.7, 0.88].forEach((offset, index) => {
+    scheduleBubble(context, {
+      delay: Math.min(duration * offset, Math.max(0, duration - 0.12)),
+      duration: 0.07 + index * 0.014,
+      frequency: 250 + quality * 150 + index * (62 + quality * 18),
+      gain: 0.009 + index * 0.004 + quality * 0.007,
+      pan: (index - 1.5) * 0.035,
+      rise: 1.12 + index * 0.08,
+    });
+  });
+
+  let stopped = false;
+
+  return {
+    finish() {
+      if (stopped) return;
+      scheduleBubble(context, {
+        delay: 0,
+        duration: 0.12,
+        frequency: 420 + quality * 260,
+        gain: 0.025 + quality * 0.012,
+        rise: 1.32,
+      });
+      if (score >= 9.95) {
+        [1, 1.26, 1.5, 1.9].forEach((ratio, index) => {
+          scheduleBubble(context, {
+            delay: 0.035 + index * 0.045,
+            duration: 0.11,
+            frequency: (520 + quality * 120) * ratio,
+            gain: 0.024 - index * 0.002,
+            pan: (index - 1.5) * 0.06,
+            rise: 1.55,
+          });
+        });
+        scheduleSplash(context, {
+          brightness: 1.65,
+          delay: 0.08,
+          size: 0.72,
+        });
+      }
+    },
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      try {
+        gain.gain.cancelScheduledValues(context.currentTime);
+        gain.gain.setTargetAtTime(0.0001, context.currentTime, 0.025);
+        oscillator.stop(context.currentTime + 0.08);
+      } catch {
+        // The oscillator may already be stopped.
+      }
+    },
+  };
+}
+
 export function playRoundAdvance() {
   const context = getPlayableContext();
   if (!context || !allowSound("round-advance", 120)) return;

@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
+import SectionWord from "@/components/layout/SectionWord";
 import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
@@ -65,30 +66,6 @@ function RoomTitleBand({ onBackHome, title }) {
   );
 }
 
-function RoomWaterWords({ title }) {
-  const { t } = useTranslation();
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pc-section-word absolute right-6 top-6 flex flex-col-reverse items-end gap-0.5 text-right text-[#0d0d0c] md:right-8 md:top-8 lg:left-10 lg:right-auto lg:top-9 lg:flex-row lg:items-start lg:gap-2 lg:text-left dark:text-[#f7f7f2]/36"
-      data-screen-reveal="water-content"
-      data-screen-reveal-direction="down"
-    >
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {title}
-        </span>
-      </span>
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("room.lobby")}
-        </span>
-      </span>
-    </div>
-  );
-}
-
 function RoomIntro({ description }) {
   return (
     <div
@@ -113,6 +90,7 @@ export default function RoomCardShell({
   waterContentPlacement = "end",
   waterColorId,
 }) {
+  const { t } = useTranslation();
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === waterColorId) ?? WATER_COLORS[2];
   const startsAtTop = waterContentPlacement === "start";
@@ -170,7 +148,7 @@ export default function RoomCardShell({
 
           <section
             className={[
-              "relative mx-auto grid w-full max-w-[44rem] min-h-0 bg-[var(--room-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]",
+              "relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--room-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]",
               "max-lg:content-stretch",
             ].join(" ")}
             data-room-water="true"
@@ -180,8 +158,11 @@ export default function RoomCardShell({
               color={selectedWaterColor.value}
               property="--room-water-color"
             />
-            <RoomWaterWords title={title.toUpperCase()} />
-            <div className="grid h-full min-h-0 min-w-0 gap-5 pt-14 md:gap-6 md:pt-16 lg:h-full lg:min-h-0 lg:gap-0 lg:pt-0">
+            <SectionWord
+              primary={title.toUpperCase()}
+              secondary={t("room.lobby")}
+            />
+            <div className="grid h-full min-h-0 min-w-0 gap-5 pt-8 md:gap-6 md:pt-10 lg:h-full lg:min-h-0 lg:gap-0 lg:pt-0">
               <div
                 className={[
                   "min-h-0 w-full",

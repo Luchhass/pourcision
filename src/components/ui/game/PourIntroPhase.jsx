@@ -107,7 +107,7 @@ export default function PourIntroPhase({ onComplete }) {
       data-game-control="true"
       ref={scopeRef}
     >
-      <div className="pc-page-title ml-auto text-right text-[calc(var(--pc-page-title)*1.08)] text-white">
+      <div className="pc-page-title ml-auto text-right text-[clamp(4.25rem,18vw,7.5rem)] text-white md:text-[clamp(6.25rem,14vw,10.5rem)] xl:text-[clamp(8rem,12vw,13rem)]">
         <div className="relative overflow-hidden pb-[0.12em]">
           <span className="invisible block select-none" aria-hidden="true">
             {widestStep}

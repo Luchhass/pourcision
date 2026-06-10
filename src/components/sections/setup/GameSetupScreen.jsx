@@ -10,12 +10,14 @@ import {
   Flag,
   Gauge,
   Infinity,
+  Palette,
   RotateCcw,
   Shuffle,
   Timer,
 } from "lucide-react";
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
+import SectionWord from "@/components/layout/SectionWord";
 import Button from "@/components/ui/Button";
 import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import LobbyListPanel from "@/components/sections/setup/LobbyListPanel";
@@ -230,30 +232,6 @@ function SetupTitleBand({ onBack, title }) {
   );
 }
 
-function SetupWaterWords({ title }) {
-  const { t } = useTranslation();
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pc-section-word absolute right-6 top-6 flex flex-col-reverse items-end gap-0.5 text-right text-[#0d0d0c] md:right-8 md:top-8 lg:left-10 lg:right-auto lg:top-9 lg:flex-row lg:items-start lg:gap-2 lg:text-left dark:text-[#f7f7f2]/36"
-      data-screen-reveal="water-content"
-      data-screen-reveal-direction="down"
-    >
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {title}
-        </span>
-      </span>
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("setup.setup")}
-        </span>
-      </span>
-    </div>
-  );
-}
-
 function SetupIntro({ description, setupDescription }) {
   return (
     <div
@@ -268,25 +246,39 @@ function SetupIntro({ description, setupDescription }) {
   );
 }
 
-function ChoiceGrid({ label, options, value, onChange }) {
+function ChoiceGrid({
+  label,
+  options,
+  value,
+  onChange,
+  modalGrid = false,
+  showLabel = true,
+}) {
   const { t } = useTranslation();
   const { handleScroll, sliderRef } = useLoopingSlider(options.length);
-  const loopedOptions = [...options, ...options, ...options];
+  const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
 
   return (
     <div className="min-w-0 space-y-3" data-sound-group="game-mode">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {label}
-      </p>
+      {showLabel ? (
+        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+          {label}
+        </p>
+      ) : null}
       <div
-        className="grid min-w-0 grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:auto-cols-[9.75rem] lg:grid-flow-row lg:grid-rows-none lg:grid-cols-4 lg:auto-cols-auto lg:overflow-visible dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)] [&::-webkit-scrollbar]:hidden"
+        className={[
+          "grid min-w-0 bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
+          modalGrid
+            ? "grid-cols-3 overflow-visible"
+            : "grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:grid-rows-2 md:auto-cols-[9.75rem] [&::-webkit-scrollbar]:hidden",
+        ].join(" ")}
         onScroll={handleScroll}
         ref={sliderRef}
       >
-        {loopedOptions.map((option, loopIndex) => {
-          const optionIndex = loopIndex % options.length;
-          const cycleIndex = Math.floor(loopIndex / options.length);
-          const isDesktopCopy = cycleIndex === 1;
+        {visibleOptions.map((option, loopIndex) => {
+          const optionIndex = modalGrid ? loopIndex : loopIndex % options.length;
+          const cycleIndex = modalGrid ? 1 : Math.floor(loopIndex / options.length);
+          const isDesktopCopy = modalGrid || cycleIndex === 1;
           const selected = value === option.id;
           const Icon = option.icon ?? Timer;
           const title = t(`modes.${option.id}.label`);
@@ -371,7 +363,13 @@ function DifficultyControl({ label, value, onChange }) {
   );
 }
 
-function WaterColorSelect({ label, value, onChange, compact = false }) {
+function WaterColorSelect({
+  label,
+  value,
+  onChange,
+  compact = false,
+  showLabel = true,
+}) {
   const { t } = useTranslation();
   const sliderRef = useRef(null);
   const dragRef = useRef({
@@ -573,12 +571,14 @@ function WaterColorSelect({ label, value, onChange, compact = false }) {
 
   return (
     <div className="min-w-0 space-y-3">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {label}{" "}
-        <span data-water-color-name="true" style={{ color: selectedColor.value }}>
-          {t(`colors.${selectedColor.id}`)}
-        </span>
-      </p>
+      {showLabel ? (
+        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+          {label}{" "}
+          <span data-water-color-name="true" style={{ color: selectedColor.value }}>
+            {t(`colors.${selectedColor.id}`)}
+          </span>
+        </p>
+      ) : null}
       <div
         ref={sliderRef}
         data-water-color-slider="true"
@@ -589,7 +589,7 @@ function WaterColorSelect({ label, value, onChange, compact = false }) {
           "overscroll-contain",
           "h-[var(--pc-swatch-size)]",
           compact
-            ? "w-full max-w-full lg:max-w-[15rem] min-[1180px]:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]"
+            ? "w-full max-w-full lg:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]"
             : "w-full max-w-full sm:max-w-[34rem]",
         ].join(" ")}
         onPointerDown={handlePointerDown}
@@ -644,6 +644,65 @@ function WaterColorSelect({ label, value, onChange, compact = false }) {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function MobileSetupModal({ children, onClose, title }) {
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:hidden">
+      <button
+        aria-label="Close setup panel"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+      />
+      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
+        <div className="flex items-start justify-between gap-5">
+          <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
+            {title}
+          </h2>
+          <button
+            aria-label="Close setup panel"
+            className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+            onClick={onClose}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              className="pc-icon"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function MobileSetupButton({ icon: Icon, label, onClick }) {
+  return (
+    <div className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3">
+      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+        {label}
+      </p>
+      <button
+        aria-label={label}
+        className="grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+        onClick={onClick}
+        type="button"
+      >
+        <Icon aria-hidden="true" className="pc-icon" strokeWidth={2.7} />
+      </button>
     </div>
   );
 }
@@ -892,6 +951,7 @@ export default function GameSetupScreen({
   const [multiplayerStep, setMultiplayerStep] = useState(
     MULTIPLAYER_SETUP_STEPS.ACTION,
   );
+  const [mobileSetupModal, setMobileSetupModal] = useState(null);
   const [playerName, setPlayerName] = useState(readSessionPlayerName);
   const [playerNameError, setPlayerNameError] = useState(false);
   const [ruleMode, setRuleMode] = useState(GAME_RULE_MODES.CLASSIC);
@@ -1078,14 +1138,17 @@ export default function GameSetupScreen({
 
             {!isMultiplayer ? (
               <div
-                className="mt-7 min-w-0 lg:hidden"
+                className="mt-7 hidden min-w-0 md:block lg:hidden"
+                data-screen-reveal="cream"
                 data-setup-color-panel="true"
               >
-                <WaterColorSelect
-                  label={t("setup.waterColor")}
-                  onChange={handleWaterColorChange}
-                  value={waterColorId}
-                />
+                <div className="overflow-hidden" data-screen-reveal-row="true">
+                  <WaterColorSelect
+                    label={t("setup.waterColor")}
+                    onChange={handleWaterColorChange}
+                    value={waterColorId}
+                  />
+                </div>
               </div>
             ) : null}
 
@@ -1194,7 +1257,7 @@ export default function GameSetupScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 bg-[var(--setup-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--setup-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
             data-setup-water="true"
             data-screen-reveal="water-bg"
           >
@@ -1202,10 +1265,13 @@ export default function GameSetupScreen({
               color={selectedWaterColor.value}
               property="--setup-water-color"
             />
-            <SetupWaterWords title={copy.title.toUpperCase()} />
+            <SectionWord
+              primary={copy.title.toUpperCase()}
+              secondary={t("setup.setup")}
+            />
             <div
               className={[
-                "grid h-full min-h-0 min-w-0 justify-items-stretch pt-14 md:pt-16 lg:min-h-0 lg:justify-items-end lg:pt-0",
+                "grid h-full min-h-0 min-w-0 justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0",
                 isJoiningLobby
                   ? "grid-rows-[minmax(0,1fr)] content-stretch items-stretch lg:h-full"
                   : "content-end",
@@ -1260,18 +1326,44 @@ export default function GameSetupScreen({
                   />
                 ) : !isMultiplayer ? (
                   <>
-                    <div className="grid min-w-0 grid-cols-2 gap-4 lg:grid-cols-1 lg:gap-5">
-                      <DifficultyControl
-                        label={t("setup.difficulty")}
-                        onChange={setDifficulty}
-                        value={difficulty}
-                      />
-                      <ChoiceGrid
-                        label={t("setup.mode")}
-                        onChange={setRuleMode}
-                        options={availableRuleModeOptions}
-                        value={ruleMode}
-                      />
+                    <div className="w-full min-w-0 justify-self-stretch md:hidden">
+                      <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-3">
+                        <DifficultyControl
+                          label={t("setup.difficulty")}
+                          onChange={setDifficulty}
+                          value={difficulty}
+                        />
+                        <div className="grid min-w-0 grid-cols-2 gap-3">
+                          <MobileSetupButton
+                            icon={Palette}
+                            label="Color"
+                            onClick={() => setMobileSetupModal("color")}
+                          />
+                          <MobileSetupButton
+                            icon={Shuffle}
+                            label="Mode"
+                            onClick={() => setMobileSetupModal("mode")}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5">
+                      <div className="min-w-0">
+                        <DifficultyControl
+                          label={t("setup.difficulty")}
+                          onChange={setDifficulty}
+                          value={difficulty}
+                        />
+                      </div>
+                      <div className="min-w-0 md:col-span-2 lg:col-span-1">
+                        <ChoiceGrid
+                          label={t("setup.mode")}
+                          onChange={setRuleMode}
+                          options={availableRuleModeOptions}
+                          value={ruleMode}
+                        />
+                      </div>
                     </div>
                     <Button
                       className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
@@ -1287,6 +1379,34 @@ export default function GameSetupScreen({
           </section>
         </section>
       </main>
+      {!isMultiplayer && mobileSetupModal === "color" ? (
+        <MobileSetupModal
+          onClose={() => setMobileSetupModal(null)}
+          title={t("setup.waterColor")}
+        >
+          <WaterColorSelect
+            label={t("setup.waterColor")}
+            onChange={handleWaterColorChange}
+            showLabel={false}
+            value={waterColorId}
+          />
+        </MobileSetupModal>
+      ) : null}
+      {!isMultiplayer && mobileSetupModal === "mode" ? (
+        <MobileSetupModal
+          onClose={() => setMobileSetupModal(null)}
+          title={t("setup.mode")}
+        >
+          <ChoiceGrid
+            label={t("setup.mode")}
+            modalGrid
+            onChange={setRuleMode}
+            options={availableRuleModeOptions}
+            showLabel={false}
+            value={ruleMode}
+          />
+        </MobileSetupModal>
+      ) : null}
     </div>
   );
 }

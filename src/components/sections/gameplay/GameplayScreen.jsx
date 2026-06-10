@@ -20,6 +20,7 @@ import {
 import {
   playRoundAdvance,
   playRoundResult,
+  startRoundScoreCountSound,
   startPourLoop,
 } from "@/lib/sound";
 
@@ -29,7 +30,7 @@ function formatPercent(value) {
 
 function formatDiff(value) {
   if (value === null || value === undefined) {
-    return "--";
+    return "00";
   }
 
   return value.toFixed(2);
@@ -224,6 +225,8 @@ export default function GameplayScreen({
   const [chaosBriefingRound, setChaosBriefingRound] = useState(-1);
   const [visibleResultKey, setVisibleResultKey] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const diffValueRef = useRef(null);
+  const resultScoreRef = useRef(null);
   const waterColor =
     WATER_COLORS.find((color) => color.id === settings?.waterColorId) ??
     WATER_COLORS[0];
@@ -308,7 +311,7 @@ export default function GameplayScreen({
   const shouldShowSplitTargets = isSplitFillMode && !isIntroPhase;
   const resultLabel = getResultLabel(lastResult?.label ?? "", t);
   const resultGuidance = getResultMessage(lastResult, t);
-  const roundDiff = isResultPhase ? formatDiff(lastResult?.diff) : "--";
+  const roundDiff = isResultPhase ? "00" : "00";
   const approachGuidance =
     isEndless
       ? t("game.guidance.endless")
@@ -392,7 +395,7 @@ export default function GameplayScreen({
     });
     gsap.set(hud, {
       autoAlpha: 0,
-      yPercent: -115,
+      yPercent: -85,
       willChange: "transform,opacity",
     });
     gsap.set(lines, {
@@ -403,7 +406,7 @@ export default function GameplayScreen({
     });
     gsap.set(badges, {
       autoAlpha: 0,
-      yPercent: -95,
+      y: -10,
       scale: 0.96,
       willChange: "transform,opacity",
     });
@@ -413,7 +416,7 @@ export default function GameplayScreen({
         title,
         {
           autoAlpha: 1,
-          duration: 0.68,
+          duration: 0.72,
           ease: "expo.out",
           yPercent: 0,
         },
@@ -423,45 +426,42 @@ export default function GameplayScreen({
         subtitle,
         {
           autoAlpha: 1,
-          duration: 0.6,
-          ease: "power4.out",
+          duration: 0.64,
+          ease: "expo.out",
           yPercent: 0,
         },
-        0.16,
-      )
-      .to(
-        hud,
-        {
-          autoAlpha: 1,
-          duration: 0.6,
-          ease: "power4.out",
-          stagger: 0.075,
-          yPercent: 0,
-        },
-        0.28,
+        0.18,
       )
       .to(
         lines,
         {
           autoAlpha: 1,
-          duration: 0.7,
+          duration: 0.62,
           ease: "power3.inOut",
           scaleX: 1,
-          stagger: 0.05,
         },
-        0.26,
+        0.4,
       )
       .to(
         badges,
         {
           autoAlpha: 1,
-          duration: 0.52,
+          duration: 0.48,
           ease: "back.out(1.35)",
           scale: 1,
-          stagger: 0.055,
+          y: 0,
+        },
+        0.58,
+      )
+      .to(
+        hud,
+        {
+          autoAlpha: 1,
+          duration: 0.58,
+          ease: "expo.out",
           yPercent: 0,
         },
-        0.5,
+        0.9,
       );
 
     gameplayRevealTimelineRef.current = timeline;
@@ -519,7 +519,6 @@ export default function GameplayScreen({
       duration: 0.28,
       ease: "power2.inOut",
       stagger: 0.035,
-      y: -12,
     });
 
     return () => {
@@ -528,13 +527,46 @@ export default function GameplayScreen({
     };
   }, [currentResultKey, isResultPhase, shouldShowResultContent]);
 
+  useEffect(() => {
+    const diffElement = diffValueRef.current;
+
+    if (!diffElement) return undefined;
+
+    if (!isResultPhase || !shouldShowResultContent || !lastResult) {
+      diffElement.textContent = "00";
+      return undefined;
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      diffElement.textContent = formatDiff(lastResult.diff);
+      return undefined;
+    }
+
+    const state = { value: 0 };
+    diffElement.textContent = "00";
+
+    const tween = gsap.to(state, {
+      value: lastResult.diff,
+      duration: 0.92,
+      ease: "power2.out",
+      onUpdate: () => {
+        diffElement.textContent = formatDiff(state.value);
+      },
+      onComplete: () => {
+        diffElement.textContent = formatDiff(lastResult.diff);
+      },
+    });
+
+    return () => tween.kill();
+  }, [currentResultKey, isResultPhase, lastResult, shouldShowResultContent]);
+
   useLayoutEffect(() => {
     if (!shouldShowResultContent || !lastResult) return undefined;
 
     const root = gameplayRootRef.current;
     if (!root) return undefined;
 
-    const score = root.querySelector("[data-gameplay-result-reveal='score']");
+    const score = resultScoreRef.current;
     const title = root.querySelector("[data-gameplay-result-reveal='title']");
     const copy = root.querySelector("[data-gameplay-result-reveal='copy']");
     const action = root.querySelector("[data-gameplay-result-reveal='action']");
@@ -554,8 +586,20 @@ export default function GameplayScreen({
       y: 18,
       willChange: "transform,opacity",
     });
-    gsap.set(action, { scale: 0.98 });
+    gsap.set(score, {
+      yPercent: 90,
+      transformOrigin: "center center",
+    });
+    gsap.set(action, {
+      scale: 0,
+      transformOrigin: "center center",
+    });
+    if (score) {
+      score.textContent = formatResultScore(0);
+    }
 
+    let scoreSound = null;
+    let scoreTween = null;
     const timeline = gsap.timeline({
       defaults: { overwrite: "auto" },
       onComplete: () => {
@@ -566,59 +610,103 @@ export default function GameplayScreen({
     });
 
     timeline
-      .call(
-        () => {
-          if (resultSoundKeyRef.current !== resultKey) {
-            resultSoundKeyRef.current = resultKey;
-            playRoundResult(lastResult.score, lastResult.diff);
-          }
-        },
-        null,
-        0.06,
-      )
       .to(
         score,
         {
           autoAlpha: 1,
-          duration: 0.5,
+          duration: 0.64,
           ease: "expo.out",
           y: 0,
+          yPercent: 0,
         },
         0,
+      )
+      .call(
+        () => {
+          if (!score) return;
+
+          const state = { value: 0 };
+          score.textContent = formatResultScore(0);
+          scoreSound = startRoundScoreCountSound({
+            duration: 1.08,
+            score: lastResult.score,
+          });
+
+          scoreTween = gsap.to(state, {
+            value: lastResult.score,
+            duration: 1.08,
+            ease: "power2.out",
+            onUpdate: () => {
+              score.textContent = formatResultScore(state.value);
+            },
+            onComplete: () => {
+              score.textContent = formatResultScore(lastResult.score);
+              scoreSound?.finish();
+              if (resultSoundKeyRef.current !== resultKey) {
+                resultSoundKeyRef.current = resultKey;
+                playRoundResult(lastResult.score, lastResult.diff);
+              }
+            },
+          });
+        },
+        null,
+        0.3,
       )
       .to(
         title,
         {
           autoAlpha: 1,
-          duration: 0.42,
-          ease: "power4.out",
+          duration: 0.48,
+          ease: "expo.out",
           y: 0,
         },
-        0.14,
+        1.16,
       )
       .to(
         copy,
         {
           autoAlpha: 1,
-          duration: 0.4,
+          duration: 0.58,
           ease: "power4.out",
           y: 0,
         },
-        0.24,
+        1.34,
       )
       .to(
         action,
         {
           autoAlpha: 1,
-          duration: 0.44,
-          ease: "back.out(1.35)",
-          scale: 1,
+          duration: 0.22,
+          ease: "expo.out",
+          scale: 1.08,
           y: 0,
         },
-        0.38,
+        1.64,
+      )
+      .to(
+        action,
+        {
+          duration: 0.1,
+          ease: "power3.out",
+          scale: 0.96,
+        },
+        1.86,
+      )
+      .to(
+        action,
+        {
+          duration: 0.14,
+          ease: "expo.out",
+          scale: 1,
+        },
+        1.96,
       );
 
-    return () => timeline.kill();
+    return () => {
+      timeline.kill();
+      scoreTween?.kill();
+      scoreSound?.stop?.();
+    };
   }, [currentResultKey, lastResult, shouldShowResultContent]);
 
   useEffect(() => {
@@ -1082,7 +1170,7 @@ export default function GameplayScreen({
           </div>
           <button
             aria-label="Ana sayfaya don"
-            className="pc-icon-button grid shrink-0 place-items-center text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+            className="pc-icon-button -mr-[calc((var(--pc-icon-button)-var(--pc-icon-size))/2)] -mt-[calc((var(--pc-icon-button)-var(--pc-icon-size))/2)] grid shrink-0 place-items-center text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
             data-game-control="true"
             onClick={() => setShowExitConfirm(true)}
             onPointerDown={(event) => event.stopPropagation()}
@@ -1110,6 +1198,7 @@ export default function GameplayScreen({
               <p
                 className="pc-result-score text-[#0d0d0c] dark:text-[#f7f7f2]"
                 data-gameplay-result-reveal="score"
+                ref={resultScoreRef}
               >
                 {formatResultScore(lastResult?.score)}
               </p>
@@ -1184,7 +1273,9 @@ export default function GameplayScreen({
           <div className="overflow-hidden text-right">
             <div data-gameplay-reveal="diff">
               <p className="pc-label">{t("game.diff")}</p>
-              <p className="pc-round-value mt-2">{roundDiff}</p>
+              <p className="pc-round-value mt-2" ref={diffValueRef}>
+                {roundDiff}
+              </p>
             </div>
           </div>
         </section>

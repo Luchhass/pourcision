@@ -3,10 +3,11 @@
 import { useEffect, useRef } from "react";
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
+import SectionWord from "@/components/layout/SectionWord";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
-import { WATER_COLORS } from "@/lib/constants";
+import { GAME_MODE_OPTIONS, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
 import { getRoundScore } from "@/lib/scoring";
 import { playFinalScore } from "@/lib/sound";
 
@@ -31,27 +32,6 @@ function getLeaderboardPlayers(leaderboard) {
   }
 
   return [];
-}
-
-function getScoreColor(score, maxScore = 50) {
-  const ratio = Math.max(0, Math.min(score / maxScore, 1));
-  const hue = Math.round(ratio * 120);
-
-  return `hsl(${hue} 100% 58%)`;
-}
-
-function getScoreToneOnDark(score) {
-  if (score >= 42) return "#f7f7f2";
-  if (score >= 18) return "#d8d8d2";
-  if (score >= 8) return "#b6b6b0";
-  return "#8f8f88";
-}
-
-function getScoreTone(score) {
-  if (score >= 42) return "#19a463";
-  if (score >= 18) return "#f0bd2f";
-  if (score >= 8) return "#e87335";
-  return "#ef2f25";
 }
 
 function normalizeRounds(results = []) {
@@ -98,7 +78,7 @@ function getReadableInkColor(colorValue) {
   return luminance > 0.54 ? "#0d0d0c" : "#f7f7f2";
 }
 
-function ResultsTitleBand() {
+function ResultsTitleBand({ onMenu }) {
   const { t } = useTranslation();
   const titleText = t("results.title");
 
@@ -130,31 +110,27 @@ function ResultsTitleBand() {
           {titleText}
         </h1>
       </div>
+      <button
+        aria-label={t("common.mainMenu")}
+        className="pc-icon-button fixed right-3 top-3 z-[60] grid place-items-center text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] md:right-4 md:top-4 dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+        onClick={onMenu}
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          className="pc-icon"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
     </section>
-  );
-}
-
-function ResultsWaterWords() {
-  const { t } = useTranslation();
-
-  return (
-    <div
-      aria-hidden="true"
-      className="pc-section-word absolute right-6 top-6 flex flex-col-reverse items-end gap-0.5 text-right text-[#f7f7f2] md:right-8 md:top-8 lg:left-10 lg:right-auto lg:top-9 lg:flex-row lg:items-start lg:gap-2 lg:text-left dark:text-[#f7f7f2]"
-      data-screen-reveal="water-content"
-      data-screen-reveal-direction="down"
-    >
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("results.title")}
-        </span>
-      </span>
-      <span className="block overflow-hidden" data-screen-reveal-row="true">
-        <span className="block lg:[text-orientation:mixed] lg:[writing-mode:vertical-rl]">
-          {t("results.run")}
-        </span>
-      </span>
-    </div>
   );
 }
 
@@ -162,16 +138,8 @@ function ScoreBlock({
   compact = false,
   dark = false,
   fitMobile = false,
-  maxScore = 50,
   score,
-  useScoreColor = false,
 }) {
-  const scoreColor = useScoreColor
-    ? getScoreColor(score, maxScore)
-    : dark
-      ? getScoreToneOnDark(score)
-      : getScoreTone(score);
-
   return (
     <div className={dark ? "min-w-0 text-[#f7f7f2]" : "min-w-0 text-[#0d0d0c] dark:text-[#f7f7f2]"}>
       <p
@@ -180,7 +148,6 @@ function ScoreBlock({
           compact ? "pc-result-score-compact" : "",
           fitMobile ? "pc-result-score-fit-mobile" : "",
         ].join(" ")}
-        style={{ color: scoreColor }}
       >
         {formatScore(score)}
         <span
@@ -231,6 +198,7 @@ function PlayerResultHeader({
 function RoundCard({
   compact = false,
   mobileShort = false,
+  ruleMode = GAME_RULE_MODES.CLASSIC,
   result,
   waterColor,
 }) {
@@ -259,9 +227,41 @@ function RoundCard({
       />
       <span
         aria-hidden="true"
-        className="absolute inset-x-2 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46"
+        className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46"
         style={{ bottom: `${targetPercent}%` }}
       />
+      {ruleMode === GAME_RULE_MODES.FAKE_TARGET && result.fakeTarget !== null ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 border-t-2 border-dashed border-[#ef2f25]/54 dark:border-[#f7f7f2]/30"
+          style={{ bottom: `${Math.max(0, Math.min(100, result.fakeTarget))}%` }}
+        />
+      ) : null}
+      {ruleMode === GAME_RULE_MODES.SPLIT_FILL ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-1/2 border-l border-[#0d0d0c]/22 dark:border-[#f7f7f2]/24"
+        />
+      ) : null}
+      {ruleMode !== GAME_RULE_MODES.CLASSIC ? (
+        <span className="pc-round-label absolute right-2 top-2 z-10 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
+          {ruleMode === GAME_RULE_MODES.REVERSE_POUR
+            ? "REV"
+            : ruleMode === GAME_RULE_MODES.LEAKY
+              ? "LEAK"
+              : ruleMode === GAME_RULE_MODES.TILT
+                ? "TILT"
+                : ruleMode === GAME_RULE_MODES.FAKE_TARGET
+                  ? "FAKE"
+                  : ruleMode === GAME_RULE_MODES.SPLIT_FILL
+                    ? "SPLIT"
+                    : ruleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING
+                      ? "10/0"
+                      : ruleMode === GAME_RULE_MODES.BLIND
+                        ? "BLIND"
+                        : ""}
+        </span>
+      ) : null}
       <div className="relative z-10 flex h-full flex-col justify-between p-2 sm:p-3">
         <span className="pc-round-label text-[#0d0d0c]/52 dark:text-[#f7f7f2]/58">
           {formatRoundNumber(result.round)}
@@ -279,6 +279,7 @@ function RoundCard({
 function LeaderboardResultsList({
   dark = false,
   players = [],
+  ruleMode = GAME_RULE_MODES.CLASSIC,
   waterColor,
 }) {
   if (!players.length) return null;
@@ -310,6 +311,7 @@ function LeaderboardResultsList({
                     compact
                     key={`${player.id || player.name}-${result.round}`}
                     result={result}
+                    ruleMode={ruleMode}
                     waterColor={playerWaterColor}
                   />
                 ))}
@@ -330,6 +332,7 @@ function ResultsPanel({
   onMenu,
   onPlayAgain,
   playAgainLabel = null,
+  ruleMode = GAME_RULE_MODES.CLASSIC,
   rounds,
   totalScore,
   waterColor,
@@ -337,6 +340,9 @@ function ResultsPanel({
   const { t } = useTranslation();
   const hasLeaderboard = leaderboardPlayers.length > 0;
   const isSingleResult = !hasLeaderboard;
+  const modeOption =
+    GAME_MODE_OPTIONS.find((option) => option.id === ruleMode) ||
+    GAME_MODE_OPTIONS[0];
 
   return (
     <div
@@ -351,15 +357,17 @@ function ResultsPanel({
         compact={hasLeaderboard}
         dark={dark}
         fitMobile={isSingleResult}
-        maxScore={50}
         score={totalScore}
-        useScoreColor={!hasLeaderboard}
       />
+      <div className="pc-label -mt-2 text-[#f7f7f2]/48">
+        {t(`modes.${modeOption.id}.label`)}
+      </div>
 
       {hasLeaderboard ? (
         <LeaderboardResultsList
           dark={dark}
           players={leaderboardPlayers}
+          ruleMode={ruleMode}
           waterColor={waterColor}
         />
       ) : (
@@ -370,6 +378,7 @@ function ResultsPanel({
                 key={result.round}
                 mobileShort
                 result={result}
+                ruleMode={ruleMode}
                 waterColor={waterColor}
               />
             ))}
@@ -487,7 +496,7 @@ export default function ScoreboardScreen({
     >
       <PageUtilitySwitches placement="rail" />
       <main className="relative z-10 grid h-full min-h-0 w-full min-w-0 grid-rows-[auto_1fr]">
-        <ResultsTitleBand />
+        <ResultsTitleBand onMenu={handleMenu} />
 
         <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-none lg:min-h-0 lg:grid-cols-[var(--results-split-x)_minmax(0,1fr)]">
           <section className="mx-auto grid w-full max-w-[44rem] content-start min-w-0 px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:px-10 lg:pb-10 lg:pt-16">
@@ -512,6 +521,7 @@ export default function ScoreboardScreen({
                   isReturningLobby ? t("room.returningLobby") : playAgainLabel
                 }
                 rounds={rounds}
+                ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
                 totalScore={totalScore}
                 waterColor={waterColor}
               />
@@ -529,12 +539,17 @@ export default function ScoreboardScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 bg-[#0d0d0c] px-6 pb-6 pt-6 md:px-8 md:pb-7 md:pt-7 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[#0d0d0c] px-6 pb-6 pt-6 md:px-8 md:pb-7 md:pt-7 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
             data-results-water="true"
             data-screen-reveal="water-bg"
           >
-            <ResultsWaterWords />
-            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-12 md:pt-14 lg:min-h-0 lg:justify-items-end lg:pt-0">
+            <SectionWord
+              desktopColorClass="text-[#f7f7f2] dark:text-[#f7f7f2]"
+              mobileColorClass="text-[#f7f7f2] dark:text-[#f7f7f2]"
+              primary={t("results.title")}
+              secondary={t("results.run")}
+            />
+            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0">
               <div
                 className="w-full max-lg:h-full max-lg:min-h-0 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]"
                 data-results-panel="true"
@@ -552,6 +567,7 @@ export default function ScoreboardScreen({
                     isReturningLobby ? t("room.returningLobby") : playAgainLabel
                   }
                   rounds={rounds}
+                  ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
                   totalScore={totalScore}
                   waterColor={waterColor}
                 />
