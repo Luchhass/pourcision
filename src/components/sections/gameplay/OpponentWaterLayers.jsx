@@ -1,0 +1,204 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { GAME_DIFFICULTIES, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
+import WaterPhysicsCanvas from "@/components/sections/gameplay/WaterPhysicsCanvas";
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getInitialLevel(ruleMode) {
+  return ruleMode === GAME_RULE_MODES.REVERSE_POUR ? 100 : 0;
+}
+
+function getWaterColor(waterColorId, fallbackId) {
+  return (
+    WATER_COLORS.find((color) => color.id === waterColorId) ||
+    WATER_COLORS.find((color) => color.id === fallbackId) ||
+    WATER_COLORS[0]
+  );
+}
+
+function getCanvasStatus(state) {
+  if (state.status === "filling" && state.isPouring) return "filling";
+  if (state.status === "leaking") return "leaking";
+  if (state.status === "intro") return "intro";
+
+  return "idle";
+}
+
+function getActiveRuleMode(settings, roundIndex) {
+  return (
+    settings?.modeQueue?.[roundIndex] ||
+    settings?.ruleMode ||
+    GAME_RULE_MODES.CLASSIC
+  );
+}
+
+function getAverageLevel(levels) {
+  if (!Array.isArray(levels) || levels.length !== 2) return null;
+
+  return (Number(levels[0]) + Number(levels[1])) / 2;
+}
+
+function OpponentWaterLayer({ roundIndex, settings, state }) {
+  const activeRuleMode = getActiveRuleMode(settings, roundIndex);
+  const isSplitFill = activeRuleMode === GAME_RULE_MODES.SPLIT_FILL;
+  const initialSplitLevels = Array.isArray(state.splitLevels)
+    ? state.splitLevels
+    : [0, 0];
+  const visibleLevel =
+    isSplitFill ? getAverageLevel(initialSplitLevels) : state.level;
+  const initialExternalLevel = clamp(visibleLevel ?? 0, 0, 100);
+  const labelLevel = clamp(visibleLevel ?? 0, 3, 96);
+  const levelRef = useRef(initialExternalLevel);
+  const externalLevelRef = useRef(initialExternalLevel);
+  const pourXRef = useRef(clamp(state.pourX ?? 0.5, 0.02, 0.98));
+  const splitLeftLevelRef = useRef(clamp(initialSplitLevels[0] ?? 0, 0, 100));
+  const splitLeftExternalLevelRef = useRef(
+    clamp(initialSplitLevels[0] ?? 0, 0, 100),
+  );
+  const splitLeftPourXRef = useRef(
+    clamp(state.splitPourX?.[0] ?? 0.5, 0.02, 0.98),
+  );
+  const splitRightLevelRef = useRef(clamp(initialSplitLevels[1] ?? 0, 0, 100));
+  const splitRightExternalLevelRef = useRef(
+    clamp(initialSplitLevels[1] ?? 0, 0, 100),
+  );
+  const splitRightPourXRef = useRef(
+    clamp(state.splitPourX?.[1] ?? 0.5, 0.02, 0.98),
+  );
+  const tiltRef = useRef(clamp(state.tilt ?? 0, -1, 1));
+  const playerName = state.player?.name || "";
+  const waterColor = getWaterColor(
+    state.player?.waterColorId,
+    settings?.waterColorId,
+  );
+
+  useEffect(() => {
+    const nextLevel = clamp(state.level ?? levelRef.current, 0, 100);
+    const nextSplitLevels = Array.isArray(state.splitLevels)
+      ? state.splitLevels
+      : [
+          splitLeftExternalLevelRef.current,
+          splitRightExternalLevelRef.current,
+        ];
+
+    externalLevelRef.current = nextLevel;
+    pourXRef.current = clamp(state.pourX ?? pourXRef.current, 0.02, 0.98);
+    splitLeftExternalLevelRef.current = clamp(nextSplitLevels[0] ?? 0, 0, 100);
+    splitRightExternalLevelRef.current = clamp(nextSplitLevels[1] ?? 0, 0, 100);
+    splitLeftPourXRef.current = clamp(
+      state.splitPourX?.[0] ?? splitLeftPourXRef.current,
+      0.02,
+      0.98,
+    );
+    splitRightPourXRef.current = clamp(
+      state.splitPourX?.[1] ?? splitRightPourXRef.current,
+      0.02,
+      0.98,
+    );
+    tiltRef.current = clamp(state.tilt ?? tiltRef.current, -1, 1);
+  }, [state.level, state.pourX, state.splitLevels, state.splitPourX, state.tilt]);
+
+  if (isSplitFill) {
+    return (
+      <>
+        <WaterPhysicsCanvas
+          className="pointer-events-none absolute left-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+          difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+          externalLevelRef={splitLeftExternalLevelRef}
+          initialLevel={0}
+          isPourActive={state.isPouring && state.activeSplitIndex === 0}
+          levelRef={splitLeftLevelRef}
+          pourXRef={splitLeftPourXRef}
+          renderStream={state.isPouring && state.activeSplitIndex === 0}
+          roundIndex={roundIndex}
+          status={getCanvasStatus(state)}
+          tiltRef={tiltRef}
+          waterColor={waterColor}
+        />
+        <WaterPhysicsCanvas
+          className="pointer-events-none absolute right-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+          difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+          externalLevelRef={splitRightExternalLevelRef}
+          initialLevel={0}
+          isPourActive={state.isPouring && state.activeSplitIndex === 1}
+          levelRef={splitRightLevelRef}
+          pourXRef={splitRightPourXRef}
+          renderStream={state.isPouring && state.activeSplitIndex === 1}
+          roundIndex={roundIndex}
+          status={getCanvasStatus(state)}
+          tiltRef={tiltRef}
+          waterColor={waterColor}
+        />
+        {playerName ? (
+          <span
+            className="pc-round-label absolute left-6 z-[1] text-[#0d0d0c]/28 md:left-8 dark:text-[#f7f7f2]/30"
+            style={{ top: `calc(${100 - labelLevel}% + 0.55rem)` }}
+          >
+            {playerName}
+          </span>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <WaterPhysicsCanvas
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+        difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+        externalLevelRef={externalLevelRef}
+        initialLevel={getInitialLevel(activeRuleMode)}
+        isPourActive={state.isPouring}
+        isReversePour={activeRuleMode === GAME_RULE_MODES.REVERSE_POUR}
+        levelRef={levelRef}
+        pourXRef={pourXRef}
+        renderStream={state.isPouring}
+        roundIndex={roundIndex}
+        status={getCanvasStatus(state)}
+        tiltRef={tiltRef}
+        waterColor={waterColor}
+      />
+      {playerName ? (
+        <span
+          className="pc-round-label absolute left-6 z-[1] text-[#0d0d0c]/28 md:left-8 dark:text-[#f7f7f2]/30"
+          style={{ top: `calc(${100 - labelLevel}% + 0.55rem)` }}
+        >
+          {playerName}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+export default function OpponentWaterLayers({
+  opponentWaterStates = [],
+  playerId,
+  roundIndex,
+  settings,
+}) {
+  const currentRoundStates = opponentWaterStates.filter(
+    (state) =>
+      state?.player?.id &&
+      state.player.id !== playerId &&
+      state.roundIndex === roundIndex,
+  );
+
+  if (!currentRoundStates.length) return null;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+      {currentRoundStates.map((state) => (
+        <OpponentWaterLayer
+          key={state.player.id}
+          roundIndex={roundIndex}
+          settings={settings}
+          state={state}
+        />
+      ))}
+    </div>
+  );
+}

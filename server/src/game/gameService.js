@@ -1,0 +1,362 @@
+import {
+  CHAOS_QUEUE_MODE_POOL,
+  GAME_ROUND_COUNT,
+  GAME_RULE_MODES,
+  MAX_ROUND_SCORE,
+  ROOM_STATUSES,
+} from "../constants.js";
+import { calculateRoundResult } from "./scoring.js";
+import { createRoundTargets } from "./targets.js";
+import {
+  fail,
+  ok,
+  validateLevel,
+  validatePlayerId,
+  validateRoundIndex,
+  validateSplitLevels,
+} from "../rooms/roomValidation.js";
+import { createSeed } from "../utils/ids.js";
+import { now } from "../utils/time.js";
+
+function roundScore(value) {
+  return Math.round(value * 10) / 10;
+}
+
+const ENDLESS_RULE_MODE_ID = "endless";
+const CHAOS_ELIGIBLE_MODE_POOL = CHAOS_QUEUE_MODE_POOL.filter(
+  (mode) => mode !== ENDLESS_RULE_MODE_ID,
+);
+
+function hashSeed(seed) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < String(seed).length; index += 1) {
+    hash ^= String(seed).charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function createSeededRandom(seed) {
+  let value = hashSeed(seed) >>> 0;
+
+  return () => {
+    value += 0x6d2b79f5;
+    let next = value;
+    next = Math.imul(next ^ (next >>> 15), next | 1);
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+    return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createModeQueue(seed, roundCount) {
+  const random = createSeededRandom(seed || "chaos-queue");
+
+  return Array.from({ length: roundCount }, () => {
+    const index = Math.floor(random() * CHAOS_ELIGIBLE_MODE_POOL.length);
+    return CHAOS_ELIGIBLE_MODE_POOL[index] ?? GAME_RULE_MODES.CLASSIC;
+  });
+}
+
+function getRoundRuleMode(game, roundIndex) {
+  const ruleMode =
+    game?.modeQueue?.[roundIndex] ?? game?.ruleMode ?? GAME_RULE_MODES.CLASSIC;
+
+  return ruleMode === ENDLESS_RULE_MODE_ID ? GAME_RULE_MODES.CLASSIC : ruleMode;
+}
+
+function getActivePlayers(room) {
+  return Array.from(room.players.values()).filter(
+    (player) => !player.inactive && !player.kicked,
+  );
+}
+
+function serializeResult(result) {
+  if (!result) return null;
+
+  return {
+    diff: result.diff,
+    fakeTarget: result.fakeTarget,
+    label: result.label,
+    level: result.level,
+    round: result.round,
+    roundIndex: result.roundIndex,
+    score: result.score,
+    splitDiffs: result.splitDiffs || null,
+    splitLevels: result.splitLevels || null,
+    splitScores: result.splitScores || null,
+    splitTargets: result.splitTargets || null,
+    target: result.target,
+  };
+}
+
+function serializePlayerWaterColors(room) {
+  return Object.fromEntries(
+    Array.from(room.players.values())
+      .filter((player) => !player.kicked)
+      .map((player) => [player.id, player.waterColorId || room.waterColorId]),
+  );
+}
+
+export function buildGamePayload(room) {
+  if (!room.game) return null;
+
+  return {
+    difficulty: room.game.difficulty,
+    mode: room.game.ruleMode,
+    roomCode: room.code,
+    roundCount: room.game.roundCount,
+    ruleMode: room.game.ruleMode,
+    seed: room.game.seed,
+    startedAt: room.game.startedAt,
+    targets: room.game.targets,
+    modeQueue: room.game.modeQueue || null,
+    playerWaterColorIds:
+      room.game.playerWaterColorIds || serializePlayerWaterColors(room),
+    waterColorId: room.game.waterColorId,
+  };
+}
+
+export function startGameForRoom(room) {
+  const seed = createSeed();
+  const modeQueue =
+    room.ruleMode === GAME_RULE_MODES.CHAOS_QUEUE
+      ? createModeQueue(seed, GAME_ROUND_COUNT)
+      : null;
+
+  room.status = ROOM_STATUSES.IN_GAME;
+  room.seed = seed;
+  room.game = {
+    difficulty: room.difficulty,
+    roundCount: GAME_ROUND_COUNT,
+    ruleMode: room.ruleMode,
+    seed,
+    startedAt: now(),
+    targets: createRoundTargets(seed, GAME_ROUND_COUNT),
+    modeQueue,
+    playerWaterColorIds: serializePlayerWaterColors(room),
+    waterColorId: room.waterColorId,
+  };
+  room.leaderboard = null;
+
+  for (const player of room.players.values()) {
+    player.inactive = false;
+    player.returnedToLobby = false;
+    player.results = [];
+    player.score = 0;
+    player.submitted = false;
+    player.totalScore = 0;
+  }
+
+  return buildGamePayload(room);
+}
+
+export function markPlayerInactiveForGame(room, playerId) {
+  const player = room?.players?.get(playerId);
+  if (!player || !room.game) return null;
+
+  player.connected = false;
+  player.inactive = true;
+  player.lastSeenAt = now();
+  room.updatedAt = now();
+
+  return maybeFinishRoom(room);
+}
+
+export function submitRoundGuess(room, payload) {
+  if (!room) return fail("Lobby not found or expired.");
+  if (room.status !== ROOM_STATUSES.IN_GAME || !room.game) {
+    return fail("Game has not started.");
+  }
+
+  const playerIdResult = validatePlayerId(payload.playerId);
+  if (!playerIdResult.ok) return playerIdResult;
+
+  const player = room.players.get(playerIdResult.data.playerId);
+  if (!player || player.kicked) return fail("Player is not in this lobby.");
+  if (player.inactive) return fail("This player is no longer active in the game.");
+
+  const roundResult = validateRoundIndex(payload.roundIndex, room.game.roundCount);
+  if (!roundResult.ok) return roundResult;
+
+  const levelResult = validateLevel(payload.level);
+  if (!levelResult.ok) return levelResult;
+
+  const { roundIndex } = roundResult.data;
+  const activeRuleMode = getRoundRuleMode(room.game, roundIndex);
+  const existing = player.results[roundIndex];
+
+  if (existing) {
+    return ok({
+      leaderboard: room.leaderboard,
+      playerResults: player.results.filter(Boolean).map(serializeResult),
+      result: serializeResult(existing),
+    });
+  }
+
+  const target = room.game.targets[roundIndex];
+  if (!target) return fail("Target is unavailable.");
+
+  const splitLevelsResult =
+    activeRuleMode === GAME_RULE_MODES.SPLIT_FILL
+      ? validateSplitLevels(payload.splitLevels)
+      : ok({ splitLevels: null });
+  if (!splitLevelsResult.ok) return splitLevelsResult;
+
+  const result = calculateRoundResult({
+    fakeTarget:
+      activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
+        ? target.fakeTarget
+        : null,
+    level: levelResult.data.level,
+    roundIndex,
+    ruleMode: activeRuleMode,
+    splitLevels: splitLevelsResult.data.splitLevels,
+    splitTargets: Array.isArray(target.splitTargets)
+      ? target.splitTargets
+      : [target.target, target.target],
+    target: target.target,
+  });
+
+  player.results[roundIndex] = result;
+  player.score = roundScore(
+    player.results.filter(Boolean).reduce((total, round) => total + round.score, 0),
+  );
+  player.totalScore = player.score;
+  player.submitted =
+    player.results.filter(Boolean).length >= room.game.roundCount;
+  player.lastSeenAt = now();
+  room.updatedAt = now();
+
+  const leaderboard = maybeFinishRoom(room);
+
+  return ok({
+    leaderboard,
+    playerResults: player.results.filter(Boolean).map(serializeResult),
+    playerTotalScoreSoFar: player.score,
+    result: serializeResult(result),
+  });
+}
+
+export function submitFullResults(room, payload) {
+  if (!Array.isArray(payload.results)) return fail("Invalid score payload.");
+
+  let lastResult = null;
+
+  for (const item of payload.results) {
+    const submission = submitRoundGuess(room, {
+      level: item.level,
+      playerId: payload.playerId,
+      roundIndex: item.roundIndex,
+      splitLevels: item.splitLevels,
+    });
+
+    if (!submission.ok) return submission;
+    lastResult = submission.data;
+  }
+
+  return ok(lastResult || {});
+}
+
+export function buildLeaderboard(room) {
+  const activePlayers = getActivePlayers(room);
+  const totalRounds = room.game?.roundCount || GAME_ROUND_COUNT;
+  const maxTotalScore = totalRounds * MAX_ROUND_SCORE;
+  const ranked = activePlayers
+    .map((player) => {
+      const roundResults = Array.from({ length: totalRounds }, (_, index) => {
+        const result = player.results[index];
+        const target = room.game.targets[index];
+        const activeRuleMode = getRoundRuleMode(room.game, index);
+        const missedResult = calculateRoundResult({
+          fakeTarget:
+            activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
+              ? target?.fakeTarget
+              : null,
+          level: 0,
+          roundIndex: index,
+          ruleMode: activeRuleMode,
+          splitLevels:
+            activeRuleMode === GAME_RULE_MODES.SPLIT_FILL ? [0, 0] : null,
+          splitTargets: Array.isArray(target?.splitTargets)
+            ? target.splitTargets
+            : [target?.target ?? 0, target?.target ?? 0],
+          target: target?.target ?? 0,
+        });
+
+        return serializeResult(result || { ...missedResult, label: "MISSED", score: 0 });
+      });
+      const totalScore = roundScore(
+        roundResults.reduce((total, result) => total + result.score, 0),
+      );
+      const bestDiff = roundResults.length
+        ? Math.min(...roundResults.map((result) => result.diff))
+        : null;
+
+      return {
+        bestDiff,
+        connected: player.connected,
+        id: player.id,
+        isHost: player.isHost,
+        maxTotalScore,
+        name: player.name,
+        playerId: player.id,
+        playerName: player.name,
+        results: roundResults,
+        roundResults,
+        score: totalScore,
+        submitted: player.submitted,
+        totalScore,
+        waterColorId: player.waterColorId || room.game.waterColorId,
+      };
+    })
+    .sort((first, second) => {
+      if (second.totalScore !== first.totalScore) {
+        return second.totalScore - first.totalScore;
+      }
+
+      return (first.bestDiff ?? 100) - (second.bestDiff ?? 100);
+    });
+
+  return {
+    completedAt: now(),
+    difficulty: room.game.difficulty,
+    gameMode: room.game.ruleMode,
+    leaderboard: ranked.map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    })),
+    maxRoundScore: MAX_ROUND_SCORE,
+    maxTotalScore,
+    mode: room.game.ruleMode,
+    players: ranked,
+    roomCode: room.code,
+    roundCount: totalRounds,
+    ruleMode: room.game.ruleMode,
+    targets: room.game.targets,
+    modeQueue: room.game.modeQueue || null,
+    totalRounds,
+    waterColorId: room.game.waterColorId,
+    winner: ranked[0] || null,
+  };
+}
+
+export function maybeFinishRoom(room) {
+  if (!room.game || room.status !== ROOM_STATUSES.IN_GAME) {
+    return room.leaderboard;
+  }
+
+  const activePlayers = getActivePlayers(room);
+  const allFinished =
+    activePlayers.length > 0 &&
+    activePlayers.every((player) => player.submitted);
+
+  if (!allFinished) return null;
+
+  room.status = ROOM_STATUSES.COMPLETED;
+  room.leaderboard = buildLeaderboard(room);
+  room.updatedAt = now();
+
+  return room.leaderboard;
+}
