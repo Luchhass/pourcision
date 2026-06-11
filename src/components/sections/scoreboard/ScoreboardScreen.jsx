@@ -20,7 +20,7 @@ function formatScore(value) {
     return "--";
   }
 
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number(value).toFixed(2);
 }
 
 function getLeaderboardPlayers(leaderboard) {

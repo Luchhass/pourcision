@@ -41,7 +41,7 @@ function formatScore(value) {
     return "--";
   }
 
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number(value).toFixed(2);
 }
 
 function formatResultScore(value) {
@@ -237,7 +237,7 @@ export default function GameplayScreen({
       nextRuleMode === GAME_RULE_MODES.REVERSE_POUR ? 100 : 0,
     [ruleMode],
   );
-  const getWaterLevel = useCallback(() => waterLevelRef.current, []);
+  const getWaterLevel = useCallback(() => waterSurfaceLevelRef.current, []);
   const getWaterSettled = useCallback(
     () =>
       isSplitFillModeRef.current
@@ -246,7 +246,7 @@ export default function GameplayScreen({
     [],
   );
   const getSplitLevels = useCallback(
-    () => [splitLeftLevelRef.current, splitRightLevelRef.current],
+    () => [splitLeftSurfaceLevelRef.current, splitRightSurfaceLevelRef.current],
     [],
   );
   const resetWaterLevel = useCallback((nextRuleMode = ruleMode) => {

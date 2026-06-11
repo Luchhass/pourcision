@@ -115,7 +115,16 @@ function LobbyModeGrid({
       (option) => option.id !== GAME_RULE_MODES.ENDLESS,
     ),
   );
-  const { handleScroll, sliderRef } = useLoopingSlider(options.length);
+  const {
+    handleClickCapture,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleScroll,
+    handleWheel,
+    sliderRef,
+  } = useLoopingSlider(options.length);
   const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
 
   return (
@@ -132,7 +141,13 @@ function LobbyModeGrid({
             ? "grid-cols-3 overflow-visible"
             : "grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:grid-rows-2 md:auto-cols-[9.75rem] [&::-webkit-scrollbar]:hidden",
         ].join(" ")}
+        onClickCapture={handleClickCapture}
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onScroll={handleScroll}
+        onWheel={handleWheel}
         ref={sliderRef}
       >
         {visibleOptions.map((option, loopIndex) => {

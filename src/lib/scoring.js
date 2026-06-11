@@ -20,7 +20,7 @@ export function getResultLabel(level, target, diff) {
 }
 
 export function getRoundScore(diff) {
-  return clamp(roundTo(MAX_ROUND_SCORE - diff * 0.25, 1), 0, MAX_ROUND_SCORE);
+  return clamp(roundTo(MAX_ROUND_SCORE - diff * 0.25, 2), 0, MAX_ROUND_SCORE);
 }
 
 function getPerfectOrNothingScore(diff) {
@@ -58,7 +58,7 @@ export function calculateRoundResult({
     );
     const splitScores = splitDiffs.map(getRoundScore);
     const diff = roundTo(average(splitDiffs), 2);
-    const score = roundTo(average(splitScores), 1);
+    const score = roundTo(average(splitScores), 2);
     const levelAverage = roundTo(average(safeSplitLevels), 1);
     const targetAverage = roundTo(average(safeSplitTargets), 1);
 
@@ -101,7 +101,7 @@ export function calculateRoundResult({
 
 export function formatScore(value) {
   if (value === null || value === undefined) return "--";
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return Number(value).toFixed(2);
 }
 
 export function getFinalAssessment(totalScore) {

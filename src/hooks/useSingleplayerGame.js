@@ -36,7 +36,6 @@ export const POUR_STATUSES = {
 const FULL_LEVEL_LOCK = 99.95;
 const EMPTY_LEVEL_LOCK = 0.05;
 const SETTLING_MIN_MS = 700;
-const SETTLING_MAX_MS = 2400;
 const CHAOS_ELIGIBLE_MODE_POOL = CHAOS_QUEUE_MODE_POOL.filter(
   (mode) => mode !== GAME_RULE_MODES.ENDLESS,
 );
@@ -272,7 +271,7 @@ export function useSingleplayerGame({
       const elapsed = Date.now() - settlingStartedAtRef.current;
       const isSettled = getIsSettledRef.current?.() ?? false;
 
-      if (elapsed >= SETTLING_MIN_MS && (isSettled || elapsed >= SETTLING_MAX_MS)) {
+      if (elapsed >= SETTLING_MIN_MS && isSettled) {
         lockRound();
         return;
       }
