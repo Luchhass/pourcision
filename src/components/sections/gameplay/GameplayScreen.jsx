@@ -70,8 +70,54 @@ function getRuleModeOption(ruleMode) {
 
 function ChaosRoundBriefing({ onComplete, ruleMode }) {
   const [secondsLeft, setSecondsLeft] = useState(3);
+  const briefingRef = useRef(null);
   const option = getRuleModeOption(ruleMode);
   const { t } = useTranslation();
+
+  useLayoutEffect(() => {
+    const root = briefingRef.current;
+    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return undefined;
+    }
+
+    const rows = Array.from(root.querySelectorAll("[data-chaos-briefing-row]"));
+    const items = rows
+      .map((row) => row.firstElementChild)
+      .filter(Boolean);
+
+    if (!items.length) {
+      return undefined;
+    }
+
+    const timeline = gsap.timeline({
+      defaults: {
+        duration: 0.62,
+        ease: "expo.out",
+        overwrite: "auto",
+      },
+      onComplete: () => {
+        gsap.set(rows, { clearProps: "overflow" });
+        gsap.set(items, { clearProps: "opacity,visibility,transform,willChange" });
+      },
+    });
+
+    gsap.set(rows, { overflow: "hidden" });
+    gsap.set(items, {
+      autoAlpha: 0,
+      yPercent: -120,
+      willChange: "transform,opacity",
+    });
+
+    timeline.to(items, {
+      autoAlpha: 1,
+      stagger: 0.085,
+      yPercent: 0,
+    });
+
+    return () => {
+      timeline.kill();
+    };
+  }, [ruleMode]);
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -94,22 +140,31 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
 
   return (
     <section
-      className="absolute inset-0 z-50 grid place-items-center bg-[#f7f7f2] p-8 text-center text-[#0d0d0c]"
+      className="absolute inset-0 z-50 grid place-items-center bg-[#f7f7f2] px-6 py-8 text-center text-[#0d0d0c] sm:px-8 md:px-10"
       data-game-control="true"
+      ref={briefingRef}
     >
-      <div className="grid max-w-[36rem] justify-items-center gap-5">
-        <p className="pc-label text-[#0d0d0c]/52">
-          {t("game.chaosQueue")}
-        </p>
-        <h1 className="pc-result-score uppercase text-[#0d0d0c]">
-          {t(`modes.${option.id}.label`)}
-        </h1>
-        <p className="pc-copy max-w-[30rem] text-[#0d0d0c]/62">
-          {t(`modes.${ruleMode}.briefing`)}
-        </p>
-        <p className="pc-result-score text-[#0d0d0c]">
-          {secondsLeft}
-        </p>
+      <div className="grid w-full max-w-[36rem] justify-items-center gap-4 sm:gap-5">
+        <div data-chaos-briefing-row="true">
+          <p className="pc-label text-[#0d0d0c]/52">
+            {t("game.chaosQueue")}
+          </p>
+        </div>
+        <div className="w-full" data-chaos-briefing-row="true">
+          <h1 className="pc-result-score-compact max-w-full text-balance uppercase text-[#0d0d0c] sm:text-[var(--pc-result-score)]">
+            {t(`modes.${option.id}.label`)}
+          </h1>
+        </div>
+        <div data-chaos-briefing-row="true">
+          <p className="pc-copy mx-auto max-w-[30rem] text-[#0d0d0c]/62">
+            {t(`modes.${ruleMode}.briefing`)}
+          </p>
+        </div>
+        <div data-chaos-briefing-row="true">
+          <p className="pc-result-score-compact text-[#0d0d0c] sm:text-[var(--pc-result-score)]">
+            {secondsLeft}
+          </p>
+        </div>
       </div>
     </section>
   );
