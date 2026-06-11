@@ -40,7 +40,7 @@ export function useLobbyList(enabled = true) {
         return currentCode;
       }
 
-      return nextRooms[0]?.code || "";
+      return "";
     });
   }, []);
 

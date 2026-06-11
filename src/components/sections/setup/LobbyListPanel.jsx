@@ -1,29 +1,102 @@
 "use client";
 
-import { Lock, Search, Users } from "lucide-react";
+import { Globe2, Lock, Users } from "lucide-react";
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import { useLobbyList } from "@/hooks/useLobbyList";
 import { useTranslation } from "@/hooks/useLanguage";
-import { DIFFICULTY_OPTIONS, GAME_MODE_OPTIONS } from "@/lib/constants";
 
-function optionLabel(options, id) {
-  return options.find((option) => option.id === id)?.label || id;
+function LobbyPasswordModal({
+  isJoining,
+  onClose,
+  onJoin,
+  password,
+  setPassword,
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:place-items-center">
+      <button
+        aria-label="Close password panel"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+      />
+      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
+        <div className="flex items-start justify-between gap-5">
+          <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
+            {t("setup.lobbyPassword")}
+          </h2>
+          <button
+            aria-label="Close password panel"
+            className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+            onClick={onClose}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              className="pc-icon"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="grid gap-4">
+          <input
+            autoComplete="off"
+            autoFocus
+            className="pc-field w-full bg-[#0d0d0c]/8 px-4 text-[#0d0d0c] outline-none transition-colors duration-200 focus-visible:bg-[#0d0d0c]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/10 dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+            onChange={(event) => setPassword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onJoin();
+            }}
+            placeholder={t("setup.lobbyPassword")}
+            type="password"
+            value={password}
+          />
+          <Button
+            className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+            disabled={isJoining}
+            onClick={onJoin}
+          >
+            {isJoining ? t("room.joining") : t("room.join")}
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function RoomListRow({ disabled, onSelect, room, selected }) {
+  const VisibilityIcon = room.hasPassword ? Lock : Globe2;
+
   return (
     <button
       className={[
-        "pc-choice grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-left transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] disabled:cursor-not-allowed disabled:opacity-45",
+        "pc-choice grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 text-left transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] disabled:cursor-not-allowed disabled:opacity-45",
         selected
           ? "bg-[#0d0d0c] text-white"
           : "bg-[#f7f7f2]/96 text-[#0d0d0c] hover:bg-[#f7f7f2]",
       ].join(" ")}
       disabled={disabled}
+      data-screen-reveal-row="true"
+      data-screen-reveal-target="self"
       onClick={() => onSelect(room.code)}
       type="button"
     >
+      <VisibilityIcon
+        aria-hidden="true"
+        className="pc-icon shrink-0"
+        strokeWidth={2.4}
+      />
       <span className="min-w-0">
         <span className="pc-choice-text block truncate">
           {room.name || `Room ${room.code}`}
@@ -34,12 +107,10 @@ function RoomListRow({ disabled, onSelect, room, selected }) {
             selected ? "text-white/58" : "text-[#0d0d0c]/48",
           ].join(" ")}
         >
-          #{room.code} / {optionLabel(GAME_MODE_OPTIONS, room.ruleMode)} /{" "}
-          {optionLabel(DIFFICULTY_OPTIONS, room.difficulty)}
+          #{room.code}
         </span>
       </span>
       <span className="pc-choice-text flex items-center gap-2">
-        {room.hasPassword ? <Lock className="pc-icon" strokeWidth={2.4} /> : null}
         <Users className="pc-icon" strokeWidth={2.4} />
         {room.playerCount}/{room.maxPlayers}
       </span>
@@ -50,13 +121,12 @@ function RoomListRow({ disabled, onSelect, room, selected }) {
 export default function LobbyListPanel({ isJoining, onJoin }) {
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const {
     error,
     isLoading,
-    searchQuery,
     selectedRoom,
     selectedRoomCode,
-    setSearchQuery,
     setSelectedRoomCode,
     visibleRooms,
   } = useLobbyList(true);
@@ -67,6 +137,7 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
         <p className="pc-label text-[#0d0d0c]/62">
           {t("setup.lobbyList")}
         </p>
+        {/*
         <div className="relative">
           <Search
             aria-hidden="true"
@@ -80,12 +151,16 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
             value={searchQuery}
           />
         </div>
+        */}
       </div>
 
       <div
-        className="grid h-full min-h-0 auto-rows-[var(--pc-choice-height)] content-start gap-2 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        data-screen-reveal-row="true"
-        data-screen-reveal-target="self"
+        className={[
+          "grid h-full min-h-0 gap-2 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          visibleRooms.length
+            ? "auto-rows-[var(--pc-choice-height)] content-start"
+            : "grid-rows-[minmax(0,1fr)] content-stretch",
+        ].join(" ")}
       >
         {visibleRooms.length ? (
           visibleRooms.map((room) => (
@@ -93,15 +168,22 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
               disabled={isJoining || room.playerCount >= room.maxPlayers}
               key={room.code}
               onSelect={(roomCode) => {
-                setSelectedRoomCode(roomCode);
+                setSelectedRoomCode((currentRoomCode) =>
+                  currentRoomCode === roomCode ? "" : roomCode,
+                );
                 setPassword("");
+                setIsPasswordModalOpen(false);
               }}
               room={room}
               selected={room.code === selectedRoomCode}
             />
           ))
         ) : (
-          <div className="grid place-items-center bg-[#f7f7f2]/88 p-5 text-center">
+          <div
+            className="grid h-full place-items-center text-center"
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+          >
             <p className="pc-label text-[#0d0d0c]/42">
               {isLoading ? t("common.loading") : t("setup.noLobbies")}
             </p>
@@ -110,17 +192,6 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
       </div>
 
       <div className="grid gap-4" data-screen-reveal-row="true" data-screen-reveal-target="self">
-        {selectedRoom?.hasPassword ? (
-          <input
-            autoComplete="off"
-            className="pc-field w-full bg-[#f7f7f2]/96 px-4 text-[#0d0d0c] outline-none transition-colors duration-200 focus-visible:bg-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c]"
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder={t("setup.lobbyPassword")}
-            type="password"
-            value={password}
-          />
-        ) : null}
-
         {error ? (
           <p className="pc-copy-strong text-[#0d0d0c]">{error}</p>
         ) : null}
@@ -128,16 +199,40 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
         <Button
           className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
           disabled={isJoining || !selectedRoom}
-          onClick={() =>
+          onClick={() => {
+            if (selectedRoom?.hasPassword) {
+              setIsPasswordModalOpen(true);
+              return;
+            }
+
             onJoin({
               password,
               roomCode: selectedRoom?.code,
-            })
-          }
+            });
+          }}
         >
-          {isJoining ? t("room.joining") : t("room.join")}
+          {isJoining
+            ? t("room.joining")
+            : selectedRoom?.hasPassword
+              ? t("setup.enterLobbyPassword")
+              : t("room.join")}
         </Button>
       </div>
+
+      {isPasswordModalOpen && selectedRoom ? (
+        <LobbyPasswordModal
+          isJoining={isJoining}
+          onClose={() => setIsPasswordModalOpen(false)}
+          onJoin={() =>
+            onJoin({
+              password,
+              roomCode: selectedRoom.code,
+            })
+          }
+          password={password}
+          setPassword={setPassword}
+        />
+      ) : null}
     </div>
   );
 }

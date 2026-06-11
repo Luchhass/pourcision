@@ -232,7 +232,7 @@ function getRevealItems(rows) {
 }
 
 function getRevealTargets(row) {
-  if (row.dataset.screenRevealTarget === "self") return getRevealChildren(row);
+  if (row.dataset.screenRevealTarget === "self") return [row];
 
   return row.dataset.screenRevealGroup === "stats" ? [row] : getRevealChildren(row);
 }

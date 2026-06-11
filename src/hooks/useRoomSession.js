@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const SESSION_PREFIX = "pourcision-room-session";
 
@@ -37,7 +37,17 @@ function readRoomSession(roomCode) {
 }
 
 export function useRoomSession(roomCode) {
-  const [session, setSession] = useState(() => readRoomSession(roomCode));
+  const [session, setSession] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadId = window.setTimeout(() => {
+      setSession(readRoomSession(roomCode));
+      setIsLoaded(true);
+    }, 0);
+
+    return () => window.clearTimeout(loadId);
+  }, [roomCode]);
 
   const saveSession = useCallback(
     (nextSession) => {
@@ -49,12 +59,14 @@ export function useRoomSession(roomCode) {
 
   const clearSession = useCallback(() => {
     setSession(null);
+    if (typeof window === "undefined") return;
+
     window.sessionStorage.removeItem(sessionKey(roomCode));
   }, [roomCode]);
 
   return {
     clearSession,
-    isLoaded: true,
+    isLoaded,
     saveSession,
     session,
   };
