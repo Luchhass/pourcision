@@ -23,6 +23,26 @@ function formatScore(value) {
   return Number(value).toFixed(2);
 }
 
+function getRoundModeTag(ruleMode) {
+  const tags = {
+    [GAME_RULE_MODES.REVERSE_POUR]: "DRAIN",
+    [GAME_RULE_MODES.LEAKY]: "LEAK",
+    [GAME_RULE_MODES.INVERT]: "INV",
+    [GAME_RULE_MODES.TILT]: "TILT",
+    [GAME_RULE_MODES.FAKE_TARGET]: "FAKE",
+    [GAME_RULE_MODES.SPLIT_FILL]: "SPLIT",
+    [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "ALL",
+    [GAME_RULE_MODES.BAND_RUN]: "BAND",
+    [GAME_RULE_MODES.CHARGE_POUR]: "PRESS",
+    [GAME_RULE_MODES.BURST_CLICK]: "BURST",
+    [GAME_RULE_MODES.COLORBLIND]: "BW",
+    [GAME_RULE_MODES.FLASH]: "FLASH",
+    [GAME_RULE_MODES.BLIND]: "BLIND",
+  };
+
+  return tags[ruleMode] ?? "";
+}
+
 function getLeaderboardPlayers(leaderboard) {
   if (!leaderboard) return [];
   if (Array.isArray(leaderboard.players)) return leaderboard.players;
@@ -54,6 +74,13 @@ function getWaterColorById(waterColorId, fallback) {
     WATER_COLORS[0]
   );
 }
+
+const COLORBLIND_WATER_COLOR = {
+  id: "colorblind",
+  name: "Colorblind",
+  text: "#f7f7f2",
+  value: "#0d0d0c",
+};
 
 function hexToRgb(hex) {
   const cleanHex = String(hex || "").replace("#", "");
@@ -204,6 +231,7 @@ function RoundCard({
 }) {
   const fillPercent = Math.max(0, Math.min(100, result.level));
   const targetPercent = Math.max(0, Math.min(100, result.target));
+  const bandTargets = Array.isArray(result.bandTargets) ? result.bandTargets : [];
 
   return (
     <div
@@ -225,11 +253,23 @@ function RoundCard({
           height: `${fillPercent}%`,
         }}
       />
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46"
-        style={{ bottom: `${targetPercent}%` }}
-      />
+      {ruleMode !== GAME_RULE_MODES.BAND_RUN ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46"
+          style={{ bottom: `${targetPercent}%` }}
+        />
+      ) : null}
+      {ruleMode === GAME_RULE_MODES.BAND_RUN
+        ? bandTargets.map((bandTarget, index) => (
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/42 dark:border-[#f7f7f2]/44"
+              key={`${bandTarget}-${index}`}
+              style={{ bottom: `${Math.max(0, Math.min(100, bandTarget))}%` }}
+            />
+          ))
+        : null}
       {ruleMode === GAME_RULE_MODES.FAKE_TARGET && result.fakeTarget !== null ? (
         <span
           aria-hidden="true"
@@ -245,21 +285,7 @@ function RoundCard({
       ) : null}
       {ruleMode !== GAME_RULE_MODES.CLASSIC ? (
         <span className="pc-round-label absolute right-2 top-2 z-10 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
-          {ruleMode === GAME_RULE_MODES.REVERSE_POUR
-            ? "REV"
-            : ruleMode === GAME_RULE_MODES.LEAKY
-              ? "LEAK"
-              : ruleMode === GAME_RULE_MODES.TILT
-                ? "TILT"
-                : ruleMode === GAME_RULE_MODES.FAKE_TARGET
-                  ? "FAKE"
-                  : ruleMode === GAME_RULE_MODES.SPLIT_FILL
-                    ? "SPLIT"
-                    : ruleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING
-                      ? "10/0"
-                      : ruleMode === GAME_RULE_MODES.BLIND
-                        ? "BLIND"
-                        : ""}
+          {getRoundModeTag(ruleMode)}
         </span>
       ) : null}
       <div className="relative z-10 flex h-full flex-col justify-between p-2 sm:p-3">
@@ -288,10 +314,10 @@ function LeaderboardResultsList({
     <div className="grid min-h-0 min-w-0 gap-5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] lg:max-h-[16rem] [&::-webkit-scrollbar]:hidden">
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
-        const playerWaterColor = getWaterColorById(
-          player.waterColorId,
-          waterColor,
-        );
+        const playerWaterColor =
+          ruleMode === GAME_RULE_MODES.COLORBLIND
+            ? COLORBLIND_WATER_COLOR
+            : getWaterColorById(player.waterColorId, waterColor);
 
         return (
           <section
@@ -343,6 +369,8 @@ function ResultsPanel({
   const modeOption =
     GAME_MODE_OPTIONS.find((option) => option.id === ruleMode) ||
     GAME_MODE_OPTIONS[0];
+  const displayWaterColor =
+    ruleMode === GAME_RULE_MODES.COLORBLIND ? COLORBLIND_WATER_COLOR : waterColor;
 
   return (
     <div
@@ -379,7 +407,7 @@ function ResultsPanel({
                 mobileShort
                 result={result}
                 ruleMode={ruleMode}
-                waterColor={waterColor}
+                waterColor={displayWaterColor}
               />
             ))}
           </div>

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowUpDown,
+  BatteryCharging,
   CircleDot,
   Columns2,
   Droplet,
@@ -10,12 +12,13 @@ import {
   Flag,
   Gauge,
   Globe2,
-  Infinity,
   Lock,
+  MousePointerClick,
   Palette,
   RotateCcw,
   Shuffle,
   Timer,
+  Zap,
 } from "lucide-react";
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
@@ -131,7 +134,13 @@ const ruleModeOptions = [
     id: GAME_RULE_MODES.BLIND,
     icon: EyeOff,
     title: "Blind",
-    description: "No guide line. Adjust freely, then lock.",
+    description: "No target line. Trust the goal percentage.",
+  },
+  {
+    id: GAME_RULE_MODES.FLASH,
+    icon: Zap,
+    title: "Flash",
+    description: "The line flashes briefly. Five seconds to chase it.",
   },
   {
     id: GAME_RULE_MODES.FAKE_TARGET,
@@ -140,9 +149,15 @@ const ruleModeOptions = [
     description: "Two target lines. One is a trap.",
   },
   {
+    id: GAME_RULE_MODES.INVERT,
+    icon: ArrowUpDown,
+    title: "Invert",
+    description: "Classic timing with the water flipped upside down.",
+  },
+  {
     id: GAME_RULE_MODES.REVERSE_POUR,
     icon: RotateCcw,
-    title: "Reverse Pour",
+    title: "Draining",
     description: "Start full. Hold to drain down.",
   },
   {
@@ -164,13 +179,6 @@ const ruleModeOptions = [
     description: "A random rule appears before every round.",
   },
   {
-    id: GAME_RULE_MODES.ENDLESS,
-    icon: Infinity,
-    title: "Endless",
-    description: "No score. Pour freely until you leave.",
-    singleplayerOnly: true,
-  },
-  {
     id: GAME_RULE_MODES.SPLIT_FILL,
     icon: Columns2,
     title: "Split Fill",
@@ -179,8 +187,32 @@ const ruleModeOptions = [
   {
     id: GAME_RULE_MODES.PERFECT_OR_NOTHING,
     icon: CircleDot,
-    title: "Ten or Zero",
-    description: "Hit the narrow zone for ten, miss it for zero.",
+    title: "All or Nothing",
+    description: "Hit the narrow zone for everything, miss it for nothing.",
+  },
+  {
+    id: GAME_RULE_MODES.BAND_RUN,
+    icon: CircleDot,
+    title: "Band Run",
+    description: "Two to five target bands. One touch for each.",
+  },
+  {
+    id: GAME_RULE_MODES.CHARGE_POUR,
+    icon: BatteryCharging,
+    title: "Pressure Charge",
+    description: "Hold to charge. Release a stronger pour from above.",
+  },
+  {
+    id: GAME_RULE_MODES.BURST_CLICK,
+    icon: MousePointerClick,
+    title: "Burst Click",
+    description: "Spam quick taps to build a steady timed flow.",
+  },
+  {
+    id: GAME_RULE_MODES.COLORBLIND,
+    icon: Palette,
+    title: "Colorblind",
+    description: "Classic timing in strict black and white.",
   },
 ];
 

@@ -13,7 +13,11 @@ export default function useFillGame(options) {
 
   return {
     advanceRound: game.continueFromResult,
+    bandAttemptIndex: game.bandAttemptIndex,
+    bandLevels: game.bandLevels,
+    bandTargets: game.bandTargets,
     bestDiff: game.summary.bestDiff,
+    chargePowerRef: game.chargePowerRef,
     completeIntro: game.finishIntro,
     fakeTarget: game.fakeTarget,
     finishRound: game.submitRound,

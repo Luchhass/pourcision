@@ -38,6 +38,8 @@ function average(values) {
 }
 
 export function calculateRoundResult({
+  bandLevels = null,
+  bandTargets = null,
   fakeTarget = null,
   level,
   roundIndex,
@@ -46,6 +48,38 @@ export function calculateRoundResult({
   splitTargets = null,
   target,
 }) {
+  if (ruleMode === GAME_RULE_MODES.BAND_RUN && bandLevels && bandTargets) {
+    const safeBandLevels = bandLevels.map((bandLevel) =>
+      roundTo(clamp(Number(bandLevel), 0, 100), 1),
+    );
+    const safeBandTargets = bandTargets.map((bandTarget) =>
+      roundTo(clamp(Number(bandTarget), 0, 100), 1),
+    );
+    const bandDiffs = safeBandTargets.map((bandTarget, index) =>
+      roundTo(Math.abs((safeBandLevels[index] ?? 0) - bandTarget), 2),
+    );
+    const bandScores = bandDiffs.map(getRoundScore);
+    const diff = roundTo(average(bandDiffs), 2);
+    const score = roundTo(average(bandScores), 2);
+    const levelAverage = roundTo(average(safeBandLevels), 1);
+    const targetAverage = roundTo(average(safeBandTargets), 1);
+
+    return {
+      bandDiffs,
+      bandLevels: safeBandLevels,
+      bandScores,
+      bandTargets: safeBandTargets,
+      diff,
+      fakeTarget: null,
+      label: diff <= 1 ? "PERFECT!" : diff <= 4 ? "SO CLOSE!" : "BAND MISS",
+      level: levelAverage,
+      round: roundIndex + 1,
+      roundIndex,
+      score,
+      target: targetAverage,
+    };
+  }
+
   if (ruleMode === GAME_RULE_MODES.SPLIT_FILL && splitLevels && splitTargets) {
     const safeSplitLevels = splitLevels.map((splitLevel) =>
       roundTo(clamp(Number(splitLevel), 0, 100), 1),

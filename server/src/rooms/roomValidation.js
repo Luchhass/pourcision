@@ -158,3 +158,23 @@ export function validateSplitLevels(splitLevels) {
     splitLevels: levels.map((level) => Math.max(0, Math.min(100, level))),
   });
 }
+
+export function validateBandLevels(bandLevels, expectedCount = 0) {
+  if (
+    !Array.isArray(bandLevels) ||
+    bandLevels.length < 2 ||
+    bandLevels.length > 5 ||
+    (expectedCount && bandLevels.length !== expectedCount)
+  ) {
+    return fail("Invalid band water levels.");
+  }
+
+  const levels = bandLevels.map((level) => Number(level));
+  if (levels.some((level) => !Number.isFinite(level))) {
+    return fail("Invalid band water levels.");
+  }
+
+  return ok({
+    bandLevels: levels.map((level) => Math.max(0, Math.min(100, level))),
+  });
+}

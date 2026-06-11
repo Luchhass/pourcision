@@ -120,6 +120,24 @@ function rgba(color, alpha) {
 }
 
 function makeWaterPalette(waterColor) {
+  if (waterColor?.id === "colorblind") {
+    return {
+      colorblindLine: true,
+      impactFoam: "rgba(13, 13, 12, 0.18)",
+      particle: "rgba(13, 13, 12, 0.32)",
+      splash: "rgba(13, 13, 12, 0.36)",
+      stream: "rgba(13, 13, 12, 0.2)",
+      streamCore: "rgba(13, 13, 12, 0.5)",
+      streamHighlight: "rgba(13, 13, 12, 0.22)",
+      surfaceFoam: "rgba(13, 13, 12, 0.16)",
+      surfaceHighlight: "rgba(13, 13, 12, 0.64)",
+      surfaceOnly: true,
+      waterDeep: "rgba(13, 13, 12, 0)",
+      waterMid: "rgba(13, 13, 12, 0)",
+      waterTop: "rgba(13, 13, 12, 0)",
+    };
+  }
+
   const base = hexToRgb(waterColor?.value) ?? { b: 232, g: 186, r: 125 };
 
   return {
@@ -129,8 +147,10 @@ function makeWaterPalette(waterColor) {
     streamCore: rgba(mixRgb(base, WHITE_RGB, 0.34), 0.5),
     streamHighlight: rgba(mixRgb(base, WHITE_RGB, 0.78), 0.52),
     impactFoam: rgba(mixRgb(base, WHITE_RGB, 0.9), 0.52),
+    colorblindLine: false,
     surfaceFoam: rgba(mixRgb(base, WHITE_RGB, 0.82), 0.3),
     surfaceHighlight: WATER_RENDER_COLORS.surfaceHighlight,
+    surfaceOnly: false,
     waterDeep: rgba(mixRgb(base, DEEP_RGB, 0.28), 0.95),
     waterMid: rgba(base, 0.88),
     waterTop: rgba(mixRgb(base, WHITE_RGB, 0.18), 0.92),
@@ -153,6 +173,40 @@ function buildSurfaceCurvePath(ctx, surfaceY, dimensions) {
   }
 
   ctx.lineTo(width, surfaceY[lastColumn]);
+}
+
+function strokeOffsetSurfaceCurve(
+  ctx,
+  surfaceY,
+  dimensions,
+  offsetY,
+  color,
+  lineWidth,
+  alpha = 1,
+) {
+  const width = dimensions.width;
+  const lastColumn = WATER_COLUMN_COUNT - 1;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.moveTo(0, surfaceY[0] + offsetY);
+
+  for (let i = 0; i < lastColumn; i += 1) {
+    const x = (i / lastColumn) * width;
+    const mx = ((i + 0.5) / lastColumn) * width;
+    const my = (surfaceY[i] + surfaceY[i + 1]) * 0.5 + offsetY;
+
+    ctx.quadraticCurveTo(x, surfaceY[i] + offsetY, mx, my);
+  }
+
+  ctx.lineTo(width, surfaceY[lastColumn] + offsetY);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.restore();
 }
 
 function buildClosedWaterPath(ctx, surfaceY, dimensions) {
@@ -185,8 +239,55 @@ function drawWaterBody(ctx, surfaceY, dimensions, palette) {
 function drawSurfaceHighlight(ctx, surfaceY, dimensions, palette) {
   buildSurfaceCurvePath(ctx, surfaceY, dimensions);
   ctx.strokeStyle = palette.surfaceHighlight;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = palette.surfaceOnly ? 1.35 : 1.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.stroke();
+}
+
+function drawColorblindSurfaceTexture(ctx, surfaceY, dimensions, time, palette) {
+  if (!palette.surfaceOnly) {
+    return;
+  }
+
+  strokeOffsetSurfaceCurve(
+    ctx,
+    surfaceY,
+    dimensions,
+    2.35,
+    palette.surfaceFoam,
+    0.85,
+    0.55,
+  );
+
+  const columnWidth = dimensions.width / (WATER_COLUMN_COUNT - 1);
+  const step = Math.max(18, Math.round(WATER_COLUMN_COUNT / 11));
+
+  ctx.save();
+  ctx.strokeStyle = palette.surfaceFoam;
+  ctx.lineCap = "round";
+
+  for (let i = 4; i < WATER_COLUMN_COUNT - 4; i += step) {
+    const slope = surfaceY[i + 2] - surfaceY[i - 2];
+    const visibility =
+      0.08 + Math.sin(time * 1.7 + i * 0.43) * 0.035 + Math.abs(slope) * 0.016;
+
+    if (visibility < 0.06) {
+      continue;
+    }
+
+    const x = i * columnWidth + Math.sin(time * 1.2 + i) * 2.8;
+    const y = surfaceY[i] + 5.2 + Math.sin(time * 1.8 + i * 0.31) * 0.9;
+    const width = clamp(9 + Math.abs(slope) * 2.4, 8, 22);
+
+    ctx.globalAlpha = clamp(visibility, 0.04, 0.16);
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.ellipse(x, y, width, 1.25, slope * 0.018, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 function drawSurfaceDetails(ctx, state, surfaceY, dimensions, time, palette, intensity) {
@@ -294,6 +395,7 @@ function writeSurfaceLevelRef(
   surfaceY,
   dimensions,
   xRatio = 0.5,
+  isInvertedWater = false,
 ) {
   const surfaceLevelRef = surfaceLevelTargetRef?.current;
 
@@ -307,8 +409,10 @@ function writeSurfaceLevelRef(
     WATER_COLUMN_COUNT - 1,
   );
 
+  const measuredLevel = (1 - surfaceY[column] / dimensions.height) * 100;
+
   surfaceLevelRef.current = clamp(
-    (1 - surfaceY[column] / dimensions.height) * 100,
+    isInvertedWater ? 100 - measuredLevel : measuredLevel,
     0,
     100,
   );
@@ -378,8 +482,9 @@ function applyPersistentPourCrater(surfaceY, dimensions, config, streamState) {
   }
 }
 
-function applyPersistentDrainFunnel(surfaceY, dimensions, config) {
-  const center = (WATER_COLUMN_COUNT - 1) * 0.5;
+function applyPersistentDrainFunnel(surfaceY, dimensions, config, xRatio = 0.5) {
+  const safeXRatio = clamp(xRatio, 0.02, 0.98);
+  const center = (WATER_COLUMN_COUNT - 1) * safeXRatio;
   const columnScale = getWaveColumnScale(dimensions);
   const streamScale = Math.max(1, (config.STREAM_WIDTH ?? 10) / 10);
   const visualScale = getWaveVisualScale(dimensions) / WAVE_VISUAL_SCALE;
@@ -427,6 +532,8 @@ function drawPourStream(
   const safeTailX = clamp(streamState.tailX, 0.02, 0.98);
   const progress = clamp(streamState.headProgress, 0, 1);
   const easedProgress = 1 - (1 - progress) * (1 - progress);
+  const chunkPulse = clamp(streamState.chunkPulse ?? 1, 0.08, 1);
+  const massScale = streamState.massScale ?? 1;
   const sourceX = dimensions.width * safeSourceX;
   const midX = dimensions.width * safeMidX;
   const tailTargetX = dimensions.width * safeTailX;
@@ -441,9 +548,16 @@ function drawPourStream(
   const streamWidth = Math.max(
     10,
     config.STREAM_VISUAL_WIDTH ?? config.STREAM_WIDTH * 1.28,
-  );
-  const wobbleA = Math.sin(time * 8.5 + safeSourceX * 7) * config.STREAM_WOBBLE;
-  const wobbleB = Math.sin(time * 5.2 + safeTailX * 11) * config.STREAM_WOBBLE;
+  ) * massScale;
+  const wobbleScale = massScale > 1 ? 0.38 : 1;
+  const wobbleA =
+    Math.sin(time * 8.5 + safeSourceX * 7) *
+    config.STREAM_WOBBLE *
+    wobbleScale;
+  const wobbleB =
+    Math.sin(time * 5.2 + safeTailX * 11) *
+    config.STREAM_WOBBLE *
+    wobbleScale;
   const endX = clamp(
     lerp(sourceX, tailTargetX, easedProgress) + wobbleB * 0.22,
     streamWidth,
@@ -478,11 +592,120 @@ function drawPourStream(
       endY,
     );
     ctx.strokeStyle = color;
-    ctx.globalAlpha = clamp(progress * 1.3 - alphaOffset, 0, 1);
-    ctx.lineWidth = width;
+    ctx.globalAlpha = clamp((progress * 1.3 - alphaOffset) * chunkPulse, 0, 1);
+    ctx.lineWidth = width * (0.72 + chunkPulse * 0.36);
     ctx.lineCap = "round";
     ctx.stroke();
   };
+
+  if (palette.colorblindLine) {
+    const streamAlpha = clamp((progress * 1.22 - 0.06) * chunkPulse, 0, 0.72);
+
+    const strokeColorblindStream = (
+      offsetRatio,
+      widthRatio,
+      color,
+      alpha,
+      phase,
+    ) => {
+      const offset = streamWidth * offsetRatio;
+      const swayA = Math.sin(time * 4.8 + phase + safeSourceX * 5) * streamWidth * 0.1;
+      const swayB = Math.sin(time * 6.1 + phase * 1.7 + safeTailX * 4) * streamWidth * 0.08;
+
+      ctx.beginPath();
+      ctx.moveTo(
+        sourceX + offset + Math.sin(time * 2.6 + phase) * streamWidth * 0.035,
+        sourceY,
+      );
+      ctx.bezierCurveTo(
+        firstControlX + offset * 0.42 + swayA,
+        firstControlY,
+        secondControlX + offset * 0.22 - swayB,
+        secondControlY,
+        endX + offset * 0.14 + swayB * 0.35,
+        endY,
+      );
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = streamAlpha * alpha;
+      ctx.lineWidth = Math.max(0.75, streamWidth * widthRatio);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    };
+
+    strokeColorblindStream(0, 0.105, palette.streamCore, 0.74, 0);
+    strokeColorblindStream(-0.24, 0.052, palette.streamHighlight, 0.5, 1.4);
+    strokeColorblindStream(0.23, 0.046, palette.streamHighlight, 0.38, 2.8);
+
+    const visibleLength = clamp(easedProgress, 0.05, 1);
+
+    for (let i = 0; i < 4; i += 1) {
+      const travel = (time * (0.31 + i * 0.035) + i * 0.24) % 1;
+      const t = clamp(0.08 + travel * 0.82, 0.08, 0.9);
+
+      if (t > visibleLength) {
+        continue;
+      }
+
+      const point = cubicPoint(pathStart, pathControlA, pathControlB, pathEnd, t);
+      const side =
+        Math.sin(time * 4.4 + i * 1.9 + safeTailX * 6) * streamWidth * 0.18;
+      const beadAlpha = clamp((progress * 0.34 - i * 0.022) * chunkPulse, 0, 0.2);
+
+      ctx.globalAlpha = beadAlpha;
+      ctx.fillStyle = palette.streamHighlight;
+      ctx.beginPath();
+      ctx.ellipse(
+        point.x + side,
+        point.y,
+        Math.max(0.9, streamWidth * 0.04),
+        Math.max(2.5, streamWidth * 0.16),
+        Math.sin(time * 1.4 + i) * 0.16,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+
+    const impactAlpha = clamp((progress - 0.78) * 2.4, 0, 0.32) * chunkPulse;
+
+    if (impactAlpha > 0.01) {
+      const rippleWidth = Math.max(16, streamWidth * (1.05 + massScale * 0.16));
+      const rippleY = surfaceTargetY + 2.2;
+
+      ctx.strokeStyle = palette.impactFoam;
+      ctx.lineCap = "round";
+      ctx.lineWidth = Math.max(0.85, streamWidth * 0.052);
+      ctx.globalAlpha = impactAlpha;
+      ctx.beginPath();
+      ctx.ellipse(
+        endX,
+        rippleY,
+        rippleWidth * 0.46,
+        2.15,
+        Math.sin(time * 2.1 + safeTailX) * 0.05,
+        Math.PI * 0.08,
+        Math.PI * 0.92,
+      );
+      ctx.stroke();
+
+      ctx.globalAlpha = impactAlpha * 0.44;
+      ctx.beginPath();
+      ctx.ellipse(
+        endX,
+        rippleY + 2.8,
+        rippleWidth * 0.68,
+        2.4,
+        Math.sin(time * 1.7 + safeTailX) * 0.04,
+        Math.PI * 0.06,
+        Math.PI * 0.94,
+      );
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 1;
+    return;
+  }
 
   strokeStream(0, streamWidth * 1.55, palette.stream, 0.2);
   strokeStream(0, streamWidth, palette.stream);
@@ -514,7 +737,7 @@ function drawPourStream(
     const side =
       Math.sin(time * 4.1 + i * 2.7 + safeTailX * 3) * streamWidth * 0.14;
 
-    ctx.globalAlpha = clamp(progress * 0.42 - i * 0.035, 0, 0.48);
+    ctx.globalAlpha = clamp((progress * 0.42 - i * 0.035) * chunkPulse, 0, 0.48);
     ctx.fillStyle = i % 2 === 0 ? palette.streamCore : palette.streamHighlight;
     ctx.beginPath();
     ctx.ellipse(
@@ -555,7 +778,8 @@ function drawImpactFoam(
   );
   const centerX = dimensions.width * safeTailX;
   const centerY = surfaceY[column] + 1;
-  const baseWidth = Math.max(18, config.STREAM_WIDTH * 3.4);
+  const massScale = streamState.massScale ?? 1;
+  const baseWidth = Math.max(18, config.STREAM_WIDTH * 3.4) * massScale;
   const pulse = 0.78 + Math.sin(time * 8.2 + safeTailX * 5) * 0.22;
 
   ctx.fillStyle = palette.impactFoam;
@@ -619,6 +843,9 @@ function renderWater(
   renderStream,
   surfaceLevelRef,
   surfaceSampleX,
+  isInvertedWater,
+  isDraining,
+  drainX,
 ) {
   const surfaceY = computeSurfaceY(state, dimensions);
 
@@ -628,6 +855,7 @@ function renderWater(
     surfaceY,
     dimensions,
     surfaceSampleX,
+    isInvertedWater,
   );
   applyAmbientSurfaceMotion(
     surfaceY,
@@ -642,10 +870,17 @@ function renderWater(
   if (renderStream) {
     applyPersistentPourCrater(surfaceY, dimensions, config, streamState);
   }
-  if (isLeaking) {
-    applyPersistentDrainFunnel(surfaceY, dimensions, config);
+  if (isLeaking || isDraining) {
+    applyPersistentDrainFunnel(surfaceY, dimensions, config, drainX);
   }
   ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+
+  if (isInvertedWater) {
+    ctx.save();
+    ctx.translate(0, dimensions.height);
+    ctx.scale(1, -1);
+  }
+
   if (renderStream) {
     drawPourStream(
       ctx,
@@ -658,7 +893,11 @@ function renderWater(
       palette,
     );
   }
-  drawWaterBody(ctx, surfaceY, dimensions, palette);
+  if (!palette.surfaceOnly) {
+    drawWaterBody(ctx, surfaceY, dimensions, palette);
+  } else {
+    drawColorblindSurfaceTexture(ctx, surfaceY, dimensions, time, palette);
+  }
   drawSurfaceHighlight(ctx, surfaceY, dimensions, palette);
   if (renderStream) {
     drawImpactFoam(
@@ -667,29 +906,39 @@ function renderWater(
       dimensions,
       config,
       isPouring,
+      isLeaking,
       time,
       streamState,
       palette,
     );
   }
-  drawSurfaceDetails(
-    ctx,
-    state,
-    surfaceY,
-    dimensions,
-    time,
-    palette,
-    surfaceIntensity,
-  );
-  drawParticles(ctx, state, palette);
+  if (!palette.surfaceOnly) {
+    drawSurfaceDetails(
+      ctx,
+      state,
+      surfaceY,
+      dimensions,
+      time,
+      palette,
+      surfaceIntensity,
+    );
+    drawParticles(ctx, state, palette);
+  }
+
+  if (isInvertedWater) {
+    ctx.restore();
+  }
 }
 
 export default function WaterPhysicsCanvas({
+  burstPattern = "chunked",
   className = "pointer-events-none absolute inset-0 z-10 h-full w-full will-change-transform",
   difficulty,
   initialLevel = 0,
   isPourActive = true,
+  isInvertedWater = false,
   isReversePour = false,
+  chargePowerRef = null,
   levelRef,
   externalLevelRef = null,
   pourXRef,
@@ -718,11 +967,14 @@ export default function WaterPhysicsCanvas({
   const lastTimeRef = useRef(null);
   const paletteRef = useRef(makeWaterPalette(waterColor));
   const previousStatusRef = useRef(status);
+  const burstStartedAtRef = useRef(0);
   const surfaceLevelTargetRef = useRef(surfaceLevelRef);
   const settledTargetRef = useRef(settledRef);
   const streamRef = useRef({
     active: false,
+    chunkPulse: 1,
     headProgress: 0,
+    massScale: 1,
     midX: 0.5,
     sourceX: 0.5,
     tailX: 0.5,
@@ -735,6 +987,7 @@ export default function WaterPhysicsCanvas({
     isPouring: false,
     isReversePour: false,
     leakRatePerSecond: OLD_LEAK_RATE_PER_SECOND,
+    pourMultiplier: 1,
     pourX: 0.5,
   });
   const statusRef = useRef(status);
@@ -772,7 +1025,9 @@ export default function WaterPhysicsCanvas({
         resetWaterSimulationState(stateRef.current, initialBase);
         levelRef.current = initialLevel;
         if (surfaceLevelTargetRef.current) {
-          surfaceLevelTargetRef.current.current = initialLevel;
+          surfaceLevelTargetRef.current.current = isInvertedWater
+            ? 100 - initialLevel
+            : initialLevel;
         }
         if (settledTargetRef.current) {
           settledTargetRef.current.current = true;
@@ -782,12 +1037,14 @@ export default function WaterPhysicsCanvas({
     visualPourXRef.current = clamp(pourXRef?.current ?? 0.5, 0.02, 0.98);
     streamRef.current = {
       active: false,
+      chunkPulse: 1,
       headProgress: 0,
+      massScale: 1,
       midX: visualPourXRef.current,
       sourceX: visualPourXRef.current,
       tailX: visualPourXRef.current,
     };
-  }, [initialLevel, levelRef, pourXRef, roundIndex, streamOnly]);
+  }, [initialLevel, isInvertedWater, levelRef, pourXRef, roundIndex, streamOnly]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -846,25 +1103,39 @@ export default function WaterPhysicsCanvas({
       const stream = streamRef.current;
       const previousStatus = previousStatusRef.current;
       const externalLevel = externalLevelRef?.current;
+      const isPourLikeStatus =
+        currentStatus === "filling" || currentStatus === "burst";
+      const isSteadyBurst =
+        currentStatus === "burst" && burstPattern === "steady";
+      const isMassBurst =
+        currentStatus === "burst" && burstPattern === "mass";
 
       lastTimeRef.current = time;
 
       if (currentStatus !== previousStatus) {
-        if (currentStatus === "filling") {
+        if (isPourLikeStatus) {
           stream.active = !isReversePour;
-          stream.headProgress = 0;
+          stream.headProgress =
+            currentStatus === "burst" && !isMassBurst ? 0.64 : 0;
+          stream.chunkPulse = 1;
+          stream.massScale = isMassBurst ? 2.35 : 1;
           stream.sourceX = rawPourX;
           stream.midX = rawPourX;
           stream.tailX = rawPourX;
+          if (currentStatus === "burst") {
+            burstStartedAtRef.current = time;
+          }
         }
 
         if (currentStatus === "result") {
           stream.active = false;
+          stream.massScale = 1;
         }
 
         if (currentStatus === "intro") {
           stream.active = false;
           stream.headProgress = 0;
+          stream.massScale = 1;
         }
 
         previousStatusRef.current = currentStatus;
@@ -872,13 +1143,24 @@ export default function WaterPhysicsCanvas({
 
       previousPourActiveRef.current = currentPourActive;
 
-      if (currentStatus === "filling" && !isReversePour) {
+      if (isPourLikeStatus && !isReversePour) {
         stream.active = true;
         stream.sourceX += (rawPourX - stream.sourceX) * STREAM_SOURCE_FOLLOW;
         stream.midX += (stream.sourceX - stream.midX) * STREAM_MID_FOLLOW;
         stream.tailX += (stream.midX - stream.tailX) * STREAM_TAIL_FOLLOW;
+        stream.massScale = isMassBurst ? 2.35 : 1;
+        const descendMultiplier =
+          currentStatus === "burst" ? (isMassBurst ? 1.85 : 6) : 1;
+        const burstSeconds = Math.max(0, (time - burstStartedAtRef.current) / 1000);
+        const burstPulse =
+          currentStatus === "burst" && !isSteadyBurst && !isMassBurst
+            ? Math.pow(0.5 + Math.sin(burstSeconds * 22) * 0.5, 2.6)
+            : 1;
+
+        stream.chunkPulse =
+          currentStatus === "burst" ? clamp(burstPulse, 0.12, 1) : 1;
         stream.headProgress = clamp(
-          stream.headProgress + frameSeconds * STREAM_DESCEND_SPEED,
+          stream.headProgress + frameSeconds * STREAM_DESCEND_SPEED * descendMultiplier,
           0,
           1,
         );
@@ -901,7 +1183,7 @@ export default function WaterPhysicsCanvas({
         (!streamOnly &&
           state.waterBase === 0 &&
           state.activeCount === 0 &&
-          currentStatus !== "filling")
+          !isPourLikeStatus)
       ) {
         writeSettledRef(
           settledTargetRef,
@@ -917,7 +1199,7 @@ export default function WaterPhysicsCanvas({
 
       accumulatorRef.current += frameSeconds;
       const streamImpactReady =
-        currentStatus === "filling" &&
+        isPourLikeStatus &&
         currentPourActive &&
         (isReversePour || stream.headProgress >= 0.98);
       const effectivePourX = isReversePour ? rawPourX : stream.tailX;
@@ -954,6 +1236,15 @@ export default function WaterPhysicsCanvas({
       stepOptions.isLeaking = currentStatus === "leaking";
       stepOptions.isPouring = streamImpactReady;
       stepOptions.isReversePour = isReversePour;
+      stepOptions.pourMultiplier =
+        currentStatus === "burst"
+          ? (chargePowerRef?.current ?? 1) *
+            (isMassBurst
+              ? 1.42
+              : isSteadyBurst
+                ? 1
+                : 0.32 + stream.chunkPulse * 1.18)
+          : 1;
       stepOptions.pourX = effectivePourX;
 
       if (currentStatus === "result") {
@@ -981,7 +1272,7 @@ export default function WaterPhysicsCanvas({
         state,
         dimensionsRef.current,
         config,
-        currentStatus === "filling" && currentPourActive && !isReversePour,
+        isPourLikeStatus && currentPourActive && !isReversePour,
         currentStatus === "leaking",
         time / 1000,
         stream,
@@ -993,11 +1284,14 @@ export default function WaterPhysicsCanvas({
             ? 0
             : currentStatus === "leaking"
               ? 0.52
-            : currentStatus === "filling" && currentPourActive && !isReversePour
+            : isPourLikeStatus && currentPourActive && !isReversePour
               ? 1
               : 0.28,
         renderStream,
         surfaceLevelTargetRef,
+        effectivePourX,
+        isInvertedWater,
+        currentStatus === "filling" && isReversePour && currentPourActive,
         effectivePourX,
       );
 
@@ -1014,7 +1308,7 @@ export default function WaterPhysicsCanvas({
       animationRef.current = null;
       lastTimeRef.current = null;
     };
-  }, [externalLevelRef, initialLevel, isReversePour, levelRef, pourXRef, renderStream, streamOnly, tiltRef]);
+  }, [burstPattern, chargePowerRef, externalLevelRef, initialLevel, isInvertedWater, isReversePour, levelRef, pourXRef, renderStream, streamOnly, tiltRef]);
 
   return (
     <canvas

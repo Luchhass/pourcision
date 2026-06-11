@@ -124,9 +124,11 @@ const dictionaries = {
       set: "SET",
       splitMiss: "SPLIT MISS",
       target: "Target",
-      tenOrZero: "Ten or Zero",
+      tenOrZero: "All or Nothing",
       time: "Time",
       go: "GO",
+      band: "Band",
+      bandMiss: "BAND MISS",
       line: "Line",
       lowestWins: "Lowest wins",
       precision: "PRECISION",
@@ -142,8 +144,9 @@ const dictionaries = {
       guidance: {
         classic: "Hold to pour. Release when the surface meets the mark.",
         endless: "Hold to pour. Release, read the result, then keep the run going.",
+        band: "Each line is one touch. Release near the active band, then chase the next.",
         perfect:
-          "The line is gone. Hit the strike zone for ten, miss it for zero.",
+          "The line is gone. Hit the strike zone for everything, miss it for nothing.",
         split: "Move between both tanks while holding, then release once.",
       },
       resultMessages: {
@@ -212,9 +215,34 @@ const dictionaries = {
     },
     modes: {
       blind: {
-        briefing: "No guide line this round. Read the surface and lock it by feel.",
-        description: "No guide line. Adjust freely, then lock.",
+        briefing: "No target line appears. Read the percentage and trust the pour.",
+        description: "No target line. Trust the goal percentage.",
         label: "Blind",
+      },
+      flash: {
+        briefing: "The target line flashes for a moment, then disappears.",
+        description: "The line flashes briefly. Five seconds to chase it.",
+        label: "Flash",
+      },
+      "band-run": {
+        briefing: "Two to five target bands appear. Each release scores the next band.",
+        description: "Two to five target bands. One touch for each.",
+        label: "Band Run",
+      },
+      "charge-pour": {
+        briefing: "Hold to charge pressure. Release to pour the stored water from above.",
+        description: "Hold to charge. Release a stronger pour from above.",
+        label: "Pressure Charge",
+      },
+      "burst-click": {
+        briefing: "Click in bursts. Fast taps create a timed flow you have to steady.",
+        description: "Spam quick taps to build a steady timed flow.",
+        label: "Burst Click",
+      },
+      colorblind: {
+        briefing: "Classic timing, stripped to black and white.",
+        description: "Classic timing in strict black and white.",
+        label: "Colorblind",
       },
       "chaos-queue": {
         briefing: "A random rule appears before every round.",
@@ -236,6 +264,11 @@ const dictionaries = {
         description: "Two target lines. One is a trap.",
         label: "Fake Target",
       },
+      invert: {
+        briefing: "The rule is classic, but the water reads upside down.",
+        description: "Classic timing with the water flipped upside down.",
+        label: "Invert",
+      },
       leaky: {
         briefing: "The water leaks after release. Keep pressure until the clock ends.",
         description: "Release leaks. Short clock, then lock.",
@@ -243,14 +276,14 @@ const dictionaries = {
       },
       "perfect-or-nothing": {
         briefing:
-          "A narrow strike zone replaces the line. Hit it for ten, miss it for zero.",
-        description: "Hit the narrow zone for ten, miss it for zero.",
-        label: "Ten or Zero",
+          "A narrow strike zone replaces the line. Hit it for everything, miss it for nothing.",
+        description: "Hit the narrow zone for everything, miss it for nothing.",
+        label: "All or Nothing",
       },
       "reverse-pour": {
         briefing: "You start full. Hold to drain down into the mark.",
         description: "Start full. Hold to drain down.",
-        label: "Reverse Pour",
+        label: "Draining",
       },
       "split-fill": {
         briefing: "Two tanks are active. Move between them while holding, then release once.",
@@ -391,9 +424,11 @@ const dictionaries = {
       set: "AYARLA",
       splitMiss: "ÇİFT HEDEF KAÇTI",
       target: "Hedef",
-      tenOrZero: "On ya da sıfır",
+      tenOrZero: "All or Nothing",
       time: "Süre",
       go: "BAŞLA",
+      band: "Bant",
+      bandMiss: "BANT KAÇTI",
       line: "Çizgi",
       lowestWins: "En düşük kazanır",
       precision: "HASSASİYET",
@@ -409,7 +444,8 @@ const dictionaries = {
       guidance: {
         classic: "Suyu doldurmak için basılı tut. Yüzey hedefe geldiğinde bırak.",
         endless: "Basılı tut, bırak, sonucu oku ve koşuyu devam ettir.",
-        perfect: "Çizgi yok. Dar bölgeye denk getirirsen on, kaçırırsan sıfır.",
+        band: "Her çizgi bir hak. Aktif banda yakın bırak, sonra sıradakini yakala.",
+        perfect: "Cizgi yok. Dar bolgeye denk getirirsen her sey, kacirirsan hicbir sey.",
         split: "Basılı tutarken iki hazne arasında geçiş yap, sonra tek hamlede bırak.",
       },
       resultMessages: {
@@ -478,9 +514,34 @@ const dictionaries = {
     },
     modes: {
       blind: {
-        briefing: "Bu turda kılavuz çizgi yok. Yüzeyi oku ve hissinle kilitle.",
-        description: "Kılavuz çizgi yok. Serbestçe ayarla, sonra kilitle.",
-        label: "Kör hedef",
+        briefing: "Hedef cizgisi yok. Yuzdeyi oku ve dokunusuna guven.",
+        description: "Cizgi yok. Sadece hedef yuzdesi var.",
+        label: "Blind",
+      },
+      flash: {
+        briefing: "Hedef cizgisi bir an gorunur, sonra kaybolur.",
+        description: "Cizgi kisa sure yanar. Bes saniyede yakala.",
+        label: "Flash",
+      },
+      "band-run": {
+        briefing: "Iki ile bes hedef bandi gelir. Her birakista siradaki band skorlanir.",
+        description: "Iki ile bes hedef bandi. Her biri icin tek hak.",
+        label: "Band Run",
+      },
+      "charge-pour": {
+        briefing: "Basili tutarak basinc biriktir. Birakinca su ustten guclu dokulur.",
+        description: "Basili tutarak guc biriktir. Birakinca ustten dokulur.",
+        label: "Pressure Charge",
+      },
+      "burst-click": {
+        briefing: "Hizli tiklamalarla akisi kur. Sure bitene kadar seviyeyi dengede tut.",
+        description: "Hizli tiklayarak sabit bir akis yakala.",
+        label: "Burst Click",
+      },
+      colorblind: {
+        briefing: "Klasik zamanlama, sadece siyah beyaz gorunum.",
+        description: "Siyah beyaz klasik zamanlama.",
+        label: "Colorblind",
       },
       "chaos-queue": {
         briefing: "Her turdan önce rastgele bir kural gelir.",
@@ -502,6 +563,11 @@ const dictionaries = {
         description: "İki hedef çizgisi. Biri tuzak.",
         label: "Sahte hedef",
       },
+      invert: {
+        briefing: "Kural klasik, ama suyu ters taraftan okursun.",
+        description: "Klasik zamanlama, ters cevrilmis su yuzeyi.",
+        label: "Invert",
+      },
       leaky: {
         briefing: "Bıraktıktan sonra su sızar. Süre bitene kadar çizgiyi koru.",
         description: "Bırakınca sızdırır. Kısa süre, sonra kilit.",
@@ -509,14 +575,14 @@ const dictionaries = {
       },
       "perfect-or-nothing": {
         briefing:
-          "Çizginin yerini dar bir isabet bölgesi alır. Denk getirirsen on, kaçırırsan sıfır.",
-        description: "Dar bölgeye denk getirirsen on, kaçırırsan sıfır.",
-        label: "On ya da sıfır",
+          "Dar isabet bolgesi cizginin yerini alir. Denk getirirsen her sey, kacirirsan hicbir sey.",
+        description: "Dar bolgeye denk getirirsen her sey, kacirirsan hicbir sey.",
+        label: "All or Nothing",
       },
       "reverse-pour": {
         briefing: "Dolu başlarsın. Hedefe inmek için basılı tutarak boşalt.",
         description: "Dolu başla. Basılı tutarak aşağı indir.",
-        label: "Ters döküş",
+        label: "Draining",
       },
       "split-fill": {
         briefing: "İki hazne aktif. Basılı tutarken aralarında geçiş yap, sonra tek kez bırak.",

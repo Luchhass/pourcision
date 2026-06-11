@@ -22,6 +22,7 @@ export default function PourTargetGuide({
   targetWindow = 0,
   targetGuideLabelRef,
   targetGuideLineRef,
+  showBadge = true,
 }) {
   const hasTargetWindow = targetWindow > 0;
   const windowTop = Math.max(0, 100 - target - targetWindow / 2);
@@ -43,18 +44,20 @@ export default function PourTargetGuide({
             ].join(" ")}
             data-gameplay-reveal-line="true"
           />
-          <span
-            className={[
-              "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 text-white md:right-8",
-              isResultPhase ? "bg-[#ef2f25] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]" : "bg-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]",
-            ].join(" ")}
-            data-gameplay-reveal-badge="true"
-          >
-            <ResponsiveTargetBadge
-              label={isResultPhase ? t("game.fake") : t("game.target")}
-              value={fakeTarget}
-            />
-          </span>
+          {showBadge ? (
+            <span
+              className={[
+                "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 text-white md:right-8",
+                isResultPhase ? "bg-[#ef2f25] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]" : "bg-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]",
+              ].join(" ")}
+              data-gameplay-reveal-badge="true"
+            >
+              <ResponsiveTargetBadge
+                label={isResultPhase ? t("game.fake") : t("game.target")}
+                value={fakeTarget}
+              />
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -75,13 +78,15 @@ export default function PourTargetGuide({
             <div className="absolute bottom-[22%] left-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/42" />
             <div className="absolute bottom-[22%] right-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/42" />
           </div>
-          <span
-            className="pc-label absolute right-6 top-1/2 inline-flex -translate-y-1/2 rounded-md bg-[#0d0d0c] px-3 py-2 text-white shadow-[0_10px_24px_rgba(13,13,12,0.22)] md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
-            data-gameplay-reveal-badge="true"
-            ref={targetGuideLabelRef}
-          >
-            <ResponsiveTargetBadge label={t("game.tenOrZero")} value={target} />
-          </span>
+          {showBadge ? (
+            <span
+              className="pc-label absolute right-6 top-1/2 inline-flex -translate-y-1/2 rounded-md bg-[#0d0d0c] px-3 py-2 text-white shadow-[0_10px_24px_rgba(13,13,12,0.22)] md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+              data-gameplay-reveal-badge="true"
+              ref={targetGuideLabelRef}
+            >
+              <ResponsiveTargetBadge label={t("game.tenOrZero")} value={target} />
+            </span>
+          ) : null}
         </div>
       ) : (
         <div
@@ -94,13 +99,15 @@ export default function PourTargetGuide({
             data-gameplay-reveal-line="true"
             ref={targetGuideLineRef}
           />
-          <span
-            className="pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md bg-[#0d0d0c] px-3 py-2 text-white md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
-            data-gameplay-reveal-badge="true"
-            ref={targetGuideLabelRef}
-          >
-            <ResponsiveTargetBadge label={t("game.target")} value={target} />
-          </span>
+          {showBadge ? (
+            <span
+              className="pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md bg-[#0d0d0c] px-3 py-2 text-white md:right-8 dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+              data-gameplay-reveal-badge="true"
+              ref={targetGuideLabelRef}
+            >
+              <ResponsiveTargetBadge label={t("game.target")} value={target} />
+            </span>
+          ) : null}
         </div>
       )}
     </>

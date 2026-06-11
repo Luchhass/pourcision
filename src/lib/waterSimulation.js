@@ -15,7 +15,6 @@ const MAX_WAVE_HEIGHT = 42;
 const PARTICLE_TYPE_SPLASH = 1;
 const CENTER_CRATER_RATIO = 1.28;
 const DEFAULT_LEAK_RATE_PER_SECOND = 24;
-const DRAIN_X = 0.5;
 const RIM_FORCE_RATIO = 0.72;
 const MAX_SURFACE_CARRY_LEVEL = 0.08;
 const RANDOM_MULTIPLIER = 1664525;
@@ -268,14 +267,14 @@ function addZeroSumWaveImpact(
   );
 }
 
-function addPourVolume(state, dt, config) {
+function addPourVolume(state, dt, config, multiplier = 1) {
   const totalLevel = clamp(
     state.waterBase + state.unsettledWater,
     WATER_BASE_MIN,
     WATER_BASE_MAX,
   );
   const room = WATER_BASE_MAX - totalLevel;
-  const incoming = Math.min(config.FILL_RATE * dt, room);
+  const incoming = Math.min(config.FILL_RATE * multiplier * dt, room);
   const unsettledRatio = clamp(config.UNSETTLED_RATIO ?? 0.08, 0, 0.28);
   const immediate = incoming * (1 - unsettledRatio);
 
@@ -587,6 +586,7 @@ function applyDrainDisturbance(
   dimensions,
   config,
   leakRatePerSecond = 0,
+  drainX = 0.5,
 ) {
   const waterLevel = state.waterBase + state.unsettledWater;
 
@@ -594,7 +594,8 @@ function applyDrainDisturbance(
     return;
   }
 
-  const drainColumn = getColumnForX(dimensions.width * DRAIN_X, dimensions.width);
+  const safeDrainX = clamp(drainX, 0.02, 0.98);
+  const drainColumn = getColumnForX(dimensions.width * safeDrainX, dimensions.width);
   const columnScale = getWaveColumnScale(dimensions);
   const rateScale = clamp(
     leakRatePerSecond / DEFAULT_LEAK_RATE_PER_SECOND,
@@ -625,6 +626,7 @@ export function stepWaterSimulation(
     isReversePour = false,
     leakRatePerSecond = 0,
     pourX = 0.5,
+    pourMultiplier = 1,
   },
 ) {
   const safePourX = clamp(pourX, 0.02, 0.98);
@@ -632,11 +634,24 @@ export function stepWaterSimulation(
   if (isPouring) {
     if (isReversePour) {
       removePourVolume(state, dt, config);
+      applyDrainDisturbance(
+        state,
+        dimensions,
+        config,
+        DEFAULT_LEAK_RATE_PER_SECOND,
+        safePourX,
+      );
       state.emitAccumulator = 0;
     } else {
-      addPourVolume(state, dt, config);
+      addPourVolume(state, dt, config, pourMultiplier);
       emitImpactSplash(state, dt, dimensions, config, safePourX);
-      applyContinuousPourDisturbance(state, dt, dimensions, config, safePourX);
+      applyContinuousPourDisturbance(
+        state,
+        dt * Math.max(0.75, pourMultiplier),
+        dimensions,
+        config,
+        safePourX,
+      );
     }
   } else {
     state.emitAccumulator = 0;

@@ -669,11 +669,16 @@ export function playGameModeSelect(gameModeId = "classic", index = 0) {
   if (!context || !allowSound(`game-mode-select-${gameModeId}`, 110)) return;
 
   const modePreset = {
-    blind: { brightness: 1.18, root: 420, rise: 1.7 },
+    blind: { brightness: 0.92, root: 310, rise: 0.95 },
+    flash: { brightness: 1.22, root: 430, rise: 1.7 },
     classic: { brightness: 0.95, root: 360, rise: 1.42 },
     "fake-target": { brightness: 1.35, root: 470, rise: 1.26 },
+    invert: { brightness: 1.05, root: 330, rise: 0.82 },
     leaky: { brightness: 0.58, root: 250, rise: 0.82 },
     "reverse-pour": { brightness: 0.7, root: 300, rise: 0.7 },
+    "burst-click": { brightness: 1.42, root: 510, rise: 1.5 },
+    "charge-pour": { brightness: 1.05, root: 390, rise: 1.9 },
+    colorblind: { brightness: 0.82, root: 280, rise: 1.15 },
     tilt: { brightness: 1.1, root: 520, rise: 1.08 },
   }[gameModeId] || { brightness: 0.95, root: 360, rise: 1.35 };
   const pan = (index - 2) * 0.04;
@@ -810,7 +815,166 @@ export function playIntroStep(stepIndex = 0) {
   });
 }
 
-export function startPourLoop({ leaky = false, reverse = false } = {}) {
+export function startChargeLoop() {
+  const context = getPlayableContext();
+  if (!context || !mixBus) return { stop: () => {}, update: () => {} };
+
+  stopActivePourLoops({ release: false });
+
+  const startTime = context.currentTime;
+  const reservoir = context.createBufferSource();
+  const reservoirFilter = context.createBiquadFilter();
+  const reservoirGain = context.createGain();
+  const hum = context.createOscillator();
+  const shimmer = context.createOscillator();
+  const humGain = context.createGain();
+  const shimmerGain = context.createGain();
+  const filter = context.createBiquadFilter();
+  const timers = new Set();
+  let pressure = 0;
+  let stopped = false;
+
+  reservoir.buffer = getNoiseBuffer(context);
+  reservoir.loop = true;
+  reservoirFilter.type = "lowpass";
+  reservoirFilter.frequency.setValueAtTime(520, startTime);
+  reservoirFilter.Q.value = 0.18;
+  reservoirGain.gain.setValueAtTime(0.0001, startTime);
+  reservoirGain.gain.linearRampToValueAtTime(0.0016, startTime + 0.18);
+
+  hum.type = "sawtooth";
+  shimmer.type = "triangle";
+  hum.frequency.setValueAtTime(132, startTime);
+  shimmer.frequency.setValueAtTime(420, startTime);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(900, startTime);
+  filter.Q.value = 0.72;
+  humGain.gain.setValueAtTime(0.0001, startTime);
+  shimmerGain.gain.setValueAtTime(0.0001, startTime);
+  humGain.gain.linearRampToValueAtTime(0.006, startTime + 0.16);
+  shimmerGain.gain.linearRampToValueAtTime(0.0028, startTime + 0.2);
+
+  reservoir.connect(reservoirFilter);
+  reservoirFilter.connect(reservoirGain);
+  reservoirGain.connect(mixBus);
+  hum.connect(filter);
+  filter.connect(humGain);
+  shimmer.connect(shimmerGain);
+  humGain.connect(mixBus);
+  shimmerGain.connect(mixBus);
+  reservoir.start(startTime);
+  hum.start(startTime);
+  shimmer.start(startTime);
+
+  const tick = () => {
+    if (stopped) return;
+
+    const pulseBase = 460 + pressure * 540;
+    const pulsePan = (Math.random() - 0.5) * 0.16;
+
+    scheduleTone(context, {
+      attack: 0.003,
+      duration: 0.055 + pressure * 0.02,
+      endFrequency: pulseBase * (1.22 + pressure * 0.16),
+      frequency: pulseBase,
+      gain: 0.008 + pressure * 0.016,
+      pan: pulsePan,
+      type: "triangle",
+    });
+    if (pressure > 0.32) {
+      scheduleTone(context, {
+        attack: 0.002,
+        delay: 0.018,
+        duration: 0.04 + pressure * 0.012,
+        endFrequency: pulseBase * (2.05 + pressure * 0.18),
+        frequency: pulseBase * 1.48,
+        gain: 0.004 + pressure * 0.01,
+        pan: -pulsePan * 0.65,
+        type: "square",
+      });
+    }
+
+    const timerId = window.setTimeout(tick, 168 - pressure * 54);
+    timers.add(timerId);
+  };
+
+  const timerId = window.setTimeout(tick, 120);
+  timers.add(timerId);
+
+  let unregister = () => {};
+  const loop = {
+    update(nextPressure = pressure) {
+      if (stopped) return;
+
+      pressure = clamp01(nextPressure);
+      const now = context.currentTime;
+      reservoirFilter.frequency.setTargetAtTime(520 + pressure * 460, now, 0.08);
+      reservoirGain.gain.setTargetAtTime(0.001 + pressure * 0.003, now, 0.08);
+      hum.frequency.setTargetAtTime(132 + pressure * 192, now, 0.08);
+      shimmer.frequency.setTargetAtTime(420 + pressure * 760, now, 0.08);
+      filter.frequency.setTargetAtTime(900 + pressure * 2100, now, 0.08);
+      humGain.gain.setTargetAtTime(0.006 + pressure * 0.026, now, 0.08);
+      shimmerGain.gain.setTargetAtTime(0.0028 + pressure * 0.018, now, 0.08);
+    },
+    stop({ release = false } = {}) {
+      if (stopped) return;
+
+      stopped = true;
+      unregister();
+      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.clear();
+
+      const now = context.currentTime;
+      reservoirGain.gain.cancelScheduledValues(now);
+      humGain.gain.cancelScheduledValues(now);
+      shimmerGain.gain.cancelScheduledValues(now);
+      reservoirGain.gain.setTargetAtTime(0.0001, now, 0.05);
+      humGain.gain.setTargetAtTime(0.0001, now, 0.045);
+      shimmerGain.gain.setTargetAtTime(0.0001, now, 0.035);
+
+      window.setTimeout(() => {
+        try {
+          reservoir.stop();
+          hum.stop();
+          shimmer.stop();
+        } catch {}
+      }, 140);
+
+      if (release) {
+        scheduleTone(context, {
+          attack: 0.002,
+          duration: 0.12,
+          endFrequency: 360 + pressure * 320,
+          frequency: 720 + pressure * 760,
+          gain: 0.032 + pressure * 0.03,
+          type: "triangle",
+        });
+        scheduleTone(context, {
+          attack: 0.001,
+          delay: 0.018,
+          duration: 0.08,
+          endFrequency: 1280 + pressure * 820,
+          frequency: 920 + pressure * 680,
+          gain: 0.018 + pressure * 0.018,
+          type: "square",
+        });
+        scheduleNoise(context, {
+          delay: 0.012,
+          duration: 0.035,
+          filterFrequency: 2600 + pressure * 1800,
+          filterType: "bandpass",
+          gain: 0.008 + pressure * 0.01,
+          q: 3.2,
+        });
+      }
+    },
+  };
+
+  unregister = registerPourLoop(loop);
+  return loop;
+}
+
+export function startPourLoop({ heavy = false, leaky = false, reverse = false } = {}) {
   const context = getPlayableContext();
   if (!context || !mixBus) return { stop: () => {}, update: () => {} };
 
@@ -835,38 +999,38 @@ export function startPourLoop({ leaky = false, reverse = false } = {}) {
 
   streamFilter.type = leaky ? "bandpass" : "lowpass";
   streamFilter.frequency.setValueAtTime(
-    leaky ? 620 : reverse ? 740 : 1120,
+    leaky ? 620 : heavy ? 620 : reverse ? 740 : 1120,
     startTime,
   );
-  streamFilter.Q.value = leaky ? 1.05 : 0.42;
+  streamFilter.Q.value = leaky ? 1.05 : heavy ? 0.28 : 0.42;
 
   foamFilter.type = "bandpass";
-  foamFilter.frequency.setValueAtTime(leaky ? 1250 : 1650, startTime);
+  foamFilter.frequency.setValueAtTime(heavy ? 980 : leaky ? 1250 : 1650, startTime);
   foamFilter.Q.value = 0.65;
 
   bodyFilter.type = "lowpass";
-  bodyFilter.frequency.setValueAtTime(reverse ? 240 : 310, startTime);
+  bodyFilter.frequency.setValueAtTime(heavy ? 210 : reverse ? 240 : 310, startTime);
   bodyFilter.Q.value = 0.55;
 
   streamGain.gain.setValueAtTime(0.0001, startTime);
   foamGain.gain.setValueAtTime(0.0001, startTime);
   bodyGain.gain.setValueAtTime(0.0001, startTime);
   streamGain.gain.linearRampToValueAtTime(
-    leaky ? 0.03 : reverse ? 0.036 : 0.042,
+    heavy ? 0.064 : leaky ? 0.03 : reverse ? 0.036 : 0.042,
     startTime + 0.16,
   );
   foamGain.gain.linearRampToValueAtTime(
-    leaky ? 0.006 : reverse ? 0.008 : 0.01,
+    heavy ? 0.014 : leaky ? 0.006 : reverse ? 0.008 : 0.01,
     startTime + 0.18,
   );
   bodyGain.gain.linearRampToValueAtTime(
-    reverse ? 0.014 : 0.01,
+    heavy ? 0.026 : reverse ? 0.014 : 0.01,
     startTime + 0.2,
   );
 
   flowLfo.type = "sine";
-  flowLfo.frequency.setValueAtTime(leaky ? 2.2 : 2.8, startTime);
-  flowLfoDepth.gain.setValueAtTime(leaky ? 38 : 72, startTime);
+  flowLfo.frequency.setValueAtTime(heavy ? 1.35 : leaky ? 2.2 : 2.8, startTime);
+  flowLfoDepth.gain.setValueAtTime(heavy ? 34 : leaky ? 38 : 72, startTime);
   flowLfo.connect(flowLfoDepth);
   flowLfoDepth.connect(streamFilter.frequency);
 
@@ -918,8 +1082,24 @@ export function startPourLoop({ leaky = false, reverse = false } = {}) {
     bubbleTimers.add(timerId);
   };
 
-  const timerId = window.setTimeout(pulse, 70);
-  bubbleTimers.add(timerId);
+  if (heavy) {
+    scheduleNoise(context, {
+      delay: 0.012,
+      duration: 0.19,
+      filterFrequency: 360,
+      filterType: "lowpass",
+      gain: 0.052,
+      q: 0.48,
+    });
+    scheduleSplash(context, {
+      brightness: 0.72,
+      delay: 0.06,
+      size: 1.8,
+    });
+  } else {
+    const timerId = window.setTimeout(pulse, 70);
+    bubbleTimers.add(timerId);
+  }
 
   let unregister = () => {};
   const loop = {
@@ -932,44 +1112,54 @@ export function startPourLoop({ leaky = false, reverse = false } = {}) {
       streamFilter.frequency.setTargetAtTime(
         leaky
           ? 520 + pressure * 460
-          : reverse
-            ? 600 + pressure * 640
-            : 850 + pressure * 1150,
+          : heavy
+            ? 430 + pressure * 520
+            : reverse
+              ? 600 + pressure * 640
+              : 850 + pressure * 1150,
         now,
         0.12,
       );
       foamFilter.frequency.setTargetAtTime(
-        leaky ? 980 + pressure * 760 : 1250 + pressure * 1300,
+        heavy
+          ? 820 + pressure * 720
+          : leaky ? 980 + pressure * 760 : 1250 + pressure * 1300,
         now,
         0.14,
       );
       bodyFilter.frequency.setTargetAtTime(
-        reverse ? 210 + pressure * 180 : 260 + pressure * 220,
+        heavy ? 190 + pressure * 150 : reverse ? 210 + pressure * 180 : 260 + pressure * 220,
         now,
         0.12,
       );
       streamGain.gain.setTargetAtTime(
-        leaky ? 0.024 + pressure * 0.034 : 0.032 + pressure * 0.052,
+        heavy
+          ? 0.052 + pressure * 0.07
+          : leaky ? 0.024 + pressure * 0.034 : 0.032 + pressure * 0.052,
         now,
         0.11,
       );
       foamGain.gain.setTargetAtTime(
-        leaky ? 0.005 + pressure * 0.012 : 0.006 + pressure * 0.018,
+        heavy
+          ? 0.012 + pressure * 0.018
+          : leaky ? 0.005 + pressure * 0.012 : 0.006 + pressure * 0.018,
         now,
         0.11,
       );
       bodyGain.gain.setTargetAtTime(
-        reverse ? 0.012 + pressure * 0.02 : 0.008 + pressure * 0.018,
+        heavy
+          ? 0.024 + pressure * 0.026
+          : reverse ? 0.012 + pressure * 0.02 : 0.008 + pressure * 0.018,
         now,
         0.1,
       );
       flowLfo.frequency.setTargetAtTime(
-        leaky ? 1.9 + pressure * 1.9 : 2.4 + pressure * 2.5,
+        heavy ? 1.08 + pressure * 0.7 : leaky ? 1.9 + pressure * 1.9 : 2.4 + pressure * 2.5,
         now,
         0.16,
       );
       flowLfoDepth.gain.setTargetAtTime(
-        leaky ? 32 + pressure * 58 : 52 + pressure * 105,
+        heavy ? 28 + pressure * 48 : leaky ? 32 + pressure * 58 : 52 + pressure * 105,
         now,
         0.16,
       );

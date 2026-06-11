@@ -22,6 +22,7 @@ function getWaterColor(waterColorId, fallbackId) {
 
 function getCanvasStatus(state) {
   if (state.status === "filling" && state.isPouring) return "filling";
+  if (state.status === "burst" && state.isPouring) return "burst";
   if (state.status === "leaking") return "leaking";
   if (state.status === "intro") return "intro";
 
@@ -44,6 +45,7 @@ function getAverageLevel(levels) {
 
 function OpponentWaterLayer({ roundIndex, settings, state }) {
   const activeRuleMode = getActiveRuleMode(settings, roundIndex);
+  const isInvert = activeRuleMode === GAME_RULE_MODES.INVERT;
   const isSplitFill = activeRuleMode === GAME_RULE_MODES.SPLIT_FILL;
   const initialSplitLevels = Array.isArray(state.splitLevels)
     ? state.splitLevels
@@ -51,7 +53,11 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
   const visibleLevel =
     isSplitFill ? getAverageLevel(initialSplitLevels) : state.level;
   const initialExternalLevel = clamp(visibleLevel ?? 0, 0, 100);
-  const labelLevel = clamp(visibleLevel ?? 0, 3, 96);
+  const labelLevel = clamp(
+    isInvert ? 100 - (visibleLevel ?? 0) : (visibleLevel ?? 0),
+    3,
+    96,
+  );
   const levelRef = useRef(initialExternalLevel);
   const externalLevelRef = useRef(initialExternalLevel);
   const pourXRef = useRef(clamp(state.pourX ?? 0.5, 0.02, 0.98));
@@ -71,10 +77,18 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
   );
   const tiltRef = useRef(clamp(state.tilt ?? 0, -1, 1));
   const playerName = state.player?.name || "";
-  const waterColor = getWaterColor(
-    state.player?.waterColorId,
-    settings?.waterColorId,
-  );
+  const waterColor =
+    activeRuleMode === GAME_RULE_MODES.COLORBLIND
+      ? {
+          id: "colorblind",
+          name: "Colorblind",
+          text: "#f7f7f2",
+          value: "#0d0d0c",
+        }
+      : getWaterColor(
+          state.player?.waterColorId,
+          settings?.waterColorId,
+        );
 
   useEffect(() => {
     const nextLevel = clamp(state.level ?? levelRef.current, 0, 100);
@@ -148,10 +162,18 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
   return (
     <>
       <WaterPhysicsCanvas
+        burstPattern={
+          activeRuleMode === GAME_RULE_MODES.BURST_CLICK
+            ? "steady"
+            : activeRuleMode === GAME_RULE_MODES.CHARGE_POUR
+              ? "mass"
+              : "chunked"
+        }
         className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
         difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
         externalLevelRef={externalLevelRef}
         initialLevel={getInitialLevel(activeRuleMode)}
+        isInvertedWater={isInvert}
         isPourActive={state.isPouring}
         isReversePour={activeRuleMode === GAME_RULE_MODES.REVERSE_POUR}
         levelRef={levelRef}

@@ -11,6 +11,7 @@ import { createRoundTargets } from "./targets.js";
 import {
   fail,
   ok,
+  validateBandLevels,
   validateLevel,
   validatePlayerId,
   validateRoundIndex,
@@ -84,6 +85,10 @@ function serializeResult(result) {
     round: result.round,
     roundIndex: result.roundIndex,
     score: result.score,
+    bandDiffs: result.bandDiffs || null,
+    bandLevels: result.bandLevels || null,
+    bandScores: result.bandScores || null,
+    bandTargets: result.bandTargets || null,
     splitDiffs: result.splitDiffs || null,
     splitLevels: result.splitLevels || null,
     splitScores: result.splitScores || null,
@@ -209,7 +214,17 @@ export function submitRoundGuess(room, payload) {
       : ok({ splitLevels: null });
   if (!splitLevelsResult.ok) return splitLevelsResult;
 
+  const bandLevelsResult =
+    activeRuleMode === GAME_RULE_MODES.BAND_RUN
+      ? validateBandLevels(payload.bandLevels, target.bandTargets?.length || 0)
+      : ok({ bandLevels: null });
+  if (!bandLevelsResult.ok) return bandLevelsResult;
+
   const result = calculateRoundResult({
+    bandLevels: bandLevelsResult.data.bandLevels,
+    bandTargets: Array.isArray(target.bandTargets)
+      ? target.bandTargets
+      : [target.target, target.target],
     fakeTarget:
       activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
         ? target.fakeTarget
@@ -280,6 +295,7 @@ export function submitFullResults(room, payload) {
 
   for (const item of payload.results) {
     const submission = submitRoundGuess(room, {
+      bandLevels: item.bandLevels,
       level: item.level,
       playerId: payload.playerId,
       roundIndex: item.roundIndex,
@@ -309,6 +325,13 @@ export function buildLeaderboard(room) {
               ? target?.fakeTarget
               : null,
           level: 0,
+          bandLevels:
+            activeRuleMode === GAME_RULE_MODES.BAND_RUN
+              ? Array.from({ length: target?.bandTargets?.length || 2 }, () => 0)
+              : null,
+          bandTargets: Array.isArray(target?.bandTargets)
+            ? target.bandTargets
+            : [target?.target ?? 0, target?.target ?? 0],
           roundIndex: index,
           ruleMode: activeRuleMode,
           splitLevels:

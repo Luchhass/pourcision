@@ -59,6 +59,25 @@ function createSplitTargets(random) {
   return [firstTarget, secondTarget];
 }
 
+function createBandTargets(random) {
+  const count = 2 + Math.floor(random() * 4);
+  const targets = [];
+
+  for (let attempt = 0; attempt < 24 && targets.length < count; attempt += 1) {
+    const candidate = createTarget(random);
+
+    if (targets.every((target) => Math.abs(target - candidate) >= 7)) {
+      targets.push(candidate);
+    }
+  }
+
+  while (targets.length < count) {
+    targets.push(createTarget(random));
+  }
+
+  return targets.sort((first, second) => first - second);
+}
+
 export function createSeed() {
   return crypto.randomBytes(12).toString("hex");
 }
@@ -71,6 +90,7 @@ export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT) {
 
     return {
       fakeTarget: createFakeTarget(random, target),
+      bandTargets: createBandTargets(random),
       round: roundIndex + 1,
       roundIndex,
       splitTargets: createSplitTargets(random),

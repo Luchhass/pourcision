@@ -14,7 +14,9 @@ export const MENU_MODES = {
 export const GAME_RULE_MODES = {
   CLASSIC: "classic",
   BLIND: "blind",
+  FLASH: "flash",
   FAKE_TARGET: "fake-target",
+  INVERT: "invert",
   REVERSE_POUR: "reverse-pour",
   LEAKY: "leaky",
   TILT: "tilt",
@@ -22,6 +24,10 @@ export const GAME_RULE_MODES = {
   ENDLESS: "endless",
   SPLIT_FILL: "split-fill",
   PERFECT_OR_NOTHING: "perfect-or-nothing",
+  BAND_RUN: "band-run",
+  CHARGE_POUR: "charge-pour",
+  BURST_CLICK: "burst-click",
+  COLORBLIND: "colorblind",
 };
 
 export const GAME_DIFFICULTIES = {
@@ -36,31 +42,43 @@ export const MAX_ROUND_SCORE = 10;
 export const MIN_TARGET = 24;
 export const MAX_TARGET = 86;
 export const FAKE_TARGET_MIN_DISTANCE = 12;
-export const LEAKY_ROUND_MS = 7000;
+export const TIMED_ROUND_MS = 5000;
+export const LEAKY_ROUND_MS = TIMED_ROUND_MS;
 export const PERFECT_ZONE_RADIUS = 2.2;
 export const CHAOS_BRIEFING_MS = 3000;
 export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CLASSIC,
   GAME_RULE_MODES.BLIND,
+  GAME_RULE_MODES.FLASH,
   GAME_RULE_MODES.FAKE_TARGET,
+  GAME_RULE_MODES.INVERT,
   GAME_RULE_MODES.REVERSE_POUR,
   GAME_RULE_MODES.LEAKY,
   GAME_RULE_MODES.TILT,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
+  GAME_RULE_MODES.BAND_RUN,
+  GAME_RULE_MODES.CHARGE_POUR,
+  GAME_RULE_MODES.BURST_CLICK,
+  GAME_RULE_MODES.COLORBLIND,
 ];
 
 export const MODE_GRID_ORDER = [
   GAME_RULE_MODES.CLASSIC,
-  GAME_RULE_MODES.FAKE_TARGET,
-  GAME_RULE_MODES.LEAKY,
-  GAME_RULE_MODES.CHAOS_QUEUE,
+  GAME_RULE_MODES.INVERT,
+  GAME_RULE_MODES.FLASH,
   GAME_RULE_MODES.BLIND,
   GAME_RULE_MODES.REVERSE_POUR,
-  GAME_RULE_MODES.TILT,
-  GAME_RULE_MODES.ENDLESS,
+  GAME_RULE_MODES.LEAKY,
+  GAME_RULE_MODES.FAKE_TARGET,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
+  GAME_RULE_MODES.BAND_RUN,
+  GAME_RULE_MODES.CHARGE_POUR,
+  GAME_RULE_MODES.BURST_CLICK,
+  GAME_RULE_MODES.COLORBLIND,
+  GAME_RULE_MODES.TILT,
+  GAME_RULE_MODES.CHAOS_QUEUE,
 ];
 
 export const WATER_COLORS = [
@@ -174,8 +192,14 @@ export const GAME_MODE_OPTIONS = [
   {
     id: GAME_RULE_MODES.BLIND,
     label: "Blind",
-    description: "No guide line. Adjust freely, then lock.",
-    allowsManualDone: true,
+    description: "No target line. Trust the goal percentage.",
+    oneHold: true,
+  },
+  {
+    id: GAME_RULE_MODES.FLASH,
+    label: "Flash",
+    description: "The line flashes briefly. Five seconds to chase it.",
+    roundDurationMs: TIMED_ROUND_MS,
   },
   {
     id: GAME_RULE_MODES.FAKE_TARGET,
@@ -184,15 +208,21 @@ export const GAME_MODE_OPTIONS = [
     oneHold: true,
   },
   {
+    id: GAME_RULE_MODES.INVERT,
+    label: "Invert",
+    description: "Classic timing with the water flipped upside down.",
+    oneHold: true,
+  },
+  {
     id: GAME_RULE_MODES.REVERSE_POUR,
-    label: "Reverse Pour",
+    label: "Draining",
     description: "Start full. Hold to drain down.",
     oneHold: true,
   },
   {
     id: GAME_RULE_MODES.LEAKY,
     label: "Leaky",
-    description: "Release leaks. Short clock, then lock.",
+    description: "Release leaks. Hold the level for five seconds.",
     roundDurationMs: LEAKY_ROUND_MS,
   },
   {
@@ -207,13 +237,6 @@ export const GAME_MODE_OPTIONS = [
     description: "A random rule appears before every round.",
   },
   {
-    id: GAME_RULE_MODES.ENDLESS,
-    label: "Endless",
-    description: "Classic rounds without a final scoreboard. Keep playing forever.",
-    oneHold: true,
-    singleplayerOnly: true,
-  },
-  {
     id: GAME_RULE_MODES.SPLIT_FILL,
     label: "Split Fill",
     description: "Two tanks. Two targets. One release.",
@@ -221,8 +244,31 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.PERFECT_OR_NOTHING,
-    label: "Ten or Zero",
-    description: "Hit the narrow zone for ten, miss it for zero.",
+    label: "All or Nothing",
+    description: "Hit the narrow zone for everything, miss it for nothing.",
+    oneHold: true,
+  },
+  {
+    id: GAME_RULE_MODES.BAND_RUN,
+    label: "Band Run",
+    description: "Two to five target bands. One touch for each.",
+  },
+  {
+    id: GAME_RULE_MODES.CHARGE_POUR,
+    label: "Pressure Charge",
+    description: "Hold to charge. Release a stronger pour from above.",
+    oneHold: true,
+  },
+  {
+    id: GAME_RULE_MODES.BURST_CLICK,
+    label: "Burst Click",
+    description: "Spam quick taps to build a steady timed flow.",
+    roundDurationMs: TIMED_ROUND_MS,
+  },
+  {
+    id: GAME_RULE_MODES.COLORBLIND,
+    label: "Colorblind",
+    description: "Classic timing in strict black and white.",
     oneHold: true,
   },
 ];

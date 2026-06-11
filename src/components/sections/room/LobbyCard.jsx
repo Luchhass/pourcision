@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowUpDown,
+  BatteryCharging,
   CircleDot,
   Clipboard,
   Columns2,
@@ -10,12 +12,14 @@ import {
   Flag,
   Gauge,
   Lock,
+  MousePointerClick,
   Palette,
   Pencil,
   RotateCcw,
   Shuffle,
   Timer,
   UserMinus,
+  Zap,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
@@ -35,11 +39,17 @@ import {
 
 const modeIcons = {
   [GAME_RULE_MODES.BLIND]: EyeOff,
+  [GAME_RULE_MODES.FLASH]: Zap,
   [GAME_RULE_MODES.CLASSIC]: CircleDot,
   [GAME_RULE_MODES.CHAOS_QUEUE]: Shuffle,
   [GAME_RULE_MODES.FAKE_TARGET]: Flag,
+  [GAME_RULE_MODES.INVERT]: ArrowUpDown,
   [GAME_RULE_MODES.LEAKY]: Droplet,
   [GAME_RULE_MODES.PERFECT_OR_NOTHING]: CircleDot,
+  [GAME_RULE_MODES.BAND_RUN]: CircleDot,
+  [GAME_RULE_MODES.CHARGE_POUR]: BatteryCharging,
+  [GAME_RULE_MODES.BURST_CLICK]: MousePointerClick,
+  [GAME_RULE_MODES.COLORBLIND]: Palette,
   [GAME_RULE_MODES.REVERSE_POUR]: RotateCcw,
   [GAME_RULE_MODES.SPLIT_FILL]: Columns2,
   [GAME_RULE_MODES.TILT]: Gauge,

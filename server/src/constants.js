@@ -9,13 +9,19 @@ export const ROOM_STATUSES = {
 export const GAME_RULE_MODES = {
   CLASSIC: "classic",
   BLIND: "blind",
+  FLASH: "flash",
   FAKE_TARGET: "fake-target",
+  INVERT: "invert",
   REVERSE_POUR: "reverse-pour",
   LEAKY: "leaky",
   TILT: "tilt",
   CHAOS_QUEUE: "chaos-queue",
   SPLIT_FILL: "split-fill",
   PERFECT_OR_NOTHING: "perfect-or-nothing",
+  BAND_RUN: "band-run",
+  CHARGE_POUR: "charge-pour",
+  BURST_CLICK: "burst-click",
+  COLORBLIND: "colorblind",
 };
 
 export const GAME_MODES = GAME_RULE_MODES;
@@ -54,12 +60,18 @@ export const PERFECT_ZONE_RADIUS = 2.2;
 export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CLASSIC,
   GAME_RULE_MODES.BLIND,
+  GAME_RULE_MODES.FLASH,
   GAME_RULE_MODES.FAKE_TARGET,
+  GAME_RULE_MODES.INVERT,
   GAME_RULE_MODES.REVERSE_POUR,
   GAME_RULE_MODES.LEAKY,
   GAME_RULE_MODES.TILT,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
+  GAME_RULE_MODES.BAND_RUN,
+  GAME_RULE_MODES.CHARGE_POUR,
+  GAME_RULE_MODES.BURST_CLICK,
+  GAME_RULE_MODES.COLORBLIND,
 ];
 export const ROOM_CODE_LENGTH = 6;
 export const PLAYER_NAME_MIN_LENGTH = 2;
@@ -77,15 +89,25 @@ export const ROOM_VISIBILITIES = {
 export const GAME_MODE_CONFIG = {
   [GAME_RULE_MODES.CLASSIC]: {},
   [GAME_RULE_MODES.BLIND]: {},
+  [GAME_RULE_MODES.FLASH]: {
+    roundDurationMs: 5000,
+  },
   [GAME_RULE_MODES.FAKE_TARGET]: {},
+  [GAME_RULE_MODES.INVERT]: {},
   [GAME_RULE_MODES.REVERSE_POUR]: {},
   [GAME_RULE_MODES.LEAKY]: {
-    roundDurationMs: 7000,
+    roundDurationMs: 5000,
   },
   [GAME_RULE_MODES.TILT]: {},
   [GAME_RULE_MODES.CHAOS_QUEUE]: {},
   [GAME_RULE_MODES.SPLIT_FILL]: {},
   [GAME_RULE_MODES.PERFECT_OR_NOTHING]: {},
+  [GAME_RULE_MODES.BAND_RUN]: {},
+  [GAME_RULE_MODES.CHARGE_POUR]: {},
+  [GAME_RULE_MODES.BURST_CLICK]: {
+    roundDurationMs: 5000,
+  },
+  [GAME_RULE_MODES.COLORBLIND]: {},
 };
 
 export const DEFAULT_SETTINGS = {

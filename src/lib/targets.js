@@ -69,6 +69,25 @@ export function createSplitTargets(random = Math.random) {
   return [firstTarget, secondTarget];
 }
 
+export function createBandTargets(random = Math.random) {
+  const count = 2 + Math.floor(random() * 4);
+  const targets = [];
+
+  for (let attempt = 0; attempt < 24 && targets.length < count; attempt += 1) {
+    const candidate = createTarget(random);
+
+    if (targets.every((target) => Math.abs(target - candidate) >= 7)) {
+      targets.push(candidate);
+    }
+  }
+
+  while (targets.length < count) {
+    targets.push(createTarget(random));
+  }
+
+  return targets.sort((first, second) => first - second);
+}
+
 export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT) {
   const random = seed ? createSeededRandom(seed) : Math.random;
 
@@ -77,6 +96,7 @@ export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT) {
 
     return {
       fakeTarget: createFakeTarget(target, random),
+      bandTargets: createBandTargets(random),
       round: roundIndex + 1,
       roundIndex,
       splitTargets: createSplitTargets(random),

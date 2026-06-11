@@ -21,11 +21,12 @@ import {
   playRoundAdvance,
   playRoundResult,
   startRoundScoreCountSound,
+  startChargeLoop,
   startPourLoop,
 } from "@/lib/sound";
 
 function formatPercent(value) {
-  return `${value.toFixed(1)}%`;
+  return `${clamp(Number(value) || 0, 0, 100).toFixed(1)}%`;
 }
 
 function formatDiff(value) {
@@ -147,6 +148,46 @@ function SplitTargetGuides({ splitTargets }) {
   );
 }
 
+function BandTargetGuides({ activeIndex = 0, bandTargets = [] }) {
+  return (
+    <>
+      {bandTargets.map((bandTarget, index) => {
+        const safeBandTarget = clamp(Number(bandTarget) || 0, 0, 100);
+
+        return (
+          <div
+            className="pointer-events-none absolute inset-x-0 z-40"
+            data-gameplay-reveal="target-guide"
+            key={`${safeBandTarget}-${index}`}
+            style={{ top: `${100 - safeBandTarget}%` }}
+          >
+            <div
+              className={[
+                "absolute inset-x-[-8vw] top-0 border-t-2 border-dashed [transform-origin:center_center] dark:border-[#f7f7f2]/38",
+                index === activeIndex
+                  ? "border-[#0d0d0c]/58"
+                  : "border-[#0d0d0c]/24",
+              ].join(" ")}
+              data-gameplay-reveal-line="true"
+            />
+            <span
+              className={[
+                "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 md:right-8",
+                index === activeIndex
+                  ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+                  : "bg-[#0d0d0c]/38 text-white dark:bg-[#f7f7f2]/28 dark:text-[#f7f7f2]",
+              ].join(" ")}
+              data-gameplay-reveal-badge="true"
+            >
+              {formatPercent(safeBandTarget)}
+            </span>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function getResultMessage(result, t) {
   if (!result) {
     return "";
@@ -174,6 +215,7 @@ function getResultMessage(result, t) {
 function getResultLabel(label, t) {
   const labels = {
     "NO SCORE": t("game.labels.noScore"),
+    "BAND MISS": t("game.bandMiss"),
     "PERFECT!": t("game.labels.perfect"),
     "SO CLOSE!": t("game.labels.soClose"),
     "SPLIT MISS": t("game.splitMiss"),
@@ -198,6 +240,7 @@ export default function GameplayScreen({
   const { t } = useTranslation();
   const pourXRef = useRef(0.5);
   const pourSoundRef = useRef(null);
+  const chargeSoundStartedAtRef = useRef(0);
   const gameplayRevealKeyRef = useRef("");
   const gameplayRevealTimelineRef = useRef(null);
   const gameplayRootRef = useRef(null);
@@ -223,11 +266,12 @@ export default function GameplayScreen({
   const [activeSplitIndex, setActiveSplitIndex] = useState(0);
   const activeSplitIndexRef = useRef(0);
   const [chaosBriefingRound, setChaosBriefingRound] = useState(-1);
+  const [flashTargetVisible, setFlashTargetVisible] = useState(false);
   const [visibleResultKey, setVisibleResultKey] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const diffValueRef = useRef(null);
   const resultScoreRef = useRef(null);
-  const waterColor =
+  const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === settings?.waterColorId) ??
     WATER_COLORS[0];
   const difficulty = settings?.difficulty ?? GAME_DIFFICULTIES.NORMAL;
@@ -264,7 +308,10 @@ export default function GameplayScreen({
   }, [getInitialLevelForMode, ruleMode]);
   const {
     advanceRound,
+    bandAttemptIndex,
+    bandTargets,
     completeIntro,
+    chargePowerRef,
     gameMode: activeRuleMode,
     fakeTarget,
     finishRound,
@@ -294,10 +341,27 @@ export default function GameplayScreen({
   });
 
   const isFakeTargetMode = activeRuleMode === GAME_RULE_MODES.FAKE_TARGET;
+  const isFlashMode = activeRuleMode === GAME_RULE_MODES.FLASH;
   const isPerfectOrNothingMode =
     activeRuleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING;
+  const isInvertMode = activeRuleMode === GAME_RULE_MODES.INVERT;
   const isReversePourMode = activeRuleMode === GAME_RULE_MODES.REVERSE_POUR;
   const isSplitFillMode = activeRuleMode === GAME_RULE_MODES.SPLIT_FILL;
+  const isBandRunMode = activeRuleMode === GAME_RULE_MODES.BAND_RUN;
+  const isChargePourMode = activeRuleMode === GAME_RULE_MODES.CHARGE_POUR;
+  const isBurstClickMode = activeRuleMode === GAME_RULE_MODES.BURST_CLICK;
+  const isColorblindMode = activeRuleMode === GAME_RULE_MODES.COLORBLIND;
+  const waterColor = isColorblindMode
+    ? {
+        id: "colorblind",
+        name: "Colorblind",
+        value: "#0d0d0c",
+        text: "#f7f7f2",
+      }
+    : selectedWaterColor;
+  const canvasStatus =
+    isChargePourMode && status === "filling" ? "idle" : status;
+  const isPulsePourMode = isChargePourMode || isBurstClickMode;
   const isTiltMode = activeRuleMode === GAME_RULE_MODES.TILT;
   const initialWaterLevel = getInitialLevelForMode(activeRuleMode);
   const isIntroPhase = status === "intro";
@@ -306,9 +370,13 @@ export default function GameplayScreen({
     isChaosQueue && isIntroPhase && chaosBriefingRound !== roundIndex;
   const shouldShowTargetGuide =
     !isSplitFillMode &&
+    !isBandRunMode &&
     !isIntroPhase &&
-    (showTargetGuide || isResultPhase);
+    (isFlashMode
+      ? isResultPhase || flashTargetVisible
+      : showTargetGuide || isResultPhase);
   const shouldShowSplitTargets = isSplitFillMode && !isIntroPhase;
+  const shouldShowBandTargets = isBandRunMode && !isIntroPhase && !isResultPhase;
   const resultLabel = getResultLabel(lastResult?.label ?? "", t);
   const resultGuidance = getResultMessage(lastResult, t);
   const roundDiff = isResultPhase ? "00" : "00";
@@ -317,21 +385,37 @@ export default function GameplayScreen({
       ? t("game.guidance.endless")
       : activeRuleMode === GAME_RULE_MODES.SPLIT_FILL
         ? t("game.guidance.split")
-        : activeRuleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING
-          ? t("game.guidance.perfect")
-          : activeRuleMode === GAME_RULE_MODES.LEAKY
-      ? t(`modes.${GAME_RULE_MODES.LEAKY}.briefing`)
-      : activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
-        ? t(`modes.${GAME_RULE_MODES.FAKE_TARGET}.briefing`)
-        : activeRuleMode === GAME_RULE_MODES.REVERSE_POUR
-          ? t(`modes.${GAME_RULE_MODES.REVERSE_POUR}.briefing`)
-          : activeRuleMode === GAME_RULE_MODES.TILT
-            ? t(`modes.${GAME_RULE_MODES.TILT}.briefing`)
-            : t("game.guidance.classic");
+        : activeRuleMode === GAME_RULE_MODES.BAND_RUN
+          ? t("game.guidance.band")
+        : activeRuleMode === GAME_RULE_MODES.CHARGE_POUR
+          ? t(`modes.${GAME_RULE_MODES.CHARGE_POUR}.briefing`)
+        : activeRuleMode === GAME_RULE_MODES.BURST_CLICK
+          ? t(`modes.${GAME_RULE_MODES.BURST_CLICK}.briefing`)
+        : activeRuleMode === GAME_RULE_MODES.COLORBLIND
+          ? t(`modes.${GAME_RULE_MODES.COLORBLIND}.briefing`)
+        : activeRuleMode === GAME_RULE_MODES.FLASH
+          ? t(`modes.${GAME_RULE_MODES.FLASH}.briefing`)
+        : activeRuleMode === GAME_RULE_MODES.BLIND
+          ? t(`modes.${GAME_RULE_MODES.BLIND}.briefing`)
+          : activeRuleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING
+            ? t("game.guidance.perfect")
+            : activeRuleMode === GAME_RULE_MODES.LEAKY
+              ? t(`modes.${GAME_RULE_MODES.LEAKY}.briefing`)
+              : activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
+                ? t(`modes.${GAME_RULE_MODES.FAKE_TARGET}.briefing`)
+                : activeRuleMode === GAME_RULE_MODES.INVERT
+                  ? t(`modes.${GAME_RULE_MODES.INVERT}.briefing`)
+                  : activeRuleMode === GAME_RULE_MODES.REVERSE_POUR
+                    ? t(`modes.${GAME_RULE_MODES.REVERSE_POUR}.briefing`)
+                    : activeRuleMode === GAME_RULE_MODES.TILT
+                      ? t(`modes.${GAME_RULE_MODES.TILT}.briefing`)
+                      : t("game.guidance.classic");
   const displayedGoal =
     isSplitFillMode
         ? `${formatPercent(splitTargets[0])} / ${formatPercent(splitTargets[1])}`
-        : isFakeTargetMode && !isResultPhase
+        : isBandRunMode
+          ? `${Math.min(bandAttemptIndex + 1, bandTargets.length)} / ${bandTargets.length}`
+        : (isFakeTargetMode || isFlashMode) && !isResultPhase
           ? "--"
           : formatPercent(target);
   const displayedRound = isEndless
@@ -342,6 +426,32 @@ export default function GameplayScreen({
     : "";
   const shouldShowResultContent =
     isResultPhase && Boolean(currentResultKey) && visibleResultKey === currentResultKey;
+
+  useEffect(() => {
+    if (
+      isIntroPhase ||
+      isResultPhase ||
+      shouldShowChaosBriefing ||
+      !isFlashMode
+    ) {
+      const timerId = window.setTimeout(() => {
+        setFlashTargetVisible(false);
+      }, 0);
+      return () => window.clearTimeout(timerId);
+    }
+
+    const showTimerId = window.setTimeout(() => {
+      setFlashTargetVisible(true);
+    }, 0);
+    const hideTimerId = window.setTimeout(() => {
+      setFlashTargetVisible(false);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(showTimerId);
+      window.clearTimeout(hideTimerId);
+    };
+  }, [isFlashMode, isIntroPhase, isResultPhase, roundIndex, shouldShowChaosBriefing]);
 
   useLayoutEffect(() => {
     const root = gameplayRootRef.current;
@@ -730,7 +840,11 @@ export default function GameplayScreen({
     const previousStatus = soundStatusRef.current;
 
     if (previousStatus !== status) {
-      if (previousStatus === "filling" || previousStatus === "leaking") {
+      if (
+        previousStatus === "filling" ||
+        previousStatus === "leaking" ||
+        previousStatus === "burst"
+      ) {
         const activeLevel = isSplitFillMode
           ? activeSplitIndexRef.current === 0
             ? splitLeftLevelRef.current
@@ -741,9 +855,20 @@ export default function GameplayScreen({
         pourSoundRef.current = null;
       }
 
-      if (status === "filling") {
+      if (status === "filling" && isChargePourMode) {
+        chargeSoundStartedAtRef.current = Date.now();
+        pourSoundRef.current = startChargeLoop();
+      }
+
+      if (status === "filling" && !isChargePourMode) {
         pourSoundRef.current = startPourLoop({
           reverse: isReversePourMode,
+        });
+      }
+
+      if (status === "burst") {
+        pourSoundRef.current = startPourLoop({
+          heavy: isChargePourMode,
         });
       }
 
@@ -756,7 +881,7 @@ export default function GameplayScreen({
       soundStatusRef.current = status;
     }
 
-  }, [isReversePourMode, isSplitFillMode, status]);
+  }, [isChargePourMode, isReversePourMode, isSplitFillMode, status]);
 
   useEffect(() => {
     const getActiveSoundLevel = () =>
@@ -776,13 +901,20 @@ export default function GameplayScreen({
     };
 
     const restartLocalPourSound = () => {
-      if (status !== "filling" && status !== "leaking") return;
+      if (status !== "filling" && status !== "leaking" && status !== "burst") return;
 
       stopLocalPourSound({ release: false });
-      pourSoundRef.current = startPourLoop({
-        leaky: status === "leaking",
-        reverse: status === "filling" && isReversePourMode,
-      });
+      pourSoundRef.current =
+        isChargePourMode && status === "filling"
+          ? (() => {
+              chargeSoundStartedAtRef.current = Date.now();
+              return startChargeLoop();
+            })()
+          : startPourLoop({
+              heavy: isChargePourMode && status === "burst",
+              leaky: status === "leaking",
+              reverse: status === "filling" && isReversePourMode,
+            });
       soundStatusRef.current = status;
     };
 
@@ -804,10 +936,14 @@ export default function GameplayScreen({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pageshow", restartLocalPourSound);
     };
-  }, [isReversePourMode, isSplitFillMode, status]);
+  }, [isChargePourMode, isReversePourMode, isSplitFillMode, status]);
 
   useEffect(() => {
-    if (status !== "filling" && status !== "leaking") return undefined;
+    if (
+      status !== "filling" &&
+      status !== "leaking" &&
+      status !== "burst"
+    ) return undefined;
 
     let animationFrameId = 0;
 
@@ -817,19 +953,25 @@ export default function GameplayScreen({
           ? splitLeftLevelRef.current
           : splitRightLevelRef.current
         : waterLevelRef.current;
+      const soundLevel =
+        isChargePourMode && status === "filling"
+          ? clamp((Date.now() - chargeSoundStartedAtRef.current) / 1600, 0, 1)
+          : isChargePourMode && status === "burst"
+            ? clamp((chargePowerRef.current ?? 1) / 3.2, 0, 1)
+          : activeLevel / 100;
 
       if (isSplitFillMode) {
         splitStreamLevelRef.current = activeLevel;
       }
 
-      pourSoundRef.current?.update(activeLevel / 100);
+      pourSoundRef.current?.update(soundLevel);
       animationFrameId = window.requestAnimationFrame(tick);
     };
 
     animationFrameId = window.requestAnimationFrame(tick);
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [isSplitFillMode, status]);
+  }, [chargePowerRef, isChargePourMode, isSplitFillMode, status]);
 
   useEffect(() => {
     if (!isMultiplayer || !lastResult || !onRoundResult) {
@@ -856,7 +998,9 @@ export default function GameplayScreen({
         lastSentAt = time;
         onWaterState({
           activeSplitIndex: isSplitFillMode ? activeSplitIndexRef.current : null,
-          isPouring: status === "filling",
+          isPouring:
+            status === "filling" ||
+            ((isChargePourMode || isBurstClickMode) && status === "burst"),
           level: isSplitFillMode
             ? activeSplitIndexRef.current === 0
               ? splitLeftLevelRef.current
@@ -883,7 +1027,15 @@ export default function GameplayScreen({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [isMultiplayer, isSplitFillMode, onWaterState, roundIndex, status]);
+  }, [
+    isBurstClickMode,
+    isChargePourMode,
+    isMultiplayer,
+    isSplitFillMode,
+    onWaterState,
+    roundIndex,
+    status,
+  ]);
 
   const handleAdvance = () => {
     playRoundAdvance();
@@ -904,9 +1056,9 @@ export default function GameplayScreen({
     const label = targetGuideLabelRef.current;
     const safeTilt = clamp(value, -1, 1);
     const maxOffset = Math.min(
-      window.innerHeight * 0.38,
-      window.innerWidth * 0.28,
-      360,
+      window.innerHeight * 0.54,
+      window.innerWidth * 0.42,
+      560,
     );
     const angle = (Math.atan2(maxOffset * safeTilt, window.innerWidth) * 180) /
       Math.PI;
@@ -921,39 +1073,67 @@ export default function GameplayScreen({
   }, []);
 
   useEffect(() => {
+    const root = gameplayRootRef.current;
+
     if (!isTiltMode) {
       tiltRef.current = 0;
       updateTargetGuideTilt(0);
+      if (root) {
+      root.style.transform = "";
+      root.style.transformOrigin = "";
+      root.style.willChange = "";
+      }
       return undefined;
     }
 
     if (isIntroPhase) {
       tiltRef.current = 0;
       updateTargetGuideTilt(0);
+      if (root) {
+      root.style.transform = "";
+      root.style.transformOrigin = "";
+      root.style.willChange = "";
+      }
       return undefined;
     }
 
     if (isResultPhase) {
       updateTargetGuideTilt(tiltRef.current);
+      if (root) {
+      root.style.transform = "";
+      root.style.transformOrigin = "";
+      root.style.willChange = "";
+      }
       return undefined;
     }
 
     let animationFrameId;
     const startTime = performance.now();
+    if (root) {
+      root.style.transformOrigin = "center center";
+      root.style.willChange = "transform";
+    }
 
     const tick = (time) => {
       const seconds = (time - startTime) / 1000;
       const targetTilt = clamp(
-        Math.sin(seconds * 1.42) * 0.98 +
-          Math.sin(seconds * 2.35 + 1.15) * 0.34 +
-          Math.sin(seconds * 0.58 + 2.4) * 0.18,
+        Math.sin(seconds * 1.85) * 1.24 +
+          Math.sin(seconds * 3.45 + 1.15) * 0.58 +
+          Math.sin(seconds * 0.92 + 2.4) * 0.32,
         -1,
         1,
       );
-      const nextTilt = tiltRef.current + (targetTilt - tiltRef.current) * 0.105;
+      const nextTilt = tiltRef.current + (targetTilt - tiltRef.current) * 0.18;
 
       tiltRef.current = nextTilt;
       updateTargetGuideTilt(nextTilt);
+      if (root) {
+        const shakeX =
+          Math.sin(seconds * 16.8) * 6.4 + Math.sin(seconds * 5.6) * 3.2;
+        const shakeY =
+          Math.cos(seconds * 14.2) * 4.6 + Math.sin(seconds * 7.7) * 2.2;
+        root.style.transform = `translate3d(${shakeX}px, ${shakeY}px, 0) rotate(${nextTilt * 2.85}deg) scale(1.07)`;
+      }
       animationFrameId = window.requestAnimationFrame(tick);
     };
 
@@ -961,6 +1141,11 @@ export default function GameplayScreen({
 
     return () => {
       window.cancelAnimationFrame(animationFrameId);
+      if (root) {
+        root.style.transform = "";
+        root.style.transformOrigin = "";
+        root.style.willChange = "";
+      }
     };
   }, [
     isIntroPhase,
@@ -1064,11 +1249,19 @@ export default function GameplayScreen({
           }
           targetGuideLabelRef={targetGuideLabelRef}
           targetGuideLineRef={targetGuideLineRef}
+          showBadge={!isFlashMode || isResultPhase}
         />
       ) : null}
 
       {shouldShowSplitTargets ? (
         <SplitTargetGuides splitTargets={splitTargets} />
+      ) : null}
+
+      {shouldShowBandTargets ? (
+        <BandTargetGuides
+          activeIndex={bandAttemptIndex}
+          bandTargets={bandTargets}
+        />
       ) : null}
 
       {isSplitFillMode ? (
@@ -1133,14 +1326,22 @@ export default function GameplayScreen({
         </>
       ) : (
         <WaterPhysicsCanvas
+          burstPattern={
+            isBurstClickMode ? "steady" : isChargePourMode ? "mass" : "chunked"
+          }
+          chargePowerRef={chargePowerRef}
           difficulty={difficulty}
           initialLevel={initialWaterLevel}
+          isPourActive={
+            isPulsePourMode ? status === "burst" : status === "filling"
+          }
+          isInvertedWater={isInvertMode}
           isReversePour={isReversePourMode}
           levelRef={waterLevelRef}
           pourXRef={pourXRef}
           roundIndex={roundIndex}
           settledRef={waterSettledRef}
-          status={status}
+          status={canvasStatus}
           surfaceLevelRef={waterSurfaceLevelRef}
           tiltRef={tiltRef}
           waterColor={waterColor}

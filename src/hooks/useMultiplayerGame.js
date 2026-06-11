@@ -50,6 +50,7 @@ export function useMultiplayerGame({
       setError("");
       const response = await emitWithAck("game:submitGuess", {
         level: result.level,
+        bandLevels: result.bandLevels,
         playerId,
         roomCode,
         roundIndex: result.roundIndex,
