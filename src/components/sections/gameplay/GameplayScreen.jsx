@@ -407,6 +407,7 @@ export default function GameplayScreen({
     gsap.set(badges, {
       autoAlpha: 0,
       y: -10,
+      yPercent: -50,
       scale: 0.96,
       willChange: "transform,opacity",
     });
@@ -450,6 +451,7 @@ export default function GameplayScreen({
           ease: "back.out(1.35)",
           scale: 1,
           y: 0,
+          yPercent: -50,
         },
         0.58,
       )
@@ -1195,26 +1197,32 @@ export default function GameplayScreen({
         <div className="self-center justify-self-center text-center">
           {shouldShowResultContent ? (
             <div className="space-y-4">
-              <p
-                className="pc-result-score text-[#0d0d0c] dark:text-[#f7f7f2]"
-                data-gameplay-result-reveal="score"
-                ref={resultScoreRef}
-              >
-                {formatResultScore(lastResult?.score)}
-              </p>
-              <div>
-                <h1
-                  className="pc-card-title text-[#0d0d0c] dark:text-[#f7f7f2]"
-                  data-gameplay-result-reveal="title"
-                >
-                  {resultLabel}
-                </h1>
+              <div className="overflow-hidden">
                 <p
-                  className="pc-copy mt-3 text-[#0d0d0c]/58 dark:text-[#f7f7f2]/64"
-                  data-gameplay-result-reveal="copy"
+                  className="pc-result-score text-[#0d0d0c] dark:text-[#f7f7f2]"
+                  data-gameplay-result-reveal="score"
+                  ref={resultScoreRef}
                 >
-                  {resultGuidance}
+                  {formatResultScore(lastResult?.score)}
                 </p>
+              </div>
+              <div>
+                <div className="overflow-hidden">
+                  <h1
+                    className="pc-card-title text-[#0d0d0c] dark:text-[#f7f7f2]"
+                    data-gameplay-result-reveal="title"
+                  >
+                    {resultLabel}
+                  </h1>
+                </div>
+                <div className="mt-3 overflow-hidden">
+                  <p
+                    className="pc-copy text-[#0d0d0c]/58 dark:text-[#f7f7f2]/64"
+                    data-gameplay-result-reveal="copy"
+                  >
+                    {resultGuidance}
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
@@ -1245,17 +1253,19 @@ export default function GameplayScreen({
             </div>
           </div>
           {shouldShowResultContent ? (
-            <button
-              className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
-              data-game-control="true"
-              data-gameplay-result-reveal="action"
-              onClick={handleAdvance}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              type="button"
-            >
-              {isFinalRound ? t("game.scoreboard") : t("game.nextRound")}
-            </button>
+            <div className="overflow-hidden">
+              <button
+                className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+                data-game-control="true"
+                data-gameplay-result-reveal="action"
+                onClick={handleAdvance}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                type="button"
+              >
+                {isFinalRound ? t("game.scoreboard") : t("game.nextRound")}
+              </button>
+            </div>
           ) : modeAllowsDone && status !== "complete" && status !== "settling" ? (
             <button
               className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"

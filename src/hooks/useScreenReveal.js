@@ -232,6 +232,8 @@ function getRevealItems(rows) {
 }
 
 function getRevealTargets(row) {
+  if (row.dataset.screenRevealTarget === "self") return getRevealChildren(row);
+
   return row.dataset.screenRevealGroup === "stats" ? [row] : getRevealChildren(row);
 }
 
@@ -252,6 +254,10 @@ function getRevealDirection(element, fallback = "down") {
 
 function shouldMask(element) {
   return element.dataset.screenRevealMask !== "none";
+}
+
+function getMaskRows(rows) {
+  return rows.filter((row) => shouldMask(row));
 }
 
 function isSectionWordRevealItem(item) {
@@ -312,19 +318,23 @@ function getRevealParts(scope) {
     Array.from(group.querySelectorAll("h1")),
   );
   const creamRows = getRevealRows(creamGroups);
+  const creamMaskRows = getMaskRows(creamRows);
   const creamItems = getRevealItems(creamRows);
   const waterContentRows = getRevealRows(waterContentGroups);
+  const waterContentMaskRows = getMaskRows(waterContentRows);
   const waterContentItems = getRevealItems(waterContentRows);
 
   return {
     creamGroups,
     creamItems,
+    creamMaskRows,
     creamRows,
     titleGroups,
     titleLetters,
     waterBackgrounds,
     waterContentGroups,
     waterContentItems,
+    waterContentMaskRows,
     waterContentRows,
   };
 }
@@ -405,12 +415,14 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
     const {
       creamGroups,
       creamItems,
+      creamMaskRows,
       creamRows,
       titleGroups,
       titleLetters,
       waterBackgrounds,
       waterContentGroups,
       waterContentItems,
+      waterContentMaskRows,
       waterContentRows,
     } = getRevealParts(scope);
 
@@ -428,9 +440,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           ...titleLetters,
           ...waterBackgrounds,
           ...creamGroups,
+          ...creamMaskRows,
           ...creamRows,
           ...creamItems,
           ...waterContentGroups,
+          ...waterContentMaskRows,
           ...waterContentRows,
           ...waterContentItems,
         ],
@@ -465,7 +479,10 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       gsap.set(creamGroups, { autoAlpha: 1 });
       gsap.set(creamRows, {
         autoAlpha: 1,
-        overflow: (index, row) => (shouldMask(row) ? "hidden" : "visible"),
+      });
+      gsap.set(creamMaskRows, {
+        autoAlpha: 1,
+        overflow: "hidden",
       });
       gsap.set(creamItems, {
         autoAlpha: 0,
@@ -474,6 +491,9 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       });
       gsap.set(waterContentGroups, { autoAlpha: 1 });
       gsap.set(waterContentRows, {
+        autoAlpha: 1,
+      });
+      gsap.set(waterContentMaskRows, {
         autoAlpha: 1,
         overflow: "hidden",
       });
@@ -493,9 +513,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             ...titleLetters,
             ...waterBackgrounds,
             ...creamGroups,
+            ...creamMaskRows,
             ...creamRows,
             ...creamItems,
             ...waterContentGroups,
+            ...waterContentMaskRows,
             ...waterContentRows,
             ...waterContentItems,
           ],
@@ -531,9 +553,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
                 ...titleLetters,
                 ...waterBackgrounds,
                 ...creamGroups,
+                ...creamMaskRows,
                 ...creamRows,
                 ...creamItems,
                 ...waterContentGroups,
+                ...waterContentMaskRows,
                 ...waterContentRows,
                 ...regularWaterContentItems,
               ],

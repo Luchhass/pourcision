@@ -1,5 +1,6 @@
 import {
   CHAOS_QUEUE_MODE_POOL,
+  DEFAULT_SETTINGS,
   GAME_ROUND_COUNT,
   GAME_RULE_MODES,
   MAX_ROUND_SCORE,
@@ -95,7 +96,10 @@ function serializePlayerWaterColors(room) {
   return Object.fromEntries(
     Array.from(room.players.values())
       .filter((player) => !player.kicked)
-      .map((player) => [player.id, player.waterColorId || room.waterColorId]),
+      .map((player) => [
+        player.id,
+        player.waterColorId || DEFAULT_SETTINGS.waterColorId,
+      ]),
   );
 }
 
@@ -136,7 +140,7 @@ export function startGameForRoom(room) {
     targets: createRoundTargets(seed, GAME_ROUND_COUNT),
     modeQueue,
     playerWaterColorIds: serializePlayerWaterColors(room),
-    waterColorId: room.waterColorId,
+    waterColorId: DEFAULT_SETTINGS.waterColorId,
   };
   room.leaderboard = null;
 
@@ -145,6 +149,7 @@ export function startGameForRoom(room) {
     player.returnedToLobby = false;
     player.results = [];
     player.score = 0;
+    player.scoreboardReady = false;
     player.submitted = false;
     player.totalScore = 0;
   }
@@ -229,13 +234,42 @@ export function submitRoundGuess(room, payload) {
   player.lastSeenAt = now();
   room.updatedAt = now();
 
-  const leaderboard = maybeFinishRoom(room);
-
   return ok({
-    leaderboard,
+    leaderboard: room.leaderboard,
     playerResults: player.results.filter(Boolean).map(serializeResult),
     playerTotalScoreSoFar: player.score,
     result: serializeResult(result),
+  });
+}
+
+export function requestScoreboardReveal(room, payload) {
+  if (!room) return fail("Lobby not found or expired.");
+  if (room.status === ROOM_STATUSES.COMPLETED && room.leaderboard) {
+    return ok({ completed: true, leaderboard: room.leaderboard });
+  }
+  if (room.status !== ROOM_STATUSES.IN_GAME || !room.game) {
+    return fail("Game has not started.");
+  }
+
+  const playerIdResult = validatePlayerId(payload.playerId);
+  if (!playerIdResult.ok) return playerIdResult;
+
+  const player = room.players.get(playerIdResult.data.playerId);
+  if (!player || player.kicked) return fail("Player is not in this lobby.");
+  if (player.inactive) return fail("This player is no longer active in the game.");
+  if (!player.submitted) {
+    return fail("Finish every round before opening the scoreboard.");
+  }
+
+  player.scoreboardReady = true;
+  player.lastSeenAt = now();
+  room.updatedAt = now();
+
+  const leaderboard = maybeFinishRoom(room);
+
+  return ok({
+    completed: Boolean(leaderboard),
+    leaderboard,
   });
 }
 
@@ -350,7 +384,7 @@ export function maybeFinishRoom(room) {
   const activePlayers = getActivePlayers(room);
   const allFinished =
     activePlayers.length > 0 &&
-    activePlayers.every((player) => player.submitted);
+    activePlayers.every((player) => player.submitted && player.scoreboardReady);
 
   if (!allFinished) return null;
 

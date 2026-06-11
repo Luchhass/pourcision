@@ -141,7 +141,7 @@ function ensureUniquePlayerWaterColors(room) {
 
     player.waterColorId = pickAvailableWaterColorId(
       room,
-      player.waterColorId || room.waterColorId || DEFAULT_SETTINGS.waterColorId,
+      player.waterColorId || DEFAULT_SETTINGS.waterColorId,
       player.id,
     );
   }
@@ -202,8 +202,7 @@ function serializePlayer(player, room = null) {
     submitted: Boolean(player.submitted),
     submittedRounds: player.results.filter(Boolean).length,
     totalRounds: progress.totalRounds,
-    waterColorId:
-      player.waterColorId || room?.waterColorId || DEFAULT_SETTINGS.waterColorId,
+    waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
   };
 }
 
@@ -240,7 +239,6 @@ export function getRoomSnapshot(room) {
     status: room.status,
     updatedAt: room.updatedAt,
     visibility: room.visibility,
-    waterColorId: room.waterColorId,
   };
 }
 
@@ -267,7 +265,6 @@ function getRoomListSnapshot(room) {
     status: room.status,
     updatedAt: room.updatedAt,
     visibility: room.visibility,
-    waterColorId: room.waterColorId,
   };
 }
 
@@ -416,7 +413,6 @@ export function createRoom(payload) {
     timers: createTimerStore(),
     updatedAt: createdAt,
     visibility: validation.data.visibility,
-    waterColorId: validation.data.waterColorId,
   };
 
   room.players.set(validation.data.playerId, {
@@ -431,6 +427,7 @@ export function createRoom(payload) {
     results: [],
     returnedToLobby: false,
     score: 0,
+    scoreboardReady: false,
     socketId: payload.socketId || null,
     submitted: false,
     totalScore: 0,
@@ -510,12 +507,15 @@ export function joinRoom(payload) {
 
   const existingPlayer = room.players.get(playerId.data.playerId);
   if (existingPlayer && !existingPlayer.kicked) {
+    const waterColor = validateWaterColor(payload.waterColorId);
     existingPlayer.name = playerName.data.playerName;
     existingPlayer.waterColorId =
       existingPlayer.waterColorId ||
       pickAvailableWaterColorId(
         room,
-        room.waterColorId || DEFAULT_SETTINGS.waterColorId,
+        waterColor.ok
+          ? waterColor.data.waterColorId
+          : DEFAULT_SETTINGS.waterColorId,
         existingPlayer.id,
       );
     reconnectPlayer(room, existingPlayer, payload.socketId);
@@ -555,6 +555,7 @@ export function joinRoom(payload) {
     results: [],
     returnedToLobby: false,
     score: 0,
+    scoreboardReady: false,
     socketId: payload.socketId || null,
     submitted: false,
     totalScore: 0,
@@ -607,12 +608,6 @@ export function updateRoomSettings(payload) {
     room.difficulty = difficulty.data.difficulty;
   }
 
-  if (payload.waterColorId !== undefined) {
-    const waterColor = validateWaterColor(payload.waterColorId);
-    if (!waterColor.ok) return waterColor;
-    room.waterColorId = waterColor.data.waterColorId;
-  }
-
   touchRoom(room);
   return ok({ room: getRoomSnapshot(room) });
 }
@@ -643,9 +638,6 @@ export function updatePlayerWaterColor(payload) {
 
   player.waterColorId = waterColor.data.waterColorId;
   player.lastSeenAt = now();
-  if (player.isHost) {
-    room.waterColorId = player.waterColorId;
-  }
 
   touchRoom(room);
 
@@ -690,6 +682,7 @@ function resetCompletedRoomToLobby(room) {
     player.results = [];
     player.returnedToLobby = false;
     player.score = 0;
+    player.scoreboardReady = false;
     player.submitted = false;
     player.totalScore = 0;
     player.lastSeenAt = now();

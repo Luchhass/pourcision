@@ -1,4 +1,7 @@
-import { submitRoundGuess } from "../game/gameService.js";
+import {
+  requestScoreboardReveal,
+  submitRoundGuess,
+} from "../game/gameService.js";
 import { ROOM_STATUSES } from "../constants.js";
 import { getRoom } from "../rooms/roomStore.js";
 import {
@@ -296,11 +299,9 @@ export function registerSocketEvents(io) {
       if (!result.ok) return ackFail(ack, result.error);
 
       const player = roomResult.data.room.players.get(String(payload.playerId));
-      const completed = Boolean(result.data.leaderboard);
-
       ackOk(ack, {
         ...result.data,
-        completed,
+        completed: false,
         room: getRoomSnapshot(roomResult.data.room),
       });
       emitters.emitRoomState(roomResult.data.room);
@@ -309,14 +310,32 @@ export function registerSocketEvents(io) {
         emitters.emitSubmission(roomResult.data.room, player, result.data.result);
       }
 
-      if (completed) {
+    });
+
+    socket.on("game:submitGuess", handleSubmitGuess);
+    socket.on("round:submitGuess", handleSubmitGuess);
+
+    const handleShowScoreboard = safeEvent((payload, ack) => {
+      const roomResult = getRoomFromPayload(payload);
+      if (!roomResult.ok) return ackFail(ack, roomResult.error);
+
+      const result = requestScoreboardReveal(roomResult.data.room, payload);
+      if (!result.ok) return ackFail(ack, result.error);
+
+      ackOk(ack, {
+        ...result.data,
+        room: getRoomSnapshot(roomResult.data.room),
+      });
+      emitters.emitRoomState(roomResult.data.room);
+
+      if (result.data.completed && result.data.leaderboard) {
         emitters.emitScoreboard(roomResult.data.room, result.data.leaderboard);
         scheduleCompletedCleanup(roomResult.data.room);
       }
     });
 
-    socket.on("game:submitGuess", handleSubmitGuess);
-    socket.on("round:submitGuess", handleSubmitGuess);
+    socket.on("game:showScoreboard", handleShowScoreboard);
+    socket.on("round:showScoreboard", handleShowScoreboard);
 
     socket.on(
       "game:waterState",

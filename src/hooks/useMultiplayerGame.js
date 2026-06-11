@@ -38,7 +38,6 @@ export function useMultiplayerGame({
         activeGame?.playerWaterColorIds?.[playerId] ||
         currentPlayer?.waterColorId ||
         activeGame?.waterColorId ||
-        room?.waterColorId ||
         WATER_COLORS[0].id,
     }),
     [activeGame, currentPlayer?.waterColorId, playerId, room],
@@ -91,9 +90,32 @@ export function useMultiplayerGame({
     [playerId, roomCode],
   );
 
-  const markComplete = useCallback(() => {
+  const markComplete = useCallback(async () => {
     setFinishedGameSeed(activeGame?.seed || null);
-  }, [activeGame?.seed]);
+
+    if (!playerId || !roomCode) return { ok: false };
+
+    setError("");
+    const response = await emitWithAck("game:showScoreboard", {
+      playerId,
+      roomCode,
+    });
+
+    if (!response.ok) {
+      setError(response.error || "Could not open scoreboard.");
+      return response;
+    }
+
+    const data = responseData(response);
+    if (data.completed && data.leaderboard) {
+      setLocalLeaderboard({
+        data: data.leaderboard,
+        seed: activeGame?.seed || null,
+      });
+    }
+
+    return response;
+  }, [activeGame?.seed, playerId, roomCode]);
 
   const resetForLobby = useCallback(() => {
     setError("");

@@ -193,7 +193,7 @@ export default function OpponentWaterLayers({
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
       {currentRoundStates.map((state) => (
         <OpponentWaterLayer
-          key={state.player.id}
+          key={`${state.player.id}:${state.roundIndex}`}
           roundIndex={roundIndex}
           settings={settings}
           state={state}

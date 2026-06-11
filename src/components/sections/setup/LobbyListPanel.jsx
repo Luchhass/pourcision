@@ -62,8 +62,8 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
   } = useLobbyList(true);
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 lg:h-full">
-      <div className="space-y-3">
+    <div className="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)_auto] gap-4 md:gap-5">
+      <div className="space-y-3" data-screen-reveal-row="true" data-screen-reveal-target="self">
         <p className="pc-label text-[#0d0d0c]/62">
           {t("setup.lobbyList")}
         </p>
@@ -82,7 +82,11 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
         </div>
       </div>
 
-      <div className="grid min-h-[8.75rem] max-h-[clamp(8.75rem,24dvh,13rem)] auto-rows-[var(--pc-choice-height)] content-start gap-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className="grid h-full min-h-0 auto-rows-[var(--pc-choice-height)] content-start gap-2 overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-screen-reveal-row="true"
+        data-screen-reveal-target="self"
+      >
         {visibleRooms.length ? (
           visibleRooms.map((room) => (
             <RoomListRow
@@ -105,7 +109,7 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
         )}
       </div>
 
-      <div className="mt-auto grid gap-4 pt-5">
+      <div className="grid gap-4" data-screen-reveal-row="true" data-screen-reveal-target="self">
         {selectedRoom?.hasPassword ? (
           <input
             autoComplete="off"

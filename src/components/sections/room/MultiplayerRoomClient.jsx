@@ -50,7 +50,7 @@ function roomViewFromState({ activeGame, leaderboard, room, sessionPlayer }) {
   if (!sessionPlayer) return room?.status === "lobby" ? "join" : "not-found";
   if (room?.status === "lobby") return "lobby";
   if (room?.status === "completed" && sessionPlayer.returnedToLobby) {
-    return "waiting-lobby";
+    return "lobby";
   }
   if (leaderboard || room?.status === "completed") return "leaderboard";
   if (activeGame || room?.status === "in_game") return "game";
@@ -93,6 +93,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const [isStarting, setIsStarting] = useState(false);
   const [isUpdatingPlayerColor, setIsUpdatingPlayerColor] = useState(false);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [isLobbySettingsOpen, setIsLobbySettingsOpen] = useState(false);
   const [player, setPlayer] = useState(null);
   const [view, setView] = useState("loading");
   const preferredWaterColorId = useSyncExternalStore(
@@ -153,6 +154,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
 
   const handleBackHome = useCallback(async () => {
     await playActiveScreenExit();
+    setIsLobbySettingsOpen(false);
 
     if (playerId) {
       await leaveRoom(playerId);
@@ -192,6 +194,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
       game_type: "multiplayer",
     });
     await playActiveScreenExit();
+    setIsLobbySettingsOpen(false);
     saveSession(nextPlayer);
     setPlayer(nextPlayer);
     setView(data.room?.status === "in_game" ? "game" : "lobby");
@@ -231,6 +234,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
       player_count: room?.players?.length || 0,
     });
     await playActiveScreenExit();
+    setIsLobbySettingsOpen(false);
     setView("game");
   };
 
@@ -261,11 +265,6 @@ export default function MultiplayerRoomClient({ roomCode }) {
 
     if (!response.ok) {
       setError(response.error || t("room.couldNotUpdateSettings"));
-      return;
-    }
-
-    if (settings.waterColorId) {
-      saveStoredWaterColorId(settings.waterColorId);
     }
   };
 
@@ -305,7 +304,8 @@ export default function MultiplayerRoomClient({ roomCode }) {
     }
 
     const data = responseData(response);
-    setView(data.pendingLobbyReturn ? "waiting-lobby" : "lobby");
+    setIsLobbySettingsOpen(false);
+    setView("lobby");
     return response;
   };
 
@@ -327,11 +327,31 @@ export default function MultiplayerRoomClient({ roomCode }) {
     effectiveView === "leaderboard"
       ? t("results.title")
       : t("setup.multiplayerTitle");
+  const lobbyRuleMode = room?.ruleMode || room?.mode;
+  const lobbySettingsDescription =
+    room && lobbyRuleMode && room.difficulty
+      ? [
+          t("setup.singleplayerModeDescription", {
+            mode: t(`modes.${lobbyRuleMode}.label`),
+            modeDescription: t(`modes.${lobbyRuleMode}.description`),
+          }),
+          t("setup.singleplayerDifficultyDescription", {
+            difficulty: t(`difficulties.${room.difficulty}.label`),
+            difficultyDescription: t(`difficulties.${room.difficulty}.description`),
+          }),
+        ]
+      : null;
+  const shouldUseLobbySettingsDescription =
+    lobbySettingsDescription &&
+    (effectiveView === "lobby" ||
+      (effectiveView === "loading" && Boolean(room)));
   const shellDescription =
     effectiveView === "leaderboard"
       ? t("room.resultsDescription")
       : effectiveView === "not-found"
         ? error || connectionError || t("room.lobbyNotFound")
+      : shouldUseLobbySettingsDescription
+        ? lobbySettingsDescription
       : effectiveView === "loading"
         ? connectionError || t("room.findingLobby")
       : effectiveView === "kicked"
@@ -356,13 +376,11 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const playerFallbackWaterColorId =
     currentPlayerWaterColorId ||
     session?.waterColorId ||
-    preferredWaterColorId ||
-    room?.waterColorId;
+    preferredWaterColorId;
   const shellWaterColorId =
     effectiveView === "waiting-lobby"
       ? playerFallbackWaterColorId
       : currentPlayerWaterColorId ||
-        room?.waterColorId ||
         session?.waterColorId ||
         preferredWaterColorId;
   const shouldStretchWaterContent =
@@ -378,7 +396,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
       .map((roomPlayer) => roomPlayer.waterColorId)
       .filter(Boolean) || [];
   const lobbyWaterColorPanel =
-    effectiveView === "lobby" && room && currentPlayer ? (
+    effectiveView === "lobby" && room && currentPlayer && !isLobbySettingsOpen ? (
       <LobbyWaterColorPanel
         disabled={isUpdatingPlayerColor}
         label={t("setup.waterColor")}
@@ -419,7 +437,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
         settings={{
           difficulty: room?.difficulty,
           ruleMode: room?.ruleMode,
-          waterColorId: currentPlayerWaterColorId || room?.waterColorId,
+          waterColorId: currentPlayerWaterColorId || preferredWaterColorId,
         }}
       />
     );
@@ -481,14 +499,18 @@ export default function MultiplayerRoomClient({ roomCode }) {
           currentPlayer={currentPlayer}
           error={error || connectionError}
           isStarting={isStarting}
+          isUpdatingPlayerColor={isUpdatingPlayerColor}
           isUpdatingSettings={isUpdatingSettings}
           canStartGame={canStartLobbyGame(room)}
           onCopyInvite={handleCopyInvite}
           onDifficultyChange={(difficulty) => handleUpdateSettings({ difficulty })}
           onKickPlayer={handleKickPlayer}
           onRuleModeChange={(ruleMode) => handleUpdateSettings({ ruleMode })}
+          onSettingsOpenChange={setIsLobbySettingsOpen}
           onStart={handleStart}
+          onWaterColorChange={handleUpdatePlayerColor}
           room={room}
+          takenColorIds={takenWaterColorIds}
         />
       ) : null}
 

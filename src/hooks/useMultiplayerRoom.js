@@ -12,6 +12,34 @@ function isSameRoom(payload, roomCode) {
   return payload?.roomCode === roomCode || payload?.code === roomCode;
 }
 
+function getWaterStateKey(item) {
+  const playerId = item?.player?.id;
+  const roundIndex = item?.roundIndex;
+
+  return playerId && Number.isInteger(roundIndex)
+    ? `${playerId}:${roundIndex}`
+    : null;
+}
+
+function getSubmittedWaterState(payload) {
+  if (!payload?.player?.id || !payload?.result) return null;
+
+  return {
+    activeSplitIndex: 0,
+    isPouring: false,
+    level: payload.result.level,
+    player: payload.player,
+    pourX: 0.5,
+    receivedAt: Date.now(),
+    roundIndex: payload.result.roundIndex,
+    sentAt: Date.now(),
+    splitLevels: payload.result.splitLevels || null,
+    splitPourX: null,
+    status: "idle",
+    tilt: 0,
+  };
+}
+
 export function useMultiplayerRoom(roomCode) {
   const { t } = useTranslation();
   const [room, setRoom] = useState(null);
@@ -75,17 +103,33 @@ export function useMultiplayerRoom(roomCode) {
 
         return [...filtered, payload];
       });
+
+      const submittedWaterState = getSubmittedWaterState(payload);
+      const submittedWaterStateKey = getWaterStateKey(submittedWaterState);
+      if (!submittedWaterStateKey) return;
+
+      setWaterStates((current) => {
+        const filtered = current.filter(
+          (item) => getWaterStateKey(item) !== submittedWaterStateKey,
+        );
+
+        return [...filtered, submittedWaterState];
+      });
     };
 
     const handleWaterState = (payload) => {
       if (!isSameRoom(payload, roomCode) || !payload.player?.id) return;
 
       setWaterStates((current) => {
+        const nextItem = { ...payload, receivedAt: Date.now() };
+        const nextKey = getWaterStateKey(nextItem);
+        if (!nextKey) return current;
+
         const filtered = current.filter(
-          (item) => item.player?.id !== payload.player.id,
+          (item) => getWaterStateKey(item) !== nextKey,
         );
 
-        return [...filtered, { ...payload, receivedAt: Date.now() }];
+        return [...filtered, nextItem];
       });
     };
 

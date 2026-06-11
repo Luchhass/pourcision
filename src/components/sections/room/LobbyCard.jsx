@@ -10,6 +10,7 @@ import {
   Flag,
   Gauge,
   Lock,
+  Palette,
   Pencil,
   RotateCcw,
   Shuffle,
@@ -100,7 +101,14 @@ function LobbyDifficultyControl({
   );
 }
 
-function LobbyModeGrid({ disabled, label, onChange, value }) {
+function LobbyModeGrid({
+  disabled,
+  label,
+  onChange,
+  value,
+  modalGrid = false,
+  showLabel = true,
+}) {
   const { t } = useTranslation();
   const options = orderModeOptions(
     GAME_MODE_OPTIONS.filter(
@@ -108,22 +116,29 @@ function LobbyModeGrid({ disabled, label, onChange, value }) {
     ),
   );
   const { handleScroll, sliderRef } = useLoopingSlider(options.length);
-  const loopedOptions = [...options, ...options, ...options];
+  const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
 
   return (
     <div className="min-w-0 space-y-3" data-sound-group="game-mode">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {label}
-      </p>
+      {showLabel ? (
+        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+          {label}
+        </p>
+      ) : null}
       <div
-        className="grid min-w-0 grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:auto-cols-[9.75rem] lg:grid-flow-row lg:grid-rows-none lg:grid-cols-4 lg:auto-cols-auto lg:overflow-visible dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)] [&::-webkit-scrollbar]:hidden"
+        className={[
+          "grid min-w-0 bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
+          modalGrid
+            ? "grid-cols-3 overflow-visible"
+            : "grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:grid-rows-2 md:auto-cols-[9.75rem] [&::-webkit-scrollbar]:hidden",
+        ].join(" ")}
         onScroll={handleScroll}
         ref={sliderRef}
       >
-        {loopedOptions.map((option, loopIndex) => {
-          const optionIndex = loopIndex % options.length;
-          const cycleIndex = Math.floor(loopIndex / options.length);
-          const isDesktopCopy = cycleIndex === 1;
+        {visibleOptions.map((option, loopIndex) => {
+          const optionIndex = modalGrid ? loopIndex : loopIndex % options.length;
+          const cycleIndex = modalGrid ? 1 : Math.floor(loopIndex / options.length);
+          const isDesktopCopy = modalGrid || cycleIndex === 1;
           const selected = value === option.id;
           const Icon = modeIcons[option.id] ?? Timer;
           const optionLabel = t(`modes.${option.id}.label`);
@@ -177,17 +192,12 @@ function LobbyPlayersPanel({
   const lobbyPlayers = players || [];
 
   return (
-    <div className="grid h-full min-h-0 w-full min-w-0 grid-rows-[auto_minmax(0,1fr)] gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-          {t("room.players")}
-        </p>
-        <p className="pc-label text-[#0d0d0c]/46 dark:text-[#f7f7f2]/42">
-          {String(lobbyPlayers.length).padStart(2, "0")}
-        </p>
-      </div>
-
-      <div className="grid min-h-0 content-start overflow-y-auto bg-[#0d0d0c]/[0.045] p-3 overscroll-contain [scrollbar-width:none] dark:bg-[#0d0d0c]/18 [&::-webkit-scrollbar]:hidden">
+    <div
+      className="grid h-full min-h-0 w-full min-w-0"
+      data-screen-reveal-row="true"
+      data-screen-reveal-target="self"
+    >
+      <div className="grid min-h-0 content-start overflow-y-auto bg-[#f7f7f2]/92 p-3 shadow-[0_22px_48px_rgba(13,13,12,0.08)] overscroll-contain [scrollbar-width:none] dark:bg-[#f7f7f2]/8 dark:shadow-[0_24px_60px_rgba(0,0,0,0.24)] [&::-webkit-scrollbar]:hidden">
         {lobbyPlayers.map((player, playerIndex) => {
           const canKick =
             isHost && !player.isHost && player.id !== currentPlayerId;
@@ -199,23 +209,23 @@ function LobbyPlayersPanel({
 
           return (
             <div
-              className="grid min-h-10 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-[#0d0d0c]/10 py-2 text-[#0d0d0c] last:border-b-0 dark:border-[#f7f7f2]/10 dark:text-[#f7f7f2]"
+              className="grid min-h-11 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[#0d0d0c]/8 px-1 py-2.5 text-[#0d0d0c] last:border-b-0 dark:border-[#f7f7f2]/10 dark:text-[#f7f7f2]"
               key={player.id}
             >
-              <span className="pc-round-label w-7 shrink-0 tabular-nums text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
+              <span className="pc-round-label w-7 shrink-0 tabular-nums text-[#0d0d0c]/38 dark:text-[#f7f7f2]/42">
                 {String(playerIndex + 1).padStart(2, "0")}
               </span>
               <span
                 aria-hidden="true"
-                className="h-2.5 w-2.5 shrink-0"
+                className="h-7 w-1 shrink-0"
                 style={{ backgroundColor: playerColor }}
               />
-              <span className="flex min-w-0 items-baseline gap-2">
-                <span className="min-w-0 truncate text-sm font-semibold leading-none text-[#0d0d0c]/82 dark:text-[#f7f7f2]/82">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 truncate text-sm font-semibold leading-none text-[#0d0d0c]/88 dark:text-[#f7f7f2]/88">
                   {player.name}
                 </span>
                 {isCurrentPlayer ? (
-                  <span className="pc-round-label shrink-0 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
+                  <span className="pc-round-label shrink-0 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/46">
                     {t("room.you")}
                   </span>
                 ) : null}
@@ -253,6 +263,7 @@ export function LobbyWaterColorPanel({
   disabled = false,
   label,
   onChange,
+  showLabel = true,
   takenColorIds = [],
   value,
 }) {
@@ -465,12 +476,14 @@ export function LobbyWaterColorPanel({
 
   return (
     <div className="min-w-0 space-y-3">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {label}{" "}
-        <span data-water-color-name="true" style={{ color: selectedColor.value }}>
-          {t(`colors.${selectedColor.id}`)}
-        </span>
-      </p>
+      {showLabel ? (
+        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+          {label}{" "}
+          <span data-water-color-name="true" style={{ color: selectedColor.value }}>
+            {t(`colors.${selectedColor.id}`)}
+          </span>
+        </p>
+      ) : null}
       <div
         ref={sliderRef}
         className={[
@@ -555,25 +568,97 @@ export function LobbyWaterColorPanel({
   );
 }
 
+function LobbySettingsModal({ children, onClose, title }) {
+  return (
+    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:hidden">
+      <button
+        aria-label="Close lobby settings"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        type="button"
+      />
+      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
+        <div className="flex items-start justify-between gap-5">
+          <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
+            {title}
+          </h2>
+          <button
+            aria-label="Close lobby settings"
+            className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+            onClick={onClose}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              className="pc-icon"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
+  );
+}
+
+function LobbySettingsButton({ icon: Icon, label, onClick }) {
+  return (
+    <div className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3">
+      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+        {label}
+      </p>
+      <button
+        aria-label={label}
+        className="grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+        onClick={onClick}
+        type="button"
+      >
+        <Icon aria-hidden="true" className="pc-icon" strokeWidth={2.7} />
+      </button>
+    </div>
+  );
+}
+
 export default function LobbyCard({
   canStartGame = true,
   currentPlayer,
   error,
   isStarting,
+  isUpdatingPlayerColor,
   isUpdatingSettings,
   onCopyInvite,
   onDifficultyChange,
   onKickPlayer,
+  onSettingsOpenChange,
+  onWaterColorChange,
   onRuleModeChange,
   onStart,
   room,
+  takenColorIds = [],
 }) {
   const { t } = useTranslation();
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [mobileSettingsModal, setMobileSettingsModal] = useState(null);
   const isHost = Boolean(currentPlayer?.isHost);
   const canEditSettings = isHost;
+  const canOpenColorSettings = !canEditSettings;
   const isSettingsOpen = canEditSettings && isEditingSettings;
   const settingsDisabled = isUpdatingSettings;
+
+  const handleEditToggle = () => {
+    const next = !isEditingSettings;
+    setIsEditingSettings(next);
+    onSettingsOpenChange?.(next);
+    if (!next) setMobileSettingsModal(null);
+  };
 
   return (
     <section
@@ -581,33 +666,64 @@ export default function LobbyCard({
         "h-full min-h-0 w-full min-w-0 gap-5 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]",
         isSettingsOpen
           ? "flex flex-col justify-end"
-          : "grid grid-rows-[minmax(0,1fr)_auto] content-stretch",
+          : "grid content-end",
       ].join(" ")}
     >
       <div
         className={[
           "grid min-w-0 gap-5",
           !isSettingsOpen
-            ? "h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] content-stretch"
+            ? "min-h-0"
             : "",
         ].join(" ")}
       >
         {isSettingsOpen ? (
-          <div className="grid min-w-0 grid-cols-2 gap-4 lg:grid-cols-1 lg:gap-5">
-            <LobbyDifficultyControl
-              disabled={settingsDisabled}
-              label={t("setup.difficulty")}
-              onChange={onDifficultyChange}
-              value={room.difficulty}
-            />
+          <>
+            <div
+              className="w-full min-w-0 justify-self-stretch md:hidden"
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="self"
+            >
+              <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_var(--pc-choice-height)_var(--pc-choice-height)] items-start gap-3">
+                <LobbyDifficultyControl
+                  disabled={settingsDisabled}
+                  label={t("setup.difficulty")}
+                  onChange={onDifficultyChange}
+                  value={room.difficulty}
+                />
+                <LobbySettingsButton
+                  icon={Palette}
+                  label="Color"
+                  onClick={() => setMobileSettingsModal("color")}
+                />
+                <LobbySettingsButton
+                  icon={Shuffle}
+                  label="Mode"
+                  onClick={() => setMobileSettingsModal("mode")}
+                />
+              </div>
+            </div>
 
-            <LobbyModeGrid
-              disabled={settingsDisabled}
-              label={t("setup.mode")}
-              onChange={onRuleModeChange}
-              value={room.ruleMode}
-            />
-          </div>
+            <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5">
+              <div className="min-w-0">
+                <LobbyDifficultyControl
+                  disabled={settingsDisabled}
+                  label={t("setup.difficulty")}
+                  onChange={onDifficultyChange}
+                  value={room.difficulty}
+                />
+              </div>
+
+              <div className="min-w-0 md:col-span-2 lg:col-span-1">
+                <LobbyModeGrid
+                  disabled={settingsDisabled}
+                  label={t("setup.mode")}
+                  onChange={onRuleModeChange}
+                  value={room.ruleMode}
+                />
+              </div>
+            </div>
+          </>
         ) : (
           <LobbyPlayersPanel
             currentPlayerId={currentPlayer?.id}
@@ -618,7 +734,13 @@ export default function LobbyCard({
         )}
 
         {error ? (
-          <p className="pc-copy-strong text-[#0d0d0c] dark:text-[#f7f7f2]">{error}</p>
+          <p
+            className="pc-copy-strong text-[#0d0d0c] dark:text-[#f7f7f2]"
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+          >
+            {error}
+          </p>
         ) : null}
       </div>
 
@@ -627,6 +749,8 @@ export default function LobbyCard({
           "grid gap-4 lg:gap-5",
           canEditSettings
             ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] sm:grid-cols-[var(--pc-action-height)_minmax(0,1fr)_minmax(0,1fr)]"
+            : canOpenColorSettings
+              ? "grid-cols-[var(--pc-action-height)_minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-2"
             : "grid-cols-2",
         ].join(" ")}
       >
@@ -634,21 +758,38 @@ export default function LobbyCard({
           <button
             aria-label="Edit game settings"
             aria-pressed={isSettingsOpen}
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
             className={[
               "pc-action grid aspect-square place-items-center p-0 shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:focus-visible:outline-[#f7f7f2]",
               isSettingsOpen
                 ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
                 : "bg-[#f7f7f2]/96 text-[#0d0d0c] hover:bg-white dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14",
             ].join(" ")}
-            onClick={() => setIsEditingSettings((current) => !current)}
+            onClick={handleEditToggle}
             type="button"
           >
             <Pencil aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
           </button>
         ) : null}
 
+        {canOpenColorSettings ? (
+          <button
+            aria-label={t("setup.waterColor")}
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+            className="pc-action grid aspect-square place-items-center bg-[#f7f7f2]/96 p-0 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] md:hidden dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+            onClick={() => setMobileSettingsModal("color")}
+            type="button"
+          >
+            <Palette aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+          </button>
+        ) : null}
+
         <button
           aria-label={t("room.copyInvite")}
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="self"
           className="pc-action grid w-full place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
           onClick={onCopyInvite}
           type="button"
@@ -661,6 +802,8 @@ export default function LobbyCard({
 
         <Button
           className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="self"
           disabled={!isHost || isStarting || !canStartGame}
           onClick={onStart}
         >
@@ -671,6 +814,38 @@ export default function LobbyCard({
             : t("room.waiting")}
         </Button>
       </div>
+
+      {mobileSettingsModal === "color" ? (
+        <LobbySettingsModal
+          onClose={() => setMobileSettingsModal(null)}
+          title={t("setup.waterColor")}
+        >
+          <LobbyWaterColorPanel
+            disabled={isUpdatingPlayerColor || settingsDisabled}
+            label={t("setup.waterColor")}
+            onChange={onWaterColorChange}
+            showLabel={false}
+            takenColorIds={takenColorIds}
+            value={currentPlayer?.waterColorId}
+          />
+        </LobbySettingsModal>
+      ) : null}
+
+      {isSettingsOpen && mobileSettingsModal === "mode" ? (
+        <LobbySettingsModal
+          onClose={() => setMobileSettingsModal(null)}
+          title={t("setup.mode")}
+        >
+          <LobbyModeGrid
+            disabled={settingsDisabled}
+            label={t("setup.mode")}
+            modalGrid
+            onChange={onRuleModeChange}
+            showLabel={false}
+            value={room.ruleMode}
+          />
+        </LobbySettingsModal>
+      ) : null}
     </section>
   );
 }

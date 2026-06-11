@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from "../constants.js";
 import { getRoomSnapshot, listJoinableRooms } from "../rooms/roomService.js";
 
 export function createEmitters(io) {
@@ -40,7 +41,7 @@ export function createEmitters(io) {
         player: {
           id: player.id,
           name: player.name,
-          waterColorId: player.waterColorId || room.waterColorId,
+          waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
         },
         result,
         roomCode: room.code,
@@ -53,7 +54,7 @@ export function createEmitters(io) {
         player: {
           id: player.id,
           name: player.name,
-          waterColorId: player.waterColorId || room.waterColorId,
+          waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
         },
         roomCode: room.code,
       });

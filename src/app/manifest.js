@@ -5,7 +5,7 @@ import {
   SITE_IMAGE_WIDTH,
 } from "@/lib/seo";
 
-const ICON_VERSION = "20260610-square-p";
+const ICON_VERSION = "20260611-platform-icons";
 
 export default function manifest() {
   return {
@@ -33,6 +33,12 @@ export default function manifest() {
         sizes: "192x192",
         type: "image/png",
         purpose: "any maskable",
+      },
+      {
+        src: `/apple-icon.png?v=${ICON_VERSION}`,
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "any",
       },
       {
         src: `/icon-512.png?v=${ICON_VERSION}`,

@@ -67,15 +67,23 @@ function RoomTitleBand({ onBackHome, title }) {
 }
 
 function RoomIntro({ description }) {
+  const paragraphs = Array.isArray(description) ? description : [description];
+
   return (
     <div
-      className="pc-copy max-w-[40rem] text-[#0d0d0c]/66 lg:max-w-[calc(50vw-5rem)] dark:text-[#f7f7f2]/68"
+      className="pc-copy grid max-w-[40rem] gap-3 text-[#0d0d0c]/66 lg:max-w-[calc(50vw-5rem)] dark:text-[#f7f7f2]/68"
       data-room-intro="true"
       data-screen-reveal="cream"
     >
-      <p className="overflow-hidden" data-screen-reveal-row="true">
-        <span className="block">{description}</span>
-      </p>
+      {paragraphs.map((paragraph) => (
+        <p
+          className="overflow-hidden"
+          data-screen-reveal-row="true"
+          key={paragraph}
+        >
+          <span className="block">{paragraph}</span>
+        </p>
+      ))}
     </div>
   );
 }
@@ -98,7 +106,6 @@ export default function RoomCardShell({
   useScreenReveal(roomRevealRef, [
     revealKey,
     title,
-    waterColorId,
     waterContentPlacement,
   ]);
 
@@ -122,7 +129,7 @@ export default function RoomCardShell({
 
             {leftContent ? (
               <div
-                className="mt-7 grid min-w-0 self-start gap-7 lg:hidden"
+                className="mt-7 hidden min-w-0 self-start gap-7 md:grid lg:hidden"
                 data-room-left-content="true"
               >
                 {leftContent}

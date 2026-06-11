@@ -36,7 +36,7 @@ const dictionaries = {
       creatingLobby: "Creating Lobby",
       createLobby: "Create Lobby",
       difficulty: "Difficulty",
-      joinLobbyAction: "Join Lobby",
+      joinLobbyAction: "Browse Lobbies",
       lobbyList: "Open lobbies",
       lobbyName: "Lobby name",
       lobbyNameRequired: "Lobby name is required",
@@ -53,6 +53,10 @@ const dictionaries = {
       privateLobby: "Private",
       publicLobby: "Public",
       searchLobby: "Search lobbies",
+      singleplayerDifficultyDescription:
+        "{difficulty} sets the pressure: {difficultyDescription}",
+      singleplayerModeDescription:
+        "{mode} sets the rule: {modeDescription}",
       singleplayerSelectionDescription:
         "{mode} sets the rule: {modeDescription} {difficulty} sets the pressure: {difficultyDescription} Together they shape fill speed, waves, and release precision.",
       singleplayerDescription:
@@ -101,6 +105,7 @@ const dictionaries = {
       waitingLobbyReturn: "Waiting for every player to return to the lobby.",
       waitingPlayers: "Waiting for players.",
       waitingShort: "Wait",
+      finishedShort: "Finished",
       you: "You",
     },
     game: {
@@ -298,7 +303,7 @@ const dictionaries = {
       creatingLobby: "Lobi kuruluyor",
       createLobby: "Lobi kur",
       difficulty: "Zorluk",
-      joinLobbyAction: "Lobiye katıl",
+      joinLobbyAction: "Lobilere bak",
       lobbyList: "Açık lobiler",
       lobbyName: "Lobi adı",
       lobbyNameRequired: "Lobi adı gerekli",
@@ -315,6 +320,10 @@ const dictionaries = {
       privateLobby: "Özel",
       publicLobby: "Herkese açık",
       searchLobby: "Lobi ara",
+      singleplayerDifficultyDescription:
+        "{difficulty} baskÄ±yÄ± ayarlar: {difficultyDescription}",
+      singleplayerModeDescription:
+        "{mode} kuralÄ± belirler: {modeDescription}",
       singleplayerSelectionDescription:
         "{mode} kuralı belirler: {modeDescription} {difficulty} baskıyı ayarlar: {difficultyDescription} Birlikte dolma hızını, dalgayı ve bırakış hassasiyetini şekillendirir.",
       singleplayerDescription:
@@ -363,6 +372,7 @@ const dictionaries = {
       waitingLobbyReturn: "Herkesin lobiye dönmesi bekleniyor.",
       waitingPlayers: "Oyuncular bekleniyor.",
       waitingShort: "Bekle",
+      finishedShort: "Bitiren",
       you: "Sen",
     },
     game: {

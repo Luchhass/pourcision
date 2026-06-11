@@ -27,7 +27,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const ICON_VERSION = "20260610-square-p";
+const ICON_VERSION = "20260611-platform-icons";
 const PAGE_INTRO_SCRIPT = `(() => {
   try {
     const path = window.location.pathname;
@@ -79,7 +79,14 @@ export const metadata = {
       { url: `/icon.svg?v=${ICON_VERSION}`, type: "image/svg+xml" },
     ],
     shortcut: `/favicon.ico?v=${ICON_VERSION}`,
-    apple: `/apple-icon.svg?v=${ICON_VERSION}`,
+    apple: [
+      {
+        url: `/apple-icon.png?v=${ICON_VERSION}`,
+        sizes: "180x180",
+        type: "image/png",
+      },
+      { url: `/apple-icon.svg?v=${ICON_VERSION}`, type: "image/svg+xml" },
+    ],
   },
   manifest: "/manifest.webmanifest",
   openGraph: {

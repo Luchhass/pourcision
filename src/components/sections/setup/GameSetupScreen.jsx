@@ -9,7 +9,9 @@ import {
   EyeOff,
   Flag,
   Gauge,
+  Globe2,
   Infinity,
+  Lock,
   Palette,
   RotateCcw,
   Shuffle,
@@ -78,6 +80,34 @@ const LOBBY_VISIBILITIES = {
 function getDefaultLobbyName(playerName) {
   const cleanPlayerName = String(playerName || "").trim();
   return cleanPlayerName ? `${cleanPlayerName}'s lobby` : "Pourcision lobby";
+}
+
+function getSetupSectionWords({ isMultiplayer, multiplayerStep, title }) {
+  if (!isMultiplayer) {
+    return {
+      primary: title.toUpperCase(),
+      secondary: "SETUP",
+    };
+  }
+
+  if (multiplayerStep === MULTIPLAYER_SETUP_STEPS.CREATE_DETAILS) {
+    return {
+      primary: "LOBBY",
+      secondary: "CREATE",
+    };
+  }
+
+  if (multiplayerStep === MULTIPLAYER_SETUP_STEPS.JOIN_LIST) {
+    return {
+      primary: "LOBBIES",
+      secondary: "BROWSE",
+    };
+  }
+
+  return {
+    primary: "NAME",
+    secondary: "PLAYER",
+  };
 }
 
 function orderModeOptions(options) {
@@ -233,15 +263,25 @@ function SetupTitleBand({ onBack, title }) {
 }
 
 function SetupIntro({ description, setupDescription }) {
+  const paragraphs = Array.isArray(setupDescription)
+    ? setupDescription
+    : [setupDescription || description];
+
   return (
     <div
-      className="pc-copy max-w-[40rem] text-[#0d0d0c]/66 lg:max-w-[calc(50vw-5rem)] dark:text-[#f7f7f2]/68"
+      className="pc-copy grid max-w-[40rem] gap-3 text-[#0d0d0c]/66 lg:max-w-[calc(50vw-5rem)] dark:text-[#f7f7f2]/68"
       data-setup-intro="true"
       data-screen-reveal="cream"
     >
-      <p className="overflow-hidden" data-screen-reveal-row="true">
-        <span className="block">{setupDescription || description}</span>
-      </p>
+      {paragraphs.map((paragraph) => (
+        <p
+          className="overflow-hidden"
+          data-screen-reveal-row="true"
+          key={paragraph}
+        >
+          <span className="block">{paragraph}</span>
+        </p>
+      ))}
     </div>
   );
 }
@@ -714,11 +754,13 @@ function MultiplayerActionButtons({ onCreate, onJoin, tall = false }) {
       id: MULTIPLAYER_ACTIONS.CREATE,
       label: t("setup.createLobby"),
       onClick: onCreate,
+      variant: "light",
     },
     {
       id: MULTIPLAYER_ACTIONS.JOIN,
       label: t("setup.joinLobbyAction"),
       onClick: onJoin,
+      variant: "dark",
     },
   ];
 
@@ -731,7 +773,9 @@ function MultiplayerActionButtons({ onCreate, onJoin, tall = false }) {
               ? "pc-action px-4 lg:px-5"
               : "pc-action px-4",
             "transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c]",
-            "bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] hover:bg-white dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.26)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+            option.variant === "dark"
+              ? "bg-[#0d0d0c] text-[#f7f7f2] shadow-[0_18px_42px_rgba(13,13,12,0.22)] hover:bg-black dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+              : "bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] hover:bg-white dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.26)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
           ].join(" ")}
           key={option.id}
           onClick={option.onClick}
@@ -803,28 +847,29 @@ function LobbyVisibilityControl({ onChange, value }) {
   const options = [
     {
       id: LOBBY_VISIBILITIES.PUBLIC,
+      icon: Globe2,
       label: t("setup.publicLobby"),
     },
     {
       id: LOBBY_VISIBILITIES.PRIVATE,
+      icon: Lock,
       label: t("setup.privateLobby"),
     },
   ];
 
   return (
     <div className="min-w-0 space-y-3">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {t("setup.visibility")}
-      </p>
       <div className="grid grid-cols-2 bg-[#0d0d0c]/[0.035] shadow-[0_18px_38px_rgba(13,13,12,0.07)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
         {options.map((option) => {
           const selected = value === option.id;
+          const Icon = option.icon;
 
           return (
             <button
+              aria-label={option.label}
               aria-pressed={selected}
               className={[
-                "pc-choice px-4 transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
+                "grid h-[var(--pc-action-height)] w-[var(--pc-action-height)] place-items-center transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
                 selected
                   ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
                   : "bg-[#f7f7f2]/96 text-[#0d0d0c]/72 hover:bg-[#f7f7f2] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2]/70 dark:hover:bg-[#f7f7f2]/14",
@@ -833,7 +878,7 @@ function LobbyVisibilityControl({ onChange, value }) {
               onClick={() => onChange(option.id)}
               type="button"
             >
-              {option.label}
+              <Icon aria-hidden="true" className="pc-icon" strokeWidth={2.7} />
             </button>
           );
         })}
@@ -866,6 +911,8 @@ function CreateLobbyDetailsStep({
           "grid min-w-0 gap-5",
           isPrivateLobby ? "grid-cols-2" : "",
         ].join(" ")}
+        data-screen-reveal-row="true"
+        data-screen-reveal-target="self"
       >
         <SetupTextField
           error={lobbyNameError}
@@ -900,18 +947,27 @@ function CreateLobbyDetailsStep({
         ) : null}
       </div>
 
-      <LobbyVisibilityControl
-        onChange={onLobbyVisibilityChange}
-        value={lobbyVisibility}
-      />
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+        <Button
+          className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="self"
+          disabled={isCreating}
+          onClick={onCreate}
+        >
+          {isCreating ? t("setup.creatingLobby") : t("setup.createLobby")}
+        </Button>
 
-      <Button
-        className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
-        disabled={isCreating}
-        onClick={onCreate}
-      >
-        {isCreating ? t("setup.creatingLobby") : t("setup.createLobby")}
-      </Button>
+        <div
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="self"
+        >
+          <LobbyVisibilityControl
+            onChange={onLobbyVisibilityChange}
+            value={lobbyVisibility}
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -971,13 +1027,22 @@ export default function GameSetupScreen({
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === waterColorId) ?? WATER_COLORS[0];
   const setupDescription = !isMultiplayer
-    ? t("setup.singleplayerSelectionDescription", {
-        difficulty: t(`difficulties.${difficulty}.label`),
-        difficultyDescription: t(`difficulties.${difficulty}.description`),
-        mode: t(`modes.${ruleMode}.label`),
-        modeDescription: t(`modes.${ruleMode}.description`),
-      })
+    ? [
+        t("setup.singleplayerModeDescription", {
+          mode: t(`modes.${ruleMode}.label`),
+          modeDescription: t(`modes.${ruleMode}.description`),
+        }),
+        t("setup.singleplayerDifficultyDescription", {
+          difficulty: t(`difficulties.${difficulty}.label`),
+          difficultyDescription: t(`difficulties.${difficulty}.description`),
+        }),
+      ]
     : copy.description;
+  const sectionWords = getSetupSectionWords({
+    isMultiplayer,
+    multiplayerStep,
+    title: copy.title,
+  });
   const playSetupExit = useScreenReveal(
     setupRevealRef,
     [mode, multiplayerStep],
@@ -1266,8 +1331,8 @@ export default function GameSetupScreen({
               property="--setup-water-color"
             />
             <SectionWord
-              primary={copy.title.toUpperCase()}
-              secondary={t("setup.setup")}
+              primary={sectionWords.primary}
+              secondary={sectionWords.secondary}
             />
             <div
               className={[
@@ -1327,24 +1392,22 @@ export default function GameSetupScreen({
                 ) : !isMultiplayer ? (
                   <>
                     <div className="w-full min-w-0 justify-self-stretch md:hidden">
-                      <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-3">
+                      <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_var(--pc-choice-height)_var(--pc-choice-height)] items-start gap-3">
                         <DifficultyControl
                           label={t("setup.difficulty")}
                           onChange={setDifficulty}
                           value={difficulty}
                         />
-                        <div className="grid min-w-0 grid-cols-2 gap-3">
-                          <MobileSetupButton
-                            icon={Palette}
-                            label="Color"
-                            onClick={() => setMobileSetupModal("color")}
-                          />
-                          <MobileSetupButton
-                            icon={Shuffle}
-                            label="Mode"
-                            onClick={() => setMobileSetupModal("mode")}
-                          />
-                        </div>
+                        <MobileSetupButton
+                          icon={Palette}
+                          label="Color"
+                          onClick={() => setMobileSetupModal("color")}
+                        />
+                        <MobileSetupButton
+                          icon={Shuffle}
+                          label="Mode"
+                          onClick={() => setMobileSetupModal("mode")}
+                        />
                       </div>
                     </div>
 
