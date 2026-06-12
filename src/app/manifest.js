@@ -5,8 +5,6 @@ import {
   SITE_IMAGE_WIDTH,
 } from "@/lib/seo";
 
-const ICON_VERSION = "20260611-platform-icons";
-
 export default function manifest() {
   return {
     name: `${APP_NAME} - Precision Fill Game`,
@@ -23,33 +21,21 @@ export default function manifest() {
     categories: ["games", "entertainment"],
     icons: [
       {
-        src: `/favicon-48x48.png?v=${ICON_VERSION}`,
-        sizes: "48x48",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: `/icon-192.png?v=${ICON_VERSION}`,
+        src: "/icon-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any maskable",
       },
       {
-        src: `/apple-icon.png?v=${ICON_VERSION}`,
-        sizes: "180x180",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: `/icon-512.png?v=${ICON_VERSION}`,
+        src: "/icon-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any maskable",
       },
       {
-        src: `/icon.svg?v=${ICON_VERSION}`,
-        sizes: "512x512",
-        type: "image/svg+xml",
+        src: "/icon-1024.png",
+        sizes: "1024x1024",
+        type: "image/png",
         purpose: "any maskable",
       },
     ],
