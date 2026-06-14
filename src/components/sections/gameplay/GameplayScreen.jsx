@@ -25,6 +25,8 @@ import {
   startPourLoop,
 } from "@/lib/sound";
 
+const STABLE_REVEAL_TRANSFORM = { force3D: false };
+
 function formatPercent(value) {
   return `${clamp(Number(value) || 0, 0, 100).toFixed(1)}%`;
 }
@@ -97,19 +99,20 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
       },
       onComplete: () => {
         gsap.set(rows, { clearProps: "overflow" });
-        gsap.set(items, { clearProps: "opacity,visibility,transform,willChange" });
+        gsap.set(items, { clearProps: "opacity,visibility,willChange" });
       },
     });
 
     gsap.set(rows, { overflow: "hidden" });
     gsap.set(items, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       yPercent: -120,
-      willChange: "transform,opacity",
     });
 
     timeline.to(items, {
       autoAlpha: 1,
+      ...STABLE_REVEAL_TRANSFORM,
       stagger: 0.085,
       yPercent: 0,
     });
@@ -150,8 +153,8 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
             {t("game.chaosQueue")}
           </p>
         </div>
-        <div className="w-full" data-chaos-briefing-row="true">
-          <h1 className="pc-result-score-compact max-w-full text-balance uppercase text-[#0d0d0c] sm:text-[var(--pc-result-score)]">
+        <div className="w-full min-w-0 px-2" data-chaos-briefing-row="true">
+          <h1 className="pc-result-score-compact mx-auto max-w-full break-words text-balance uppercase leading-[0.88] text-[#0d0d0c] [font-size:clamp(2rem,10.5vw,5.75rem)] [overflow-wrap:anywhere] sm:[font-size:clamp(2.6rem,8.2vw,7.4rem)]">
             {t(`modes.${option.id}.label`)}
           </h1>
         </div>
@@ -218,7 +221,7 @@ function BandTargetGuides({ activeIndex = 0, bandTargets = [] }) {
           >
             <div
               className={[
-                "absolute inset-x-[-8vw] top-0 border-t-2 border-dashed [transform-origin:center_center] dark:border-[#f7f7f2]/38",
+                "absolute inset-x-[-8vw] top-0 border-t-2 border-dashed [transform-origin:center_center] dark:border-[#f7f7f2]/46",
                 index === activeIndex
                   ? "border-[#0d0d0c]/58"
                   : "border-[#0d0d0c]/24",
@@ -230,7 +233,7 @@ function BandTargetGuides({ activeIndex = 0, bandTargets = [] }) {
                 "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 md:right-8",
                 index === activeIndex
                   ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
-                  : "bg-[#0d0d0c]/38 text-white dark:bg-[#f7f7f2]/28 dark:text-[#f7f7f2]",
+                  : "bg-[#0d0d0c]/38 text-white dark:bg-[#f7f7f2]/22 dark:text-[#f7f7f2]",
               ].join(" ")}
               data-gameplay-reveal-badge="true"
             >
@@ -548,33 +551,33 @@ export default function GameplayScreen({
       defaults: { overwrite: "auto" },
       onComplete: () => {
         gsap.set([...primary, ...hud, ...lines, ...badges], {
-          clearProps: "opacity,visibility,transform,willChange",
+          clearProps: "opacity,visibility,willChange",
         });
       },
     });
 
     gsap.set(primary, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       yPercent: -115,
-      willChange: "transform,opacity",
     });
     gsap.set(hud, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       yPercent: -85,
-      willChange: "transform,opacity",
     });
     gsap.set(lines, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       scaleX: 0,
       transformOrigin: "center center",
-      willChange: "transform,opacity",
     });
     gsap.set(badges, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       y: -10,
       yPercent: -50,
       scale: 0.96,
-      willChange: "transform,opacity",
     });
 
     timeline
@@ -584,6 +587,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.72,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           yPercent: 0,
         },
         0,
@@ -594,6 +598,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.64,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           yPercent: 0,
         },
         0.18,
@@ -604,6 +609,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.62,
           ease: "power3.inOut",
+          ...STABLE_REVEAL_TRANSFORM,
           scaleX: 1,
         },
         0.4,
@@ -614,6 +620,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.48,
           ease: "back.out(1.35)",
+          ...STABLE_REVEAL_TRANSFORM,
           scale: 1,
           y: 0,
           yPercent: -50,
@@ -626,6 +633,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.58,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           yPercent: 0,
         },
         0.9,
@@ -750,14 +758,16 @@ export default function GameplayScreen({
 
     gsap.set(targets, {
       autoAlpha: 0,
+      ...STABLE_REVEAL_TRANSFORM,
       y: 18,
-      willChange: "transform,opacity",
     });
     gsap.set(score, {
+      ...STABLE_REVEAL_TRANSFORM,
       yPercent: 90,
       transformOrigin: "center center",
     });
     gsap.set(action, {
+      ...STABLE_REVEAL_TRANSFORM,
       scale: 0,
       transformOrigin: "center center",
     });
@@ -767,11 +777,14 @@ export default function GameplayScreen({
 
     let scoreSound = null;
     let scoreTween = null;
+    const scoreQuality = clamp((lastResult?.score ?? 0) / 10, 0, 1);
+    const scoreCountDuration =
+      (lastResult?.score ?? 0) <= 0.05 ? 0.28 : 0.46 + scoreQuality * 0.62;
     const timeline = gsap.timeline({
       defaults: { overwrite: "auto" },
       onComplete: () => {
         gsap.set(targets, {
-          clearProps: "opacity,visibility,transform,willChange",
+          clearProps: "opacity,visibility,willChange",
         });
       },
     });
@@ -783,6 +796,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.64,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           y: 0,
           yPercent: 0,
         },
@@ -795,13 +809,13 @@ export default function GameplayScreen({
           const state = { value: 0 };
           score.textContent = formatResultScore(0);
           scoreSound = startRoundScoreCountSound({
-            duration: 1.08,
+            duration: scoreCountDuration,
             score: lastResult.score,
           });
 
           scoreTween = gsap.to(state, {
             value: lastResult.score,
-            duration: 1.08,
+            duration: scoreCountDuration,
             ease: "power2.out",
             onUpdate: () => {
               score.textContent = formatResultScore(state.value);
@@ -825,6 +839,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.48,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           y: 0,
         },
         1.16,
@@ -835,6 +850,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.58,
           ease: "power4.out",
+          ...STABLE_REVEAL_TRANSFORM,
           y: 0,
         },
         1.34,
@@ -845,6 +861,7 @@ export default function GameplayScreen({
           autoAlpha: 1,
           duration: 0.22,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           scale: 1.08,
           y: 0,
         },
@@ -855,6 +872,7 @@ export default function GameplayScreen({
         {
           duration: 0.1,
           ease: "power3.out",
+          ...STABLE_REVEAL_TRANSFORM,
           scale: 0.96,
         },
         1.86,
@@ -864,6 +882,7 @@ export default function GameplayScreen({
         {
           duration: 0.14,
           ease: "expo.out",
+          ...STABLE_REVEAL_TRANSFORM,
           scale: 1,
         },
         1.96,
@@ -1277,7 +1296,7 @@ export default function GameplayScreen({
 
   return (
     <main
-      className="relative h-dvh touch-none select-none overflow-hidden bg-[#f7f7f2] p-6 text-[#0d0d0c] [isolation:isolate] md:p-8 dark:bg-[#0d0d0c] dark:text-[#f7f7f2]"
+      className="relative h-dvh touch-none select-none overflow-hidden bg-[#f7f7f2] p-6 text-[#0d0d0c] [isolation:isolate] md:p-8 dark:bg-[#080807] dark:text-[#f7f7f2]"
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -1427,7 +1446,7 @@ export default function GameplayScreen({
             ) : null}
           </div>
           <button
-            aria-label="Ana sayfaya don"
+            aria-label={t("common.mainMenu")}
             className="pc-icon-button -mr-[calc((var(--pc-icon-button)-var(--pc-icon-size))/2)] -mt-[calc((var(--pc-icon-button)-var(--pc-icon-size))/2)] grid shrink-0 place-items-center text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
             data-game-control="true"
             onClick={() => setShowExitConfirm(true)}
@@ -1499,8 +1518,7 @@ export default function GameplayScreen({
 
         <section
           data-water-hud="true"
-          className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-4"
-          style={{ color: waterColor.text }}
+          className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-4 text-[#0d0d0c]/78 dark:text-[#f7f7f2]/82"
         >
           <div className="overflow-hidden">
             <div data-gameplay-reveal="goal">

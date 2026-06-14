@@ -15,8 +15,12 @@ export default function PageUtilitySwitches({ placement = "inline", tone = "dark
     ? "pointer-events-auto fixed right-0 top-[5.25rem] z-50 md:top-28 lg:absolute lg:top-24"
     : "flex justify-end";
   const switchGroupClass = isRail ? "grid gap-0" : "flex gap-2";
+  const railButtonClass =
+    tone === "cream"
+      ? "pc-icon-button grid place-items-center bg-[#f7f7f2] text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7f7f2] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
+      : "pc-icon-button grid place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#202020] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]";
   const buttonClass = isRail
-    ? "pc-icon-button grid place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#202020] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+    ? railButtonClass
     : `pc-icon-button grid place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 ${switchClass}`;
 
   return (

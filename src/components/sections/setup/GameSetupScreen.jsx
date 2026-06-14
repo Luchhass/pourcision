@@ -23,6 +23,7 @@ import {
 import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
 import SectionWord from "@/components/layout/SectionWord";
+import AnimatedSettingsModal from "@/components/ui/AnimatedSettingsModal";
 import Button from "@/components/ui/Button";
 import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import LobbyListPanel from "@/components/sections/setup/LobbyListPanel";
@@ -80,36 +81,38 @@ const LOBBY_VISIBILITIES = {
   PUBLIC: "public",
 };
 
-function getDefaultLobbyName(playerName) {
+function getDefaultLobbyName(playerName, t) {
   const cleanPlayerName = String(playerName || "").trim();
-  return cleanPlayerName ? `${cleanPlayerName}'s lobby` : "Pourcision lobby";
+  return cleanPlayerName
+    ? t("setup.playerLobbyName", { name: cleanPlayerName })
+    : t("setup.defaultLobbyName");
 }
 
-function getSetupSectionWords({ isMultiplayer, multiplayerStep, title }) {
+function getSetupSectionWords({ isMultiplayer, multiplayerStep, title, t }) {
   if (!isMultiplayer) {
     return {
       primary: title.toUpperCase(),
-      secondary: "SETUP",
+      secondary: t("setup.sectionSetup").toUpperCase(),
     };
   }
 
   if (multiplayerStep === MULTIPLAYER_SETUP_STEPS.CREATE_DETAILS) {
     return {
-      primary: "LOBBY",
-      secondary: "CREATE",
+      primary: t("setup.sectionLobby").toUpperCase(),
+      secondary: t("setup.sectionCreate").toUpperCase(),
     };
   }
 
   if (multiplayerStep === MULTIPLAYER_SETUP_STEPS.JOIN_LIST) {
     return {
-      primary: "LOBBIES",
-      secondary: "BROWSE",
+      primary: t("setup.sectionLobbies").toUpperCase(),
+      secondary: t("setup.sectionBrowse").toUpperCase(),
     };
   }
 
   return {
-    primary: "NAME",
-    secondary: "PLAYER",
+    primary: t("setup.sectionName").toUpperCase(),
+    secondary: t("setup.sectionPlayer").toUpperCase(),
   };
 }
 
@@ -239,6 +242,7 @@ function isRuleModeAvailable(option, isMultiplayer) {
 }
 
 function SetupTitleBand({ onBack, title }) {
+  const { t } = useTranslation();
   const titleText = title.toUpperCase();
 
   return (
@@ -271,7 +275,7 @@ function SetupTitleBand({ onBack, title }) {
       </div>
 
       <button
-        aria-label="Geri gel"
+        aria-label={t("common.backHome")}
         className="pc-icon-button fixed right-3 top-3 z-[60] grid place-items-center text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] md:right-4 md:top-4 dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
         onClick={onBack}
         type="button"
@@ -340,7 +344,11 @@ function ChoiceGrid({
   const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
 
   return (
-    <div className="min-w-0 space-y-3" data-sound-group="game-mode">
+    <div
+      className="min-w-0 space-y-3"
+      data-screen-reveal-atomic="true"
+      data-sound-group="game-mode"
+    >
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}
@@ -348,7 +356,7 @@ function ChoiceGrid({
       ) : null}
       <div
         className={[
-          "grid min-w-0 bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
+          "grid min-w-0 select-none bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] touch-pan-y dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
           modalGrid
             ? "grid-cols-3 overflow-visible"
             : "grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:grid-rows-2 md:auto-cols-[9.75rem] [&::-webkit-scrollbar]:hidden",
@@ -413,7 +421,7 @@ function DifficultyControl({ label, value, onChange }) {
   const { t } = useTranslation();
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
       <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
         {label}
       </p>
@@ -450,6 +458,20 @@ function DifficultyControl({ label, value, onChange }) {
   );
 }
 
+function getWaterColorWheelStep(slider, compact = false) {
+  if (!slider) return compact ? 58 : 68;
+
+  const colorButtons = slider.querySelectorAll("[data-color-id]");
+  const firstRect = colorButtons[0]?.getBoundingClientRect();
+  const secondRect = colorButtons[1]?.getBoundingClientRect();
+  if (firstRect && secondRect) {
+    return Math.abs(secondRect.left - firstRect.left);
+  }
+
+  const buttonWidth = firstRect?.width ?? (compact ? 48 : 56);
+  return buttonWidth + (compact ? 10 : 12);
+}
+
 function WaterColorSelect({
   label,
   value,
@@ -458,206 +480,31 @@ function WaterColorSelect({
   showLabel = true,
 }) {
   const { t } = useTranslation();
-  const sliderRef = useRef(null);
-  const dragRef = useRef({
-    active: false,
-    moved: false,
-    suppressClick: false,
-    scrollLeft: 0,
-    targetColorId: null,
-    x: 0,
-  });
-  const scrollMotionRef = useRef({
-    frame: 0,
-    targetLeft: 0,
+  const {
+    handleClickCapture,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleScroll,
+    handleWheel,
+    sliderRef,
+  } = useLoopingSlider(WATER_COLORS.length, {
+    getWheelStep: (slider) => getWaterColorWheelStep(slider, compact),
+    loop: "always",
+    wheelDuration: 0.78,
   });
   const selectedColor =
     WATER_COLORS.find((color) => color.id === value) ?? WATER_COLORS[0];
   const visibleColors = [...WATER_COLORS, ...WATER_COLORS, ...WATER_COLORS];
 
-  useEffect(() => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    const segmentWidth = slider.scrollWidth / 3;
-    slider.scrollLeft = segmentWidth;
-  }, []);
-
-  useEffect(() => {
-    const motion = scrollMotionRef.current;
-
-    return () => {
-      if (motion.frame) {
-        window.cancelAnimationFrame(motion.frame);
-      }
-    };
-  }, []);
-
-  const normalizeScrollPosition = (targetLeft = null) => {
-    const slider = sliderRef.current;
-    if (!slider) return targetLeft;
-
-    const segmentWidth = slider.scrollWidth / 3;
-    if (!segmentWidth) return targetLeft;
-
-    let nextTargetLeft = targetLeft;
-    if (slider.scrollLeft < segmentWidth * 0.45) {
-      slider.scrollLeft += segmentWidth;
-      if (nextTargetLeft !== null) {
-        nextTargetLeft += segmentWidth;
-      }
-    }
-    if (slider.scrollLeft > segmentWidth * 1.55) {
-      slider.scrollLeft -= segmentWidth;
-      if (nextTargetLeft !== null) {
-        nextTargetLeft -= segmentWidth;
-      }
-    }
-    return nextTargetLeft;
-  };
-
-  const stopScrollAnimation = () => {
-    const motion = scrollMotionRef.current;
-    if (!motion.frame) return;
-
-    window.cancelAnimationFrame(motion.frame);
-    motion.frame = 0;
-  };
-
-  const animateScrollTo = (targetLeft) => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    const motion = scrollMotionRef.current;
-    motion.targetLeft = normalizeScrollPosition(targetLeft) ?? targetLeft;
-    if (motion.frame) return;
-
-    const tick = () => {
-      const activeSlider = sliderRef.current;
-      if (!activeSlider) {
-        motion.frame = 0;
-        return;
-      }
-
-      motion.targetLeft =
-        normalizeScrollPosition(motion.targetLeft) ?? motion.targetLeft;
-
-      const distance = motion.targetLeft - activeSlider.scrollLeft;
-      if (Math.abs(distance) < 0.35) {
-        activeSlider.scrollLeft = motion.targetLeft;
-        motion.frame = 0;
-        normalizeScrollPosition();
-        return;
-      }
-
-      activeSlider.scrollLeft += distance * 0.18;
-      motion.frame = window.requestAnimationFrame(tick);
-    };
-
-    motion.frame = window.requestAnimationFrame(tick);
-  };
-
-  const getWheelStep = () => {
-    const slider = sliderRef.current;
-    if (!slider) return compact ? 58 : 68;
-
-    const colorButtons = slider.querySelectorAll("[data-color-id]");
-    const firstRect = colorButtons[0]?.getBoundingClientRect();
-    const secondRect = colorButtons[1]?.getBoundingClientRect();
-    if (firstRect && secondRect) {
-      return Math.abs(secondRect.left - firstRect.left);
-    }
-
-    const buttonWidth = firstRect?.width ?? (compact ? 48 : 56);
-    return buttonWidth + (compact ? 10 : 12);
-  };
-
-  const handleScroll = () => {
-    if (dragRef.current.active || scrollMotionRef.current.frame) return;
-
-    normalizeScrollPosition();
-  };
-
-  const handlePointerDown = (event) => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    stopScrollAnimation();
-    const colorButton = event.target.closest("[data-color-id]");
-
-    dragRef.current = {
-      active: true,
-      moved: false,
-      suppressClick: false,
-      scrollLeft: slider.scrollLeft,
-      targetColorId: colorButton?.dataset.colorId ?? null,
-      x: event.clientX,
-    };
-    slider.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event) => {
-    const slider = sliderRef.current;
-    const drag = dragRef.current;
-    if (!slider || !drag.active) return;
-
-    const distance = event.clientX - drag.x;
-    if (Math.abs(distance) > 4) {
-      drag.moved = true;
-    }
-    if (drag.moved) {
-      slider.scrollLeft = drag.scrollLeft - distance;
-    }
-  };
-
-  const handlePointerUp = (event) => {
-    const slider = sliderRef.current;
-    const drag = dragRef.current;
-    if (slider?.hasPointerCapture(event.pointerId)) {
-      slider.releasePointerCapture(event.pointerId);
-    }
-    if (!drag.moved && drag.targetColorId) {
-      const colorIndex = WATER_COLORS.findIndex(
-        (color) => color.id === drag.targetColorId,
-      );
-      playWaterColorSelect(Math.max(0, colorIndex));
-      onChange(drag.targetColorId);
-    }
-    dragRef.current.active = false;
-    dragRef.current.suppressClick = true;
-    window.setTimeout(() => {
-      dragRef.current.suppressClick = false;
-    }, 0);
-    normalizeScrollPosition();
-  };
-
-  const handleColorSelect = (event, colorId, colorIndex) => {
-    if (dragRef.current.suppressClick) {
-      event.preventDefault();
-      return;
-    }
+  const handleColorSelect = (colorId, colorIndex) => {
     playWaterColorSelect(colorIndex);
     onChange(colorId);
   };
 
-  const handleWheel = (event) => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    const delta =
-      Math.abs(event.deltaY) > Math.abs(event.deltaX)
-        ? event.deltaY
-        : event.deltaX;
-    if (!delta) return;
-
-    event.preventDefault();
-    const motion = scrollMotionRef.current;
-    const baseLeft = motion.frame ? motion.targetLeft : slider.scrollLeft;
-    animateScrollTo(baseLeft + Math.sign(delta) * getWheelStep());
-  };
-
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}{" "}
@@ -672,16 +519,18 @@ function WaterColorSelect({
         className={[
           "grid min-w-0 items-center overflow-x-auto overflow-y-hidden",
           "[&::-webkit-scrollbar]:hidden",
-          "cursor-grab active:cursor-grabbing",
+          "cursor-grab select-none active:cursor-grabbing",
+          "touch-pan-y",
           "overscroll-contain",
           "h-[var(--pc-swatch-size)]",
           compact
             ? "w-full max-w-full lg:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]"
             : "w-full max-w-full sm:max-w-[34rem]",
         ].join(" ")}
+        onClickCapture={handleClickCapture}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onPointerUp={handlePointerUp}
         onScroll={handleScroll}
         onWheel={handleWheel}
@@ -716,8 +565,8 @@ function WaterColorSelect({
                 data-sound-index={index % WATER_COLORS.length}
                 data-sound-kind="water-color"
                 key={`${color.id}-${index}`}
-                onClick={(event) =>
-                  handleColorSelect(event, color.id, index % WATER_COLORS.length)
+                onClick={() =>
+                  handleColorSelect(color.id, index % WATER_COLORS.length)
                 }
                 style={{
                   backgroundColor: color.value,
@@ -737,58 +586,55 @@ function WaterColorSelect({
 
 function MobileSetupModal({ children, onClose, title }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:hidden">
-      <button
-        aria-label="Close setup panel"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-        type="button"
-      />
-      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
-        <div className="flex items-start justify-between gap-5">
-          <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
-            {title}
-          </h2>
-          <button
-            aria-label="Close setup panel"
-            className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
-            onClick={onClose}
-            type="button"
-          >
-            <svg
-              aria-hidden="true"
-              className="pc-icon"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.5"
-              viewBox="0 0 24 24"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
-        {children}
-      </section>
-    </div>
+    <AnimatedSettingsModal onClose={onClose} title={title}>
+      {children}
+    </AnimatedSettingsModal>
   );
 }
 
-function MobileSetupButton({ icon: Icon, label, onClick }) {
+function MobileSetupButton({
+  icon: Icon,
+  label,
+  onClick,
+  showLabel = true,
+  value = "",
+  wide = false,
+}) {
   return (
-    <div className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3">
-      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
-        {label}
-      </p>
+    <div
+      className={[
+        "grid min-w-0",
+        showLabel ? "grid-rows-[auto_var(--pc-choice-height)] gap-3" : "",
+        wide ? "w-full" : "w-[var(--pc-choice-height)]",
+      ].join(" ")}
+      data-screen-reveal-atomic="true"
+    >
+      {showLabel ? (
+        <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+          {label}
+        </p>
+      ) : null}
       <button
         aria-label={label}
-        className="grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+        className={[
+          "grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+          wide ? "px-3" : "",
+        ].join(" ")}
         onClick={onClick}
         type="button"
       >
-        <Icon aria-hidden="true" className="pc-icon" strokeWidth={2.7} />
+        <span
+          className={[
+            "flex min-w-0 items-center gap-2",
+            wide ? "w-full" : "",
+            wide ? "justify-start" : "justify-center",
+          ].join(" ")}
+        >
+          <Icon aria-hidden="true" className="pc-icon shrink-0" strokeWidth={2.7} />
+          {value ? (
+            <span className="pc-choice-text min-w-0 truncate">{value}</span>
+          ) : null}
+        </span>
       </button>
     </div>
   );
@@ -840,14 +686,17 @@ function SetupTextField({
   label,
   maxLength = 24,
   onChange,
-  placeholder = "Player",
+  placeholder = "",
   prominent = false,
   trailingAction = null,
   type = "text",
   value,
 }) {
   return (
-    <div className="w-full max-w-none space-y-2.5">
+    <div
+      className="w-full max-w-none space-y-2.5"
+      data-screen-reveal-atomic="true"
+    >
       <p
         className={[
           "pc-label",
@@ -905,7 +754,7 @@ function LobbyVisibilityControl({ onChange, value }) {
   ];
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
       <div className="grid grid-cols-2 bg-[#0d0d0c]/[0.035] shadow-[0_18px_38px_rgba(13,13,12,0.07)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
         {options.map((option) => {
           const selected = value === option.id;
@@ -959,13 +808,13 @@ function CreateLobbyDetailsStep({
           isPrivateLobby ? "grid-cols-2" : "",
         ].join(" ")}
         data-screen-reveal-row="true"
-        data-screen-reveal-target="self"
+        data-screen-reveal-target="children"
       >
         <SetupTextField
           error={lobbyNameError}
           label={t("setup.lobbyName")}
           onChange={onLobbyNameChange}
-          placeholder="Pourcision lobby"
+          placeholder={t("setup.defaultLobbyName")}
           value={lobbyName}
         />
 
@@ -979,7 +828,9 @@ function CreateLobbyDetailsStep({
             trailingAction={
               <button
                 aria-label={
-                  showLobbyPassword ? "Hide password" : "Show password"
+                  showLobbyPassword
+                    ? t("setup.hidePassword")
+                    : t("setup.showPassword")
                 }
                 className="grid h-full w-full place-items-center text-[#0d0d0c]/70 transition-colors duration-200 hover:text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-6px] focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2]/70 dark:hover:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
                 onClick={() => setShowLobbyPassword((current) => !current)}
@@ -994,21 +845,19 @@ function CreateLobbyDetailsStep({
         ) : null}
       </div>
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+      <div
+        className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-4"
+        data-screen-reveal-row="true"
+        data-screen-reveal-target="children"
+      >
         <Button
           className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
-          data-screen-reveal-row="true"
-          data-screen-reveal-target="self"
           disabled={isCreating}
           onClick={onCreate}
         >
           {isCreating ? t("setup.creatingLobby") : t("setup.createLobby")}
         </Button>
-
-        <div
-          data-screen-reveal-row="true"
-          data-screen-reveal-target="self"
-        >
+        <div data-screen-reveal-atomic="true">
           <LobbyVisibilityControl
             onChange={onLobbyVisibilityChange}
             value={lobbyVisibility}
@@ -1073,6 +922,14 @@ export default function GameSetupScreen({
   );
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === waterColorId) ?? WATER_COLORS[0];
+  const selectedRuleModeOption =
+    availableRuleModeOptions.find((option) => option.id === ruleMode) ||
+    availableRuleModeOptions[0] ||
+    ruleModeOptions[0];
+  const SelectedRuleModeIcon = selectedRuleModeOption?.icon || Shuffle;
+  const selectedRuleModeLabel = selectedRuleModeOption
+    ? t(`modes.${selectedRuleModeOption.id}.label`)
+    : t("setup.mode");
   const setupDescription = !isMultiplayer
     ? [
         t("setup.singleplayerModeDescription", {
@@ -1088,6 +945,7 @@ export default function GameSetupScreen({
   const sectionWords = getSetupSectionWords({
     isMultiplayer,
     multiplayerStep,
+    t,
     title: copy.title,
   });
   const playSetupExit = useScreenReveal(
@@ -1159,7 +1017,7 @@ export default function GameSetupScreen({
     setLobbyName((currentLobbyName) =>
       currentLobbyName.trim()
         ? currentLobbyName
-        : getDefaultLobbyName(playerName),
+        : getDefaultLobbyName(playerName, t),
     );
     setLobbyNameError(false);
     setMultiplayerStep(MULTIPLAYER_SETUP_STEPS.CREATE_DETAILS);
@@ -1273,7 +1131,7 @@ export default function GameSetupScreen({
                   error={playerNameError ? t("setup.playerNameRequired") : ""}
                   label={t("setup.playerName")}
                   onChange={handlePlayerNameChange}
-                  placeholder="Player"
+                  placeholder={t("room.namePlaceholder")}
                   prominent
                   value={playerName}
                 />
@@ -1403,7 +1261,7 @@ export default function GameSetupScreen({
                     error={playerNameError ? t("setup.playerNameRequired") : ""}
                     label={t("setup.playerName")}
                     onChange={handlePlayerNameChange}
-                    placeholder="Player"
+                    placeholder={t("room.namePlaceholder")}
                     prominent
                     value={playerName}
                   />
@@ -1439,22 +1297,38 @@ export default function GameSetupScreen({
                 ) : !isMultiplayer ? (
                   <>
                     <div className="w-full min-w-0 justify-self-stretch md:hidden">
-                      <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_var(--pc-choice-height)_var(--pc-choice-height)] items-start gap-3">
-                        <DifficultyControl
-                          label={t("setup.difficulty")}
-                          onChange={setDifficulty}
-                          value={difficulty}
-                        />
-                        <MobileSetupButton
-                          icon={Palette}
-                          label="Color"
-                          onClick={() => setMobileSetupModal("color")}
-                        />
-                        <MobileSetupButton
-                          icon={Shuffle}
-                          label="Mode"
-                          onClick={() => setMobileSetupModal("mode")}
-                        />
+                      <div className="grid w-full min-w-0 justify-self-stretch gap-4">
+                        <div className="grid w-full min-w-0 grid-cols-2 items-start gap-3">
+                          <DifficultyControl
+                            label={t("setup.difficulty")}
+                            onChange={setDifficulty}
+                            value={difficulty}
+                          />
+                          <MobileSetupButton
+                            icon={SelectedRuleModeIcon}
+                            label={t("setup.mode")}
+                            onClick={() => setMobileSetupModal("mode")}
+                            value={selectedRuleModeLabel}
+                            wide
+                          />
+                        </div>
+                        <div className="grid w-full min-w-0 grid-cols-[var(--pc-choice-height)_minmax(0,1fr)] items-center gap-3">
+                          <MobileSetupButton
+                            icon={Palette}
+                            label={t("setup.waterColor")}
+                            onClick={() => setMobileSetupModal("color")}
+                            showLabel={false}
+                          />
+                          <Button
+                            className="h-[var(--pc-choice-height)] rounded-none px-3 shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+                            disabled={isStarting}
+                            onClick={handleStart}
+                          >
+                            {isStarting
+                              ? t("setup.creatingLobby")
+                              : copy.startLabel}
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -1476,7 +1350,7 @@ export default function GameSetupScreen({
                       </div>
                     </div>
                     <Button
-                      className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+                      className="max-md:!hidden rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)] md:!inline-flex"
                       disabled={isStarting}
                       onClick={handleStart}
                     >

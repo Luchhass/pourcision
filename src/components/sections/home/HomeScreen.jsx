@@ -25,6 +25,18 @@ import {
   subscribeToWaterColorPreference,
 } from "@/lib/waterColorPreference";
 
+function subscribeToHydration() {
+  return () => {};
+}
+
+function getClientHydrationSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
 function HomeTitleBand({ title }) {
   const titleText = title.toUpperCase();
 
@@ -72,13 +84,11 @@ function HomeStats() {
       className="flex w-full max-w-[16rem] items-end justify-between text-[#0d0d0c]/82 dark:text-[#f7f7f2]/72"
       data-home-stats="true"
       data-screen-reveal="cream"
-      data-screen-reveal-mask="none"
     >
       <div
         className="flex justify-center"
         data-screen-reveal-direction="up"
         data-screen-reveal-group="stats"
-        data-screen-reveal-mask="none"
         data-screen-reveal-row="true"
       >
         <div className="text-left" style={rotatedStyle}>
@@ -92,7 +102,6 @@ function HomeStats() {
         className="flex justify-center"
         data-screen-reveal-direction="up"
         data-screen-reveal-group="stats"
-        data-screen-reveal-mask="none"
         data-screen-reveal-row="true"
       >
         <div className="text-left" style={rotatedStyle}>
@@ -106,7 +115,6 @@ function HomeStats() {
         className="flex justify-center"
         data-screen-reveal-direction="up"
         data-screen-reveal-group="stats"
-        data-screen-reveal-mask="none"
         data-screen-reveal-row="true"
       >
         <div className="text-left" style={rotatedStyle}>
@@ -225,14 +233,19 @@ export default function HomeScreen({
   initialStep = "menu",
 } = {}) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const explicitWaterColorId = isWaterColorId(initialSettings?.waterColorId)
     ? initialSettings.waterColorId
     : null;
-  const preferredWaterColorId = useSyncExternalStore(
+  const storedPreferredWaterColorId = useSyncExternalStore(
     subscribeToWaterColorPreference,
     getWaterColorPreferenceSnapshot,
     getFallbackWaterColorId,
+  );
+  const hasHydratedClient = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
   );
   const [selectedMode, setSelectedMode] = useState(initialMode);
   const [sessionWaterColorId, setSessionWaterColorId] =
@@ -258,12 +271,15 @@ export default function HomeScreen({
       title: t("home.multiplayerTitle"),
     },
   ];
+  const preferredWaterColorId = hasHydratedClient
+    ? storedPreferredWaterColorId
+    : getFallbackWaterColorId();
   const selectedWaterColorId = sessionWaterColorId || preferredWaterColorId;
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === selectedWaterColorId) ??
     WATER_COLORS[0];
 
-  const playHomeExit = useScreenReveal(homeRevealRef, [step], {
+  const playHomeExit = useScreenReveal(homeRevealRef, [step, locale], {
     delay: step === "menu" ? 120 : 0,
   });
 
@@ -309,7 +325,7 @@ export default function HomeScreen({
       setIsCreatingRoom(true);
 
       const playerId = createPlayerId();
-      const playerName = settings.playerName?.trim() || "Player";
+      const playerName = settings.playerName?.trim() || t("room.defaultPlayer");
       const isJoiningLobby = settings.action === "join";
       const lobbyVisibility = settings.visibility || "public";
       const response = isJoiningLobby
@@ -328,7 +344,9 @@ export default function HomeScreen({
             playerId,
             password:
               lobbyVisibility === "private" ? settings.password || "" : "",
-            roomName: settings.roomName?.trim() || `${playerName}'s Room`,
+            roomName:
+              settings.roomName?.trim() ||
+              t("setup.playerLobbyName", { name: playerName }),
             ruleMode: settings.ruleMode,
             visibility: lobbyVisibility,
             waterColorId: settings.waterColorId,
@@ -475,10 +493,18 @@ export default function HomeScreen({
                 </span>
               </span>
               <div className="pc-copy space-y-3 text-[#0d0d0c]/66 md:space-y-2 lg:space-y-3 dark:text-[#f7f7f2]/68">
-                <p className="overflow-hidden" data-screen-reveal-row="true">
+                <p
+                  className="overflow-hidden"
+                  data-screen-reveal-row="true"
+                  key={`intro-one-${locale}`}
+                >
                   <span className="block">{t("home.introOne")}</span>
                 </p>
-                <p className="overflow-hidden" data-screen-reveal-row="true">
+                <p
+                  className="overflow-hidden"
+                  data-screen-reveal-row="true"
+                  key={`intro-two-${locale}`}
+                >
                   <span className="block">{t("home.introTwo")}</span>
                 </p>
               </div>

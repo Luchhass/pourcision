@@ -22,6 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import AnimatedSettingsModal from "@/components/ui/AnimatedSettingsModal";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
 import {
@@ -74,7 +75,7 @@ function LobbyDifficultyControl({
   const { t } = useTranslation();
 
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
       <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
         {label}
       </p>
@@ -138,7 +139,11 @@ function LobbyModeGrid({
   const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
 
   return (
-    <div className="min-w-0 space-y-3" data-sound-group="game-mode">
+    <div
+      className="min-w-0 space-y-3"
+      data-screen-reveal-atomic="true"
+      data-sound-group="game-mode"
+    >
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}
@@ -146,7 +151,7 @@ function LobbyModeGrid({
       ) : null}
       <div
         className={[
-          "grid min-w-0 bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
+          "grid min-w-0 select-none bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] touch-pan-y dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]",
           modalGrid
             ? "grid-cols-3 overflow-visible"
             : "grid-flow-col grid-rows-1 auto-cols-[8.75rem] overflow-x-auto overflow-y-hidden overscroll-contain [scrollbar-width:none] min-[420px]:auto-cols-[9.25rem] md:grid-rows-2 md:auto-cols-[9.75rem] [&::-webkit-scrollbar]:hidden",
@@ -218,11 +223,11 @@ function LobbyPlayersPanel({
 
   return (
     <div
-      className="grid h-full min-h-0 w-full min-w-0"
+      className="grid h-full min-h-0 w-full min-w-0 self-stretch"
       data-screen-reveal-row="true"
       data-screen-reveal-target="self"
     >
-      <div className="grid min-h-0 content-start overflow-y-auto bg-[#f7f7f2]/92 p-3 shadow-[0_22px_48px_rgba(13,13,12,0.08)] overscroll-contain [scrollbar-width:none] dark:bg-[#f7f7f2]/8 dark:shadow-[0_24px_60px_rgba(0,0,0,0.24)] [&::-webkit-scrollbar]:hidden">
+      <div className="grid h-full min-h-0 content-start overflow-y-auto bg-[#f7f7f2]/92 p-3 shadow-[0_22px_48px_rgba(13,13,12,0.08)] overscroll-contain [scrollbar-width:none] dark:bg-[#f7f7f2]/8 dark:shadow-[0_24px_60px_rgba(0,0,0,0.24)] [&::-webkit-scrollbar]:hidden">
         {lobbyPlayers.map((player, playerIndex) => {
           const canKick =
             isHost && !player.isHost && player.id !== currentPlayerId;
@@ -284,6 +289,19 @@ function LobbyPlayersPanel({
   );
 }
 
+function getWaterColorWheelStep(slider) {
+  if (!slider) return 58;
+
+  const colorButtons = slider.querySelectorAll("[data-color-id]");
+  const firstRect = colorButtons[0]?.getBoundingClientRect();
+  const secondRect = colorButtons[1]?.getBoundingClientRect();
+  if (firstRect && secondRect) {
+    return Math.abs(secondRect.left - firstRect.left);
+  }
+
+  return (firstRect?.width ?? 48) + 10;
+}
+
 export function LobbyWaterColorPanel({
   disabled = false,
   label,
@@ -293,189 +311,29 @@ export function LobbyWaterColorPanel({
   value,
 }) {
   const { t } = useTranslation();
-  const sliderRef = useRef(null);
-  const dragRef = useRef({
-    active: false,
-    moved: false,
-    suppressClick: false,
-    scrollLeft: 0,
-    targetColorId: null,
-    x: 0,
-  });
-  const scrollMotionRef = useRef({
-    frame: 0,
-    targetLeft: 0,
+  const {
+    handleClickCapture,
+    handlePointerCancel,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handleScroll,
+    handleWheel,
+    sliderRef,
+  } = useLoopingSlider(WATER_COLORS.length, {
+    disabled,
+    getWheelStep: getWaterColorWheelStep,
+    loop: "always",
+    wheelDuration: 0.78,
   });
   const selectedColor =
     WATER_COLORS.find((color) => color.id === value) ?? WATER_COLORS[0];
   const takenColorSet = new Set(takenColorIds);
   const visibleColors = [...WATER_COLORS, ...WATER_COLORS, ...WATER_COLORS];
 
-  useEffect(() => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    const segmentWidth = slider.scrollWidth / 3;
-    slider.scrollLeft = segmentWidth;
-  }, []);
-
-  useEffect(() => {
-    const motion = scrollMotionRef.current;
-
-    return () => {
-      if (motion.frame) {
-        window.cancelAnimationFrame(motion.frame);
-      }
-    };
-  }, []);
-
-  const normalizeScrollPosition = (targetLeft = null) => {
-    const slider = sliderRef.current;
-    if (!slider) return targetLeft;
-
-    const segmentWidth = slider.scrollWidth / 3;
-    if (!segmentWidth) return targetLeft;
-
-    let nextTargetLeft = targetLeft;
-    if (slider.scrollLeft < segmentWidth * 0.45) {
-      slider.scrollLeft += segmentWidth;
-      if (nextTargetLeft !== null) {
-        nextTargetLeft += segmentWidth;
-      }
-    }
-    if (slider.scrollLeft > segmentWidth * 1.55) {
-      slider.scrollLeft -= segmentWidth;
-      if (nextTargetLeft !== null) {
-        nextTargetLeft -= segmentWidth;
-      }
-    }
-    return nextTargetLeft;
-  };
-
-  const stopScrollAnimation = () => {
-    const motion = scrollMotionRef.current;
-    if (!motion.frame) return;
-
-    window.cancelAnimationFrame(motion.frame);
-    motion.frame = 0;
-  };
-
-  const animateScrollTo = (targetLeft) => {
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    const motion = scrollMotionRef.current;
-    motion.targetLeft = normalizeScrollPosition(targetLeft) ?? targetLeft;
-    if (motion.frame) return;
-
-    const tick = () => {
-      const activeSlider = sliderRef.current;
-      if (!activeSlider) {
-        motion.frame = 0;
-        return;
-      }
-
-      motion.targetLeft =
-        normalizeScrollPosition(motion.targetLeft) ?? motion.targetLeft;
-
-      const distance = motion.targetLeft - activeSlider.scrollLeft;
-      if (Math.abs(distance) < 0.35) {
-        activeSlider.scrollLeft = motion.targetLeft;
-        motion.frame = 0;
-        normalizeScrollPosition();
-        return;
-      }
-
-      activeSlider.scrollLeft += distance * 0.18;
-      motion.frame = window.requestAnimationFrame(tick);
-    };
-
-    motion.frame = window.requestAnimationFrame(tick);
-  };
-
-  const getWheelStep = () => {
-    const slider = sliderRef.current;
-    if (!slider) return 58;
-
-    const colorButtons = slider.querySelectorAll("[data-color-id]");
-    const firstRect = colorButtons[0]?.getBoundingClientRect();
-    const secondRect = colorButtons[1]?.getBoundingClientRect();
-    if (firstRect && secondRect) {
-      return Math.abs(secondRect.left - firstRect.left);
-    }
-
-    return (firstRect?.width ?? 48) + 10;
-  };
-
-  const handleScroll = () => {
-    if (dragRef.current.active || scrollMotionRef.current.frame) return;
-
-    normalizeScrollPosition();
-  };
-
-  const handlePointerDown = (event) => {
-    if (disabled) return;
-
-    const slider = sliderRef.current;
-    if (!slider) return;
-
-    stopScrollAnimation();
-    const colorButton = event.target.closest("[data-color-id]");
-
-    dragRef.current = {
-      active: true,
-      moved: false,
-      suppressClick: false,
-      scrollLeft: slider.scrollLeft,
-      targetColorId: colorButton?.dataset.colorId ?? null,
-      x: event.clientX,
-    };
-    slider.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event) => {
-    const slider = sliderRef.current;
-    const drag = dragRef.current;
-    if (!slider || !drag.active) return;
-
-    const distance = event.clientX - drag.x;
-    if (Math.abs(distance) > 4) {
-      drag.moved = true;
-    }
-    if (drag.moved) {
-      slider.scrollLeft = drag.scrollLeft - distance;
-    }
-  };
-
-  const handlePointerUp = (event) => {
-    const slider = sliderRef.current;
-    const drag = dragRef.current;
-    if (slider?.hasPointerCapture(event.pointerId)) {
-      slider.releasePointerCapture(event.pointerId);
-    }
-    const isTaken =
-      drag.targetColorId &&
-      takenColorSet.has(drag.targetColorId) &&
-      drag.targetColorId !== value;
-
-    if (!disabled && !drag.moved && drag.targetColorId && !isTaken) {
-      const colorIndex = WATER_COLORS.findIndex(
-        (color) => color.id === drag.targetColorId,
-      );
-      playWaterColorSelect(Math.max(0, colorIndex));
-      onChange(drag.targetColorId);
-    }
-    dragRef.current.active = false;
-    dragRef.current.suppressClick = true;
-    window.setTimeout(() => {
-      dragRef.current.suppressClick = false;
-    }, 0);
-    normalizeScrollPosition();
-  };
-
   const handleColorSelect = (event, colorId, colorIndex) => {
     const isTaken = takenColorSet.has(colorId) && colorId !== value;
-    if (disabled || isTaken || dragRef.current.suppressClick) {
+    if (disabled || isTaken) {
       event.preventDefault();
       return;
     }
@@ -483,24 +341,8 @@ export function LobbyWaterColorPanel({
     onChange(colorId);
   };
 
-  const handleWheel = (event) => {
-    const slider = sliderRef.current;
-    if (!slider || disabled) return;
-
-    const delta =
-      Math.abs(event.deltaY) > Math.abs(event.deltaX)
-        ? event.deltaY
-        : event.deltaX;
-    if (!delta) return;
-
-    event.preventDefault();
-    const motion = scrollMotionRef.current;
-    const baseLeft = motion.frame ? motion.targetLeft : slider.scrollLeft;
-    animateScrollTo(baseLeft + Math.sign(delta) * getWheelStep());
-  };
-
   return (
-    <div className="min-w-0 space-y-3">
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}{" "}
@@ -514,14 +356,16 @@ export function LobbyWaterColorPanel({
         className={[
           "grid min-w-0 items-center overflow-x-auto overflow-y-hidden",
           "[&::-webkit-scrollbar]:hidden",
-          "cursor-grab active:cursor-grabbing",
+          "cursor-grab select-none active:cursor-grabbing",
+          "touch-pan-y",
           "overscroll-contain",
           "h-[var(--pc-swatch-size)]",
           "w-full max-w-full lg:max-w-[18rem] xl:max-w-[22rem] 2xl:max-w-[28rem]",
           disabled ? "pointer-events-none opacity-60" : "",
         ].join(" ")}
         data-water-color-slider="true"
-        onPointerCancel={handlePointerUp}
+        onClickCapture={handleClickCapture}
+        onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -546,7 +390,9 @@ export function LobbyWaterColorPanel({
                 aria-disabled={isTaken}
                 aria-label={
                   isTaken
-                    ? `${t(`colors.${color.id}`)} kullanılıyor`
+                    ? t("setup.colorTaken", {
+                        color: t(`colors.${color.id}`),
+                      })
                     : `${t(`colors.${color.id}`)} ${label}`
                 }
                 aria-pressed={selected}
@@ -595,48 +441,18 @@ export function LobbyWaterColorPanel({
 
 function LobbySettingsModal({ children, onClose, title }) {
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:hidden">
-      <button
-        aria-label="Close lobby settings"
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-        type="button"
-      />
-      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
-        <div className="flex items-start justify-between gap-5">
-          <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
-            {title}
-          </h2>
-          <button
-            aria-label="Close lobby settings"
-            className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
-            onClick={onClose}
-            type="button"
-          >
-            <svg
-              aria-hidden="true"
-              className="pc-icon"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.5"
-              viewBox="0 0 24 24"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
-        {children}
-      </section>
-    </div>
+    <AnimatedSettingsModal onClose={onClose} title={title}>
+      {children}
+    </AnimatedSettingsModal>
   );
 }
 
 function LobbySettingsButton({ icon: Icon, label, onClick }) {
   return (
-    <div className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3">
+    <div
+      className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3"
+      data-screen-reveal-atomic="true"
+    >
       <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
         {label}
       </p>
@@ -691,14 +507,14 @@ export default function LobbyCard({
         "h-full min-h-0 w-full min-w-0 gap-5 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]",
         isSettingsOpen
           ? "flex flex-col justify-end"
-          : "grid content-end",
+          : "grid grid-rows-[minmax(0,1fr)_auto] content-stretch",
       ].join(" ")}
     >
       <div
         className={[
           "grid min-w-0 gap-5",
           !isSettingsOpen
-            ? "min-h-0"
+            ? "h-full min-h-0"
             : "",
         ].join(" ")}
       >
@@ -707,7 +523,7 @@ export default function LobbyCard({
             <div
               className="w-full min-w-0 justify-self-stretch md:hidden"
               data-screen-reveal-row="true"
-              data-screen-reveal-target="self"
+              data-screen-reveal-target="children"
             >
               <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_var(--pc-choice-height)_var(--pc-choice-height)] items-start gap-3">
                 <LobbyDifficultyControl
@@ -718,18 +534,22 @@ export default function LobbyCard({
                 />
                 <LobbySettingsButton
                   icon={Palette}
-                  label="Color"
+                  label={t("setup.waterColor")}
                   onClick={() => setMobileSettingsModal("color")}
                 />
                 <LobbySettingsButton
                   icon={Shuffle}
-                  label="Mode"
+                  label={t("setup.mode")}
                   onClick={() => setMobileSettingsModal("mode")}
                 />
               </div>
             </div>
 
-            <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5">
+            <div
+              className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5"
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="children"
+            >
               <div className="min-w-0">
                 <LobbyDifficultyControl
                   disabled={settingsDisabled}
@@ -781,7 +601,7 @@ export default function LobbyCard({
       >
         {canEditSettings ? (
           <button
-            aria-label="Edit game settings"
+            aria-label={t("room.editSettings")}
             aria-pressed={isSettingsOpen}
             data-screen-reveal-row="true"
             data-screen-reveal-target="self"

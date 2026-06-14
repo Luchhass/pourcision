@@ -27,7 +27,7 @@ export default function JoinRoomCard({
   };
 
   return (
-    <section className="grid w-full min-w-0 content-start gap-5 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]">
+    <section className="grid h-full w-full min-w-0 content-end gap-5 lg:h-auto lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem] lg:content-start">
       <div className="grid min-w-0 gap-5">
         <label className="grid min-w-0 gap-2.5">
           <span className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
@@ -37,7 +37,7 @@ export default function JoinRoomCard({
             className="pc-field w-full bg-[#0d0d0c]/[0.12] px-4 text-[#0d0d0c] outline-none transition-colors duration-200 placeholder:text-[#0d0d0c]/58 focus-visible:bg-[#0d0d0c]/[0.16] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/10 dark:text-[#f7f7f2] dark:placeholder:text-[#f7f7f2]/42 dark:focus-visible:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
             maxLength={24}
             onChange={(event) => handlePlayerNameChange(event.target.value)}
-            placeholder="Player"
+            placeholder={t("room.namePlaceholder")}
             spellCheck={false}
             value={playerName}
           />
@@ -57,7 +57,9 @@ export default function JoinRoomCard({
                 value={password}
               />
               <button
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={
+                  showPassword ? t("setup.hidePassword") : t("setup.showPassword")
+                }
                 className="absolute inset-y-0 right-0 grid w-[var(--pc-choice-height)] place-items-center text-[#0d0d0c]/70 transition-colors duration-200 hover:text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-6px] focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2]/70 dark:hover:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
                 onClick={() => setShowPassword((current) => !current)}
                 type="button"
@@ -74,7 +76,9 @@ export default function JoinRoomCard({
       <Button
         className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
         disabled={isJoining}
-        onClick={() => onJoin(playerName.trim() || "Player", password.trim())}
+        onClick={() =>
+          onJoin(playerName.trim() || t("room.defaultPlayer"), password.trim())
+        }
       >
         {isJoining ? t("room.joining") : t("room.join")}
       </Button>

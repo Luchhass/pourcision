@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "@/hooks/useLanguage";
 import { GAME_DIFFICULTIES, GAME_RULE_MODES, MENU_MODES, ROUTES, WATER_COLORS } from "@/lib/constants";
 import { emitWithAck, getSocket } from "@/lib/socket";
 
@@ -15,6 +16,7 @@ export function useMultiplayerGame({
   room,
   roomCode,
 }) {
+  const { t } = useTranslation();
   const [finishedGameSeed, setFinishedGameSeed] = useState(null);
   const [localLeaderboard, setLocalLeaderboard] = useState(null);
   const [error, setError] = useState("");
@@ -45,7 +47,7 @@ export function useMultiplayerGame({
 
   const submitRoundResult = useCallback(
     async (result) => {
-      if (!playerId) return { ok: false, error: "Player is not in this lobby." };
+      if (!playerId) return { ok: false, error: t("room.playerNotInLobby") };
 
       setError("");
       const response = await emitWithAck("game:submitGuess", {
@@ -58,7 +60,7 @@ export function useMultiplayerGame({
       });
 
       if (!response.ok) {
-        setError(response.error || "Could not submit round.");
+        setError(response.error || t("room.couldNotStart"));
         return response;
       }
 
@@ -72,7 +74,7 @@ export function useMultiplayerGame({
 
       return response;
     },
-    [activeGame?.seed, playerId, roomCode],
+    [activeGame?.seed, playerId, roomCode, t],
   );
 
   const publishWaterState = useCallback(
@@ -103,7 +105,7 @@ export function useMultiplayerGame({
     });
 
     if (!response.ok) {
-      setError(response.error || "Could not open scoreboard.");
+      setError(response.error || t("room.couldNotStart"));
       return response;
     }
 
@@ -116,7 +118,7 @@ export function useMultiplayerGame({
     }
 
     return response;
-  }, [activeGame?.seed, playerId, roomCode]);
+  }, [activeGame?.seed, playerId, roomCode, t]);
 
   const resetForLobby = useCallback(() => {
     setError("");

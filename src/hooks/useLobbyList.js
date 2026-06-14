@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "@/hooks/useLanguage";
 import { emitWithAck, getSocket } from "@/lib/socket";
 
 function responseData(response) {
@@ -27,6 +28,7 @@ function roomMatchesSearch(room, query) {
 }
 
 export function useLobbyList(enabled = true) {
+  const { t } = useTranslation();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [rooms, setRooms] = useState([]);
@@ -51,12 +53,12 @@ export function useLobbyList(enabled = true) {
     setIsLoading(false);
 
     if (!response.ok) {
-      setError(response.error || "Could not load lobbies.");
+      setError(response.error || t("setup.couldNotLoadLobbies"));
       return;
     }
 
     syncRooms(responseData(response).rooms || []);
-  }, [syncRooms]);
+  }, [syncRooms, t]);
 
   useEffect(() => {
     if (!enabled) return undefined;

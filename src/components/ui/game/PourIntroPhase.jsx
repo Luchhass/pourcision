@@ -32,7 +32,7 @@ export default function PourIntroPhase({ onComplete }) {
 
       gsap.set(words, {
         yPercent: -120,
-        force3D: true,
+        force3D: false,
       });
 
       const timeline = gsap.timeline({
@@ -49,6 +49,7 @@ export default function PourIntroPhase({ onComplete }) {
             yPercent: 0,
             duration: 0.58,
             ease: "power4.out",
+            force3D: false,
           },
           "ready",
         )
@@ -61,6 +62,7 @@ export default function PourIntroPhase({ onComplete }) {
             yPercent: 120,
             duration: 0.62,
             ease: "power4.inOut",
+            force3D: false,
           },
           "set",
         )
@@ -70,6 +72,7 @@ export default function PourIntroPhase({ onComplete }) {
             yPercent: 0,
             duration: 0.62,
             ease: "power4.inOut",
+            force3D: false,
           },
           "set",
         )
@@ -82,6 +85,7 @@ export default function PourIntroPhase({ onComplete }) {
             yPercent: 120,
             duration: 0.62,
             ease: "power4.inOut",
+            force3D: false,
           },
           "go",
         )
@@ -91,6 +95,7 @@ export default function PourIntroPhase({ onComplete }) {
             yPercent: 0,
             duration: 0.62,
             ease: "power4.inOut",
+            force3D: false,
           },
           "go",
         )
@@ -115,7 +120,7 @@ export default function PourIntroPhase({ onComplete }) {
 
           {steps.map((step, index) => (
             <span
-              className="absolute inset-0 flex items-start justify-end whitespace-nowrap will-change-transform"
+              className="absolute inset-0 flex items-start justify-end whitespace-nowrap"
               key={`${step}-${index}`}
               ref={(element) => {
                 wordRefs.current[index] = element;

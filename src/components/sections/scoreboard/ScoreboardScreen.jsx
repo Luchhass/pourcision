@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import AppFooter from "@/components/layout/AppFooter";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
-import SectionWord from "@/components/layout/SectionWord";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
@@ -224,6 +222,7 @@ function PlayerResultHeader({
 
 function RoundCard({
   compact = false,
+  leaderboardDense = false,
   mobileShort = false,
   ruleMode = GAME_RULE_MODES.CLASSIC,
   result,
@@ -237,8 +236,10 @@ function RoundCard({
     <div
       className={[
         "relative overflow-hidden bg-[#f7f7f2]/96 shadow-[0_18px_38px_rgba(0,0,0,0.18)] dark:bg-[#f7f7f2]/10 dark:shadow-[0_20px_46px_rgba(0,0,0,0.3)]",
-        mobileShort
-          ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] lg:aspect-square lg:h-auto lg:min-h-[5.5rem]"
+        leaderboardDense
+          ? "aspect-square min-h-[4.4rem] md:min-h-[5rem] lg:min-h-[5.4rem]"
+          : mobileShort
+          ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] md:aspect-square md:h-auto md:min-h-[5.5rem]"
           : [
               "aspect-square",
               compact ? "min-h-[4.4rem]" : "min-h-[5.5rem]",
@@ -311,7 +312,7 @@ function LeaderboardResultsList({
   if (!players.length) return null;
 
   return (
-    <div className="grid min-h-0 min-w-0 gap-5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] lg:max-h-[16rem] [&::-webkit-scrollbar]:hidden">
+    <div className="grid h-full min-h-0 min-w-0 content-start gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-5 [&::-webkit-scrollbar]:hidden">
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
         const playerWaterColor =
@@ -336,6 +337,7 @@ function LeaderboardResultsList({
                   <RoundCard
                     compact
                     key={`${player.id || player.name}-${result.round}`}
+                    leaderboardDense
                     result={result}
                     ruleMode={ruleMode}
                     waterColor={playerWaterColor}
@@ -455,6 +457,128 @@ function ResultsPanel({
   );
 }
 
+function UniversalResultsScreen({
+  error = "",
+  isReturningLobby = false,
+  leaderboardPlayers = [],
+  onMenu,
+  onPlayAgain,
+  playAgainLabel = null,
+  ruleMode = GAME_RULE_MODES.CLASSIC,
+  rounds = [],
+  scoreMessage,
+  totalScore,
+  waterColor,
+}) {
+  const { t } = useTranslation();
+  const hasLeaderboard = leaderboardPlayers.length > 0;
+  const displayWaterColor =
+    ruleMode === GAME_RULE_MODES.COLORBLIND ? COLORBLIND_WATER_COLOR : waterColor;
+
+  return (
+    <div
+      className="relative h-dvh min-h-dvh overflow-hidden bg-[#0d0d0c] text-[#f7f7f2]"
+      data-results-screen="true"
+    >
+      <PageUtilitySwitches placement="rail" tone="cream" />
+      <button
+        aria-label={t("common.mainMenu")}
+        className="pc-icon-button fixed right-3 top-3 z-[60] grid place-items-center text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f7f7f2] md:right-4 md:top-4"
+        onClick={onMenu}
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          className="pc-icon"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.5"
+          viewBox="0 0 24 24"
+        >
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+
+      <main className="flex h-full min-h-0 w-full flex-col px-6 pb-6 pt-8 md:px-8 md:pb-8 md:pt-10 lg:px-10 lg:pb-10 lg:pt-10">
+        <div className="grid min-w-0 content-start gap-6 md:max-w-[46rem] md:gap-7 lg:max-w-[54rem]">
+          <h1 className="pc-page-title text-[#f7f7f2]">
+            {t("results.title")}
+          </h1>
+
+          <div className="grid min-w-0 gap-8 md:gap-10">
+            <p className="pc-copy max-w-[calc(100vw-7rem)] overflow-hidden text-[#f7f7f2]/68 md:max-w-[40rem]">
+              <span className="block">{scoreMessage}</span>
+            </p>
+            <ScoreBlock dark score={totalScore} />
+          </div>
+        </div>
+
+        <div
+          className={[
+            "mt-3 min-h-0 min-w-0 md:mt-4",
+            hasLeaderboard
+              ? "flex-1 overflow-hidden md:max-w-[60rem] lg:max-w-[68rem]"
+              : "overflow-visible md:max-w-[46rem] lg:max-w-[54rem]",
+          ].join(" ")}
+        >
+          {hasLeaderboard ? (
+            <LeaderboardResultsList
+              dark
+              players={leaderboardPlayers}
+              ruleMode={ruleMode}
+              waterColor={waterColor}
+            />
+          ) : (
+            <div className="grid min-h-0 min-w-0 grid-cols-5 gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] sm:gap-2 [&::-webkit-scrollbar]:hidden">
+              {rounds.map((result) => (
+                <RoundCard
+                  key={result.round}
+                  mobileShort
+                  result={result}
+                  ruleMode={ruleMode}
+                  waterColor={displayWaterColor}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div
+          className={[
+            "mt-auto grid grid-cols-2 gap-3 pt-5 md:gap-4 md:pt-6",
+            hasLeaderboard
+              ? "md:max-w-[60rem] lg:max-w-[68rem]"
+              : "md:max-w-[46rem] lg:max-w-[54rem]",
+          ].join(" ")}
+        >
+          <Button
+            className="rounded-none border-0 !bg-[#f7f7f2] px-3 !text-[#0d0d0c] shadow-[0_18px_42px_rgba(247,247,242,0.08)] hover:!bg-white"
+            disabled={isReturningLobby}
+            onClick={onPlayAgain}
+            variant="secondary"
+          >
+            {isReturningLobby
+              ? t("room.returningLobby")
+              : playAgainLabel || t("room.returnLobby")}
+          </Button>
+          <Button
+            className="rounded-none border-0 bg-[#f7f7f2]/44 px-3 text-[#0d0d0c] shadow-[0_18px_42px_rgba(247,247,242,0.08)] hover:bg-[#f7f7f2]/58"
+            onClick={onMenu}
+            variant="secondary"
+          >
+            {t("common.mainMenu")}
+          </Button>
+        </div>
+
+        {error ? <p className="pc-copy-strong text-[#f7f7f2]/72">{error}</p> : null}
+      </main>
+    </div>
+  );
+}
+
 export default function ScoreboardScreen({
   currentPlayerId = null,
   error = "",
@@ -472,6 +596,7 @@ export default function ScoreboardScreen({
     leaderboardPlayers.find((player) => player.id === currentPlayerId) ||
     leaderboardPlayers[0] ||
     null;
+  const topLeaderboardPlayer = leaderboardPlayers[0] || null;
   const waterColor =
     WATER_COLORS.find(
       (color) =>
@@ -485,14 +610,20 @@ export default function ScoreboardScreen({
     currentLeaderboardPlayer?.score ??
     currentLeaderboardPlayer?.totalScore ??
     rounds.reduce((total, result) => total + result.score, 0);
-  const scoreMessage =
-    totalScore >= 42
+  const topTotalScore =
+    topLeaderboardPlayer?.score ??
+    topLeaderboardPlayer?.totalScore ??
+    totalScore;
+  const getScoreMessage = (score) =>
+    score >= 42
       ? t("results.assessment.excellent")
-      : totalScore >= 30
+      : score >= 30
         ? t("results.assessment.good")
-        : totalScore >= 18
+        : score >= 18
           ? t("results.assessment.learning")
           : t("results.assessment.retry");
+  const displayTotalScore = topLeaderboardPlayer ? topTotalScore : totalScore;
+  const scoreMessage = getScoreMessage(displayTotalScore);
   const resultsRevealRef = useRef(null);
   const playResultsExit = useScreenReveal(resultsRevealRef, [
     leaderboardPlayers.length,
@@ -510,100 +641,24 @@ export default function ScoreboardScreen({
   };
 
   useEffect(() => {
-    playFinalScore(totalScore, 50);
-  }, [totalScore]);
+    playFinalScore(displayTotalScore, 50);
+  }, [displayTotalScore]);
 
   return (
-    <div
-      className="relative h-dvh min-h-dvh overflow-hidden bg-[#f7f7f2] text-[#0d0d0c] dark:bg-[#0d0d0c] dark:text-[#f7f7f2]"
-      data-results-screen="true"
-      ref={resultsRevealRef}
-      style={{
-        "--results-split-x": "50vw",
-      }}
-    >
-      <PageUtilitySwitches placement="rail" />
-      <main className="relative z-10 grid h-full min-h-0 w-full min-w-0 grid-rows-[auto_1fr]">
-        <ResultsTitleBand onMenu={handleMenu} />
-
-        <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-none lg:min-h-0 lg:grid-cols-[var(--results-split-x)_minmax(0,1fr)]">
-          <section className="mx-auto grid w-full max-w-[44rem] content-start min-w-0 px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:px-10 lg:pb-10 lg:pt-16">
-            <div data-screen-reveal="cream">
-              <p
-                className="pc-copy max-w-[40rem] overflow-hidden text-[#0d0d0c]/66 lg:max-w-[calc(50vw-5rem)] dark:text-[#f7f7f2]/68"
-                data-screen-reveal-row="true"
-              >
-                <span className="block">{scoreMessage}</span>
-              </p>
-            </div>
-
-            <div className="hidden">
-              <ResultsPanel
-                dark
-                error={error}
-                isPlayAgainDisabled={isReturningLobby}
-                leaderboardPlayers={leaderboardPlayers}
-                onMenu={onMenu}
-                onPlayAgain={onPlayAgain}
-                playAgainLabel={
-                  isReturningLobby ? t("room.returningLobby") : playAgainLabel
-                }
-                rounds={rounds}
-                ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
-                totalScore={totalScore}
-                waterColor={waterColor}
-              />
-            </div>
-
-            <div className="hidden min-h-0 grid-cols-[auto_minmax(0,1fr)] items-end gap-8 lg:grid">
-              <div className="shrink-0">
-                <div data-screen-reveal="cream">
-                  <div className="overflow-hidden" data-screen-reveal-row="true">
-                    <AppFooter />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[#0d0d0c] px-6 pb-6 pt-6 md:px-8 md:pb-7 md:pt-7 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
-            data-results-water="true"
-            data-screen-reveal="water-bg"
-          >
-            <SectionWord
-              desktopColorClass="text-[#f7f7f2] dark:text-[#f7f7f2]"
-              mobileColorClass="text-[#f7f7f2] dark:text-[#f7f7f2]"
-              primary={t("results.title")}
-              secondary={t("results.run")}
-            />
-            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0">
-              <div
-                className="w-full max-lg:h-full max-lg:min-h-0 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]"
-                data-results-panel="true"
-                data-screen-reveal="water-content"
-                data-screen-reveal-direction="down"
-              >
-                <ResultsPanel
-                  dark
-                  error={error}
-                  isPlayAgainDisabled={isReturningLobby}
-                  leaderboardPlayers={leaderboardPlayers}
-                  onMenu={handleMenu}
-                  onPlayAgain={handlePlayAgain}
-                  playAgainLabel={
-                    isReturningLobby ? t("room.returningLobby") : playAgainLabel
-                  }
-                  rounds={rounds}
-                  ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
-                  totalScore={totalScore}
-                  waterColor={waterColor}
-                />
-              </div>
-            </div>
-          </section>
-        </section>
-      </main>
+    <div ref={resultsRevealRef}>
+      <UniversalResultsScreen
+        error={error}
+        isReturningLobby={isReturningLobby}
+        leaderboardPlayers={leaderboardPlayers}
+        onMenu={handleMenu}
+        onPlayAgain={handlePlayAgain}
+        playAgainLabel={isReturningLobby ? t("room.returningLobby") : playAgainLabel}
+        rounds={rounds}
+        ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
+        scoreMessage={scoreMessage}
+        totalScore={displayTotalScore}
+        waterColor={waterColor}
+      />
     </div>
   );
 }

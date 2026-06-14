@@ -23,7 +23,7 @@ export default function ModeSelectCard({
       type="button"
     >
       <span className="flex min-w-0 items-start">
-        <span className="pc-choice-text min-w-0">
+        <span className="pc-choice-text min-w-0 text-[1rem] md:text-[1.08rem] lg:text-[1.14rem]">
           {title}
         </span>
       </span>

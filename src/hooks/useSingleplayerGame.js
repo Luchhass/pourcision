@@ -41,7 +41,7 @@ export const POUR_STATUSES = {
 
 const FULL_LEVEL_LOCK = 99.95;
 const EMPTY_LEVEL_LOCK = 0.05;
-const SETTLING_MIN_MS = 700;
+const SETTLING_MIN_MS = 900;
 const BURST_CLICK_WINDOW_MS = 650;
 const BURST_CLICK_MIN_CLICKS = 3;
 const BURST_CLICK_MIN_CPS = 4.55;
@@ -294,7 +294,7 @@ export function useSingleplayerGame({
 
     const currentRuleMode = effectiveRuleModeRef.current;
     const sourceLevel = getLevelRef.current?.() ?? 0;
-    const level = Math.round(clampPercent(sourceLevel) * 10) / 10;
+    const level = Math.round(clampPercent(sourceLevel) * 100) / 100;
     const splitLevels = getSplitLevelsRef.current?.();
     const currentBandTargets = bandTargetsRef.current;
 

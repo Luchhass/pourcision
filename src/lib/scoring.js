@@ -50,7 +50,7 @@ export function calculateRoundResult({
 }) {
   if (ruleMode === GAME_RULE_MODES.BAND_RUN && bandLevels && bandTargets) {
     const safeBandLevels = bandLevels.map((bandLevel) =>
-      roundTo(clamp(Number(bandLevel), 0, 100), 1),
+      roundTo(clamp(Number(bandLevel), 0, 100), 2),
     );
     const safeBandTargets = bandTargets.map((bandTarget) =>
       roundTo(clamp(Number(bandTarget), 0, 100), 1),
@@ -61,7 +61,7 @@ export function calculateRoundResult({
     const bandScores = bandDiffs.map(getRoundScore);
     const diff = roundTo(average(bandDiffs), 2);
     const score = roundTo(average(bandScores), 2);
-    const levelAverage = roundTo(average(safeBandLevels), 1);
+    const levelAverage = roundTo(average(safeBandLevels), 2);
     const targetAverage = roundTo(average(safeBandTargets), 1);
 
     return {
@@ -82,7 +82,7 @@ export function calculateRoundResult({
 
   if (ruleMode === GAME_RULE_MODES.SPLIT_FILL && splitLevels && splitTargets) {
     const safeSplitLevels = splitLevels.map((splitLevel) =>
-      roundTo(clamp(Number(splitLevel), 0, 100), 1),
+      roundTo(clamp(Number(splitLevel), 0, 100), 2),
     );
     const safeSplitTargets = splitTargets.map((splitTarget) =>
       roundTo(clamp(Number(splitTarget), 0, 100), 1),
@@ -93,7 +93,7 @@ export function calculateRoundResult({
     const splitScores = splitDiffs.map(getRoundScore);
     const diff = roundTo(average(splitDiffs), 2);
     const score = roundTo(average(splitScores), 2);
-    const levelAverage = roundTo(average(safeSplitLevels), 1);
+    const levelAverage = roundTo(average(safeSplitLevels), 2);
     const targetAverage = roundTo(average(safeSplitTargets), 1);
 
     return {
@@ -112,7 +112,7 @@ export function calculateRoundResult({
     };
   }
 
-  const safeLevel = roundTo(clamp(Number(level), 0, 100), 1);
+  const safeLevel = roundTo(clamp(Number(level), 0, 100), 2);
   const diff = roundTo(Math.abs(safeLevel - target), 2);
   const isPerfectOrNothing = ruleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING;
   const score = isPerfectOrNothing

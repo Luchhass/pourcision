@@ -46,6 +46,10 @@ export function configureRoomService(nextCallbacks) {
   };
 }
 
+function createWaterStateStore() {
+  return new Map();
+}
+
 function createTimerStore() {
   return {
     completed: null,
@@ -210,6 +214,29 @@ function serializePlayer(player, room = null) {
   };
 }
 
+function serializeWaterState(room, entry) {
+  const player = room.players.get(entry.playerId);
+  if (!player || player.kicked || player.inactive) return null;
+
+  return {
+    ...entry.state,
+    player: {
+      id: player.id,
+      name: player.name,
+      waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
+    },
+    roomCode: room.code,
+  };
+}
+
+function getWaterStateSnapshot(room) {
+  if (!room?.waterStates || room.status !== ROOM_STATUSES.IN_GAME) return [];
+
+  return Array.from(room.waterStates.values())
+    .map((entry) => serializeWaterState(room, entry))
+    .filter(Boolean);
+}
+
 export function getRoomSnapshot(room) {
   if (!room) return null;
   ensureUniquePlayerWaterColors(room);
@@ -227,6 +254,8 @@ export function getRoomSnapshot(room) {
     hasPassword: Boolean(room.password),
     hostPlayerId: room.hostPlayerId,
     isPrivate: room.visibility === ROOM_VISIBILITIES.PRIVATE,
+    leaderboard:
+      room.status === ROOM_STATUSES.COMPLETED ? room.leaderboard : null,
     lobbyName: room.name,
     maxPlayers: room.maxPlayers,
     mode: room.ruleMode,
@@ -243,6 +272,7 @@ export function getRoomSnapshot(room) {
     status: room.status,
     updatedAt: room.updatedAt,
     visibility: room.visibility,
+    waterStates: getWaterStateSnapshot(room),
   };
 }
 
@@ -417,6 +447,7 @@ export function createRoom(payload) {
     timers: createTimerStore(),
     updatedAt: createdAt,
     visibility: validation.data.visibility,
+    waterStates: createWaterStateStore(),
   };
 
   room.players.set(validation.data.playerId, {
@@ -461,6 +492,7 @@ function reconnectPlayer(room, player, socketId) {
   }
 
   player.connected = true;
+  player.inactive = false;
   player.lastSeenAt = now();
   player.socketId = socketId;
   touchRoom(room);
@@ -651,6 +683,21 @@ export function updatePlayerWaterColor(payload) {
   });
 }
 
+export function recordWaterState(room, player, waterState) {
+  if (!room || !player || room.status !== ROOM_STATUSES.IN_GAME) return null;
+
+  if (!room.waterStates) room.waterStates = createWaterStateStore();
+
+  const key = `${player.id}:${waterState.roundIndex}`;
+  room.waterStates.set(key, {
+    playerId: player.id,
+    state: waterState,
+  });
+  touchRoom(room);
+
+  return serializeWaterState(room, room.waterStates.get(key));
+}
+
 function getConnectedRoomPlayers(room) {
   return Array.from(room.players.values()).filter(
     (player) => !player.kicked && player.connected,
@@ -675,6 +722,7 @@ function resetCompletedRoomToLobby(room) {
   room.game = null;
   room.leaderboard = null;
   room.seed = null;
+  room.waterStates = createWaterStateStore();
 
   for (const [id, player] of room.players.entries()) {
     if (player.kicked || !player.connected) {
@@ -837,6 +885,7 @@ export function startRoomGame(payload) {
   }
 
   room.status = ROOM_STATUSES.STARTING;
+  room.waterStates = createWaterStateStore();
   touchRoom(room);
   const game = startGameForRoom(room);
   touchRoom(room);
@@ -894,14 +943,22 @@ function expireDisconnectedPlayer(roomCode, playerId) {
     return;
   }
 
-  if (room.status === ROOM_STATUSES.IN_GAME) {
-    const leaderboard = markPlayerInactiveForGame(room, playerId);
-    callbacks.emitRoomState(room);
+  if (
+    room.status === ROOM_STATUSES.IN_GAME ||
+    room.status === ROOM_STATUSES.COMPLETED
+  ) {
+    const leaderboard =
+      room.status === ROOM_STATUSES.IN_GAME
+        ? markPlayerInactiveForGame(room, playerId)
+        : null;
 
+    touchRoom(room);
+    callbacks.emitRoomState(room);
     if (leaderboard) {
       callbacks.emitScoreboard(room, leaderboard);
-      scheduleRoomDeletion(room, env.roomTtlMs, "completed", false);
+      scheduleCompletedCleanup(room);
     }
+    callbacks.emitRoomList();
   }
 }
 

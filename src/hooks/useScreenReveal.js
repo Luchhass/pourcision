@@ -15,6 +15,21 @@ const INTRO_SETTLE_DELAY = 120;
 const INTRO_TIMEOUT = 6200;
 const INTRO_APPEAR_WAIT = 240;
 const WATER_BG_REVEALED_KEY = "__pourcisionWaterBgRevealedOnce";
+const STABLE_REVEAL_TRANSFORM = { force3D: false };
+const STABLE_REVEAL_CLEAR_PROPS =
+  "clipPath,opacity,visibility,overflow,willChange";
+const REVEAL_ATOMIC_TAGS = new Set([
+  "A",
+  "BUTTON",
+  "CANVAS",
+  "INPUT",
+  "LABEL",
+  "OPTION",
+  "P",
+  "SELECT",
+  "SVG",
+  "TEXTAREA",
+]);
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -233,12 +248,60 @@ function getRevealItems(rows) {
 
 function getRevealTargets(row) {
   if (row.dataset.screenRevealTarget === "self") return [row];
+  if (row.dataset.screenRevealTarget === "children") {
+    return getSplitRevealChildren(row);
+  }
 
-  return row.dataset.screenRevealGroup === "stats" ? [row] : getRevealChildren(row);
+  return row.dataset.screenRevealGroup === "stats"
+    ? [row]
+    : getSplitRevealChildren(row);
 }
 
 function getRevealOwner(item) {
   return item.dataset.screenRevealRow ? item : item.parentElement;
+}
+
+function isAtomicRevealElement(element) {
+  if (!(element instanceof HTMLElement)) return true;
+  if (element.dataset.screenRevealAtomic === "true") return true;
+  if (REVEAL_ATOMIC_TAGS.has(element.tagName)) return true;
+  if (element.matches("[data-water-color-slider]")) return true;
+
+  const className =
+    typeof element.className === "string" ? element.className : "";
+
+  return /\boverflow-x-auto\b/.test(className);
+}
+
+function isLayoutRevealWrapper(element) {
+  if (isAtomicRevealElement(element)) return false;
+  if (element.dataset.screenRevealTarget === "self") return false;
+
+  const children = getRevealChildren(element);
+  if (!children.length || children[0] === element) return false;
+
+  if (element.dataset.screenRevealSplit === "children") return true;
+
+  const className =
+    typeof element.className === "string" ? element.className : "";
+
+  return /\b(grid|flex|space-y-|gap-|contents)\b/.test(className);
+}
+
+function getSplitRevealChildren(element) {
+  const children = getRevealChildren(element);
+
+  if (
+    children.length === 1 &&
+    children[0] !== element &&
+    isLayoutRevealWrapper(children[0])
+  ) {
+    return getSplitRevealChildren(children[0]);
+  }
+
+  return children.flatMap((child) =>
+    isLayoutRevealWrapper(child) ? getSplitRevealChildren(child) : [child],
+  );
 }
 
 function getRevealDirection(element, fallback = "down") {
@@ -265,7 +328,13 @@ function isSectionWordRevealItem(item) {
 }
 
 function getRevealY(element, fallback = "down") {
-  return getRevealDirection(element, fallback) === "up" ? 24 : -24;
+  return getRevealDirection(element, fallback) === "up" ? 104 : -104;
+}
+
+function getRevealClipPath(element, fallback = "down") {
+  return getRevealDirection(element, fallback) === "up"
+    ? "inset(100% 0% 0% 0%)"
+    : "inset(0% 0% 100% 0%)";
 }
 
 function getCreamRowDelay(row, index, meta) {
@@ -291,18 +360,25 @@ function revealRows(timeline, rows, startAt, options = {}) {
 
     groupIndexes[groupName] = groupIndex + 1;
 
+    const position = `${startAt}+=${delay}`;
+
+    timeline.set(items, { autoAlpha: 1 }, position);
     timeline.to(
       items,
       {
-        autoAlpha: 1,
+        clipPath: "inset(0% 0% 0% 0%)",
         clearProps: isSectionWord
           ? "opacity,visibility,willChange"
           : "opacity,visibility",
         duration: isStats ? 0.74 : options.duration ?? 0.62,
         ease: isStats ? "expo.out" : options.ease ?? "power4.out",
+        ...STABLE_REVEAL_TRANSFORM,
         y: 0,
+        yPercent: 0,
+        stagger:
+          items.length > 1 && !isStats ? options.itemStagger ?? 0.026 : 0,
       },
-      `${startAt}+=${delay}`,
+      position,
     );
   });
 }
@@ -469,8 +545,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       gsap.set(titleGroups, { autoAlpha: 1, overflow: "hidden" });
       gsap.set(titleLetters, {
         autoAlpha: 1,
+        ...STABLE_REVEAL_TRANSFORM,
         yPercent: -115,
-        willChange: "transform",
       });
       gsap.set(waterBackgrounds, {
         clipPath: shouldRevealWaterBg ? "inset(0 100% 0 0)" : "inset(0 0% 0 0)",
@@ -486,8 +562,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       });
       gsap.set(creamItems, {
         autoAlpha: 0,
-        y: (index, item) => getRevealY(getRevealOwner(item)),
-        willChange: "transform,opacity",
+        clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
+        ...STABLE_REVEAL_TRANSFORM,
+        y: 0,
+        yPercent: (index, item) => getRevealY(getRevealOwner(item)),
+        willChange: "clip-path, transform",
       });
       gsap.set(waterContentGroups, { autoAlpha: 1 });
       gsap.set(waterContentRows, {
@@ -499,8 +578,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       });
       gsap.set(waterContentItems, {
         autoAlpha: 0,
-        y: -24,
-        willChange: "transform,opacity",
+        clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
+        ...STABLE_REVEAL_TRANSFORM,
+        y: 0,
+        yPercent: -104,
+        willChange: "clip-path, transform",
       });
     };
 
@@ -562,8 +644,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
                 ...regularWaterContentItems,
               ],
               {
-                clearProps:
-                  "clipPath,opacity,visibility,overflow,transform,willChange",
+                clearProps: STABLE_REVEAL_CLEAR_PROPS,
               },
             );
             restoreParagraphLineReveals(scope);
@@ -578,6 +659,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           {
             duration: 0.74,
             ease: "expo.out",
+            ...STABLE_REVEAL_TRANSFORM,
             yPercent: 0,
           },
           "titleIn",

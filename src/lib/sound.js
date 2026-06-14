@@ -1237,42 +1237,56 @@ export function playRoundResult(score = 0, diff = 0) {
   const quality = clamp01(score / 10);
   const root = 230 + quality * 260;
 
-  scheduleSplash(context, {
-    brightness: 0.65 + quality * 1.55,
-    size: quality > 0.78 ? 1.35 : 0.95,
-  });
-
-  if (quality < 0.35) {
+  if (score <= 0.05) {
+    scheduleNoise(context, {
+      duration: 0.16,
+      filterFrequency: 190,
+      filterType: "lowpass",
+      gain: 0.034,
+      q: 0.8,
+    });
     scheduleTone(context, {
       attack: 0.004,
-      duration: 0.2,
-      endFrequency: 92,
-      frequency: 190 + diff * 2,
-      gain: 0.052,
+      duration: 0.26,
+      endFrequency: 72,
+      frequency: 155 + diff * 1.5,
+      gain: 0.048,
       type: "sine",
     });
-    scheduleBubble(context, {
-      delay: 0.07,
-      duration: 0.12,
-      frequency: 250,
-      gain: 0.025,
-      rise: 0.72,
+    scheduleTone(context, {
+      attack: 0.006,
+      delay: 0.12,
+      duration: 0.18,
+      endFrequency: 54,
+      frequency: 92,
+      gain: 0.026,
+      type: "triangle",
     });
     return;
   }
 
-  [1, quality > 0.65 ? 1.26 : 1.12, quality > 0.85 ? 1.64 : 1.34].forEach(
-    (ratio, index) => {
-      scheduleBubble(context, {
-        delay: index * 0.058,
-        duration: 0.105 + index * 0.025,
-        frequency: root * ratio,
-        gain: 0.038 - index * 0.004,
-        pan: (index - 1) * 0.045,
-        rise: quality > 0.65 ? 1.22 : 0.94,
-      });
-    },
-  );
+  scheduleSplash(context, {
+    brightness: 0.72 + quality * 1.2,
+    size: quality > 0.82 ? 1.14 : 0.82 + quality * 0.24,
+  });
+
+  const motif =
+    quality >= 0.95
+      ? [1, 1.25, 1.5, 2]
+      : quality >= 0.7
+        ? [1, 1.22, 1.52]
+        : [1, 1.18];
+
+  motif.forEach((ratio, index) => {
+    scheduleBubble(context, {
+      delay: index * (quality >= 0.95 ? 0.042 : 0.055),
+      duration: 0.095 + quality * 0.035,
+      frequency: root * ratio,
+      gain: 0.022 + quality * 0.018 - index * 0.002,
+      pan: (index - (motif.length - 1) / 2) * 0.05,
+      rise: 1.04 + quality * 0.52,
+    });
+  });
 }
 
 export function startRoundScoreCountSound({ duration = 0.95, score = 0 } = {}) {
@@ -1282,34 +1296,72 @@ export function startRoundScoreCountSound({ duration = 0.95, score = 0 } = {}) {
   }
 
   const startTime = context.currentTime;
-  const endTime = startTime + duration;
   const quality = clamp01(score / 10);
+  const scoreDuration =
+    score <= 0.05 ? 0.22 : Math.max(0.28, duration * (0.32 + quality * 0.68));
+  const endTime = startTime + scoreDuration;
+
+  if (score <= 0.05) {
+    scheduleTone(context, {
+      attack: 0.004,
+      duration: 0.18,
+      endFrequency: 82,
+      frequency: 140,
+      gain: 0.026,
+      type: "triangle",
+    });
+
+    let stopped = false;
+
+    return {
+      finish() {
+        if (stopped) return;
+        scheduleTone(context, {
+          attack: 0.003,
+          duration: 0.18,
+          endFrequency: 58,
+          frequency: 96,
+          gain: 0.03,
+          type: "sine",
+        });
+      },
+      stop() {
+        stopped = true;
+      },
+    };
+  }
+
   const oscillator = context.createOscillator();
   const gain = context.createGain();
 
   oscillator.type = quality > 0.82 ? "sine" : "triangle";
-  oscillator.frequency.setValueAtTime(135 + quality * 35, startTime);
+  oscillator.frequency.setValueAtTime(140 + quality * 42, startTime);
   oscillator.frequency.exponentialRampToValueAtTime(
-    420 + quality * 210,
+    285 + quality * 430,
     endTime,
   );
   gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.006 + quality * 0.004, startTime + 0.08);
-  gain.gain.linearRampToValueAtTime(0.026 + quality * 0.018, endTime - 0.12);
+  gain.gain.exponentialRampToValueAtTime(0.005 + quality * 0.003, startTime + 0.06);
+  gain.gain.linearRampToValueAtTime(
+    0.012 + quality * 0.034,
+    Math.max(startTime + 0.08, endTime - 0.1),
+  );
   gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
   oscillator.connect(gain);
   gain.connect(mixBus || context.destination);
   oscillator.start(startTime);
   oscillator.stop(endTime + 0.02);
 
-  [0.22, 0.48, 0.7, 0.88].forEach((offset, index) => {
+  const pulseCount = Math.max(2, Math.min(5, Math.ceil(score / 2.25)));
+  Array.from({ length: pulseCount }).forEach((_, index) => {
+    const offset = (index + 1) / (pulseCount + 1);
     scheduleBubble(context, {
-      delay: Math.min(duration * offset, Math.max(0, duration - 0.12)),
+      delay: Math.min(scoreDuration * offset, Math.max(0, scoreDuration - 0.08)),
       duration: 0.07 + index * 0.014,
       frequency: 250 + quality * 150 + index * (62 + quality * 18),
-      gain: 0.009 + index * 0.004 + quality * 0.007,
-      pan: (index - 1.5) * 0.035,
-      rise: 1.12 + index * 0.08,
+      gain: 0.007 + index * 0.003 + quality * 0.008,
+      pan: (index - (pulseCount - 1) / 2) * 0.035,
+      rise: 1.02 + quality * 0.36,
     });
   });
 
@@ -1320,10 +1372,10 @@ export function startRoundScoreCountSound({ duration = 0.95, score = 0 } = {}) {
       if (stopped) return;
       scheduleBubble(context, {
         delay: 0,
-        duration: 0.12,
+        duration: 0.1 + quality * 0.04,
         frequency: 420 + quality * 260,
-        gain: 0.025 + quality * 0.012,
-        rise: 1.32,
+        gain: 0.016 + quality * 0.02,
+        rise: 1.12 + quality * 0.35,
       });
       if (score >= 9.95) {
         [1, 1.26, 1.5, 1.9].forEach((ratio, index) => {
@@ -1340,6 +1392,17 @@ export function startRoundScoreCountSound({ duration = 0.95, score = 0 } = {}) {
           brightness: 1.65,
           delay: 0.08,
           size: 0.72,
+        });
+      } else if (score >= 7) {
+        [1.18, 1.42].forEach((ratio, index) => {
+          scheduleBubble(context, {
+            delay: 0.035 + index * 0.052,
+            duration: 0.095,
+            frequency: (440 + quality * 170) * ratio,
+            gain: 0.018 + quality * 0.006,
+            pan: (index - 0.5) * 0.045,
+            rise: 1.28,
+          });
         });
       }
     },

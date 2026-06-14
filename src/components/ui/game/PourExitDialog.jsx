@@ -1,6 +1,10 @@
 "use client";
 
+import { useTranslation } from "@/hooks/useLanguage";
+
 export default function PourExitDialog({ onCancel, onExit }) {
+  const { t } = useTranslation();
+
   return (
     <section
       className="absolute inset-0 z-[80] grid place-items-center bg-[#0d0d0c]/24 p-6 md:p-8"
@@ -13,14 +17,14 @@ export default function PourExitDialog({ onCancel, onExit }) {
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0">
             <p className="pc-label text-[#0d0d0c]/54 dark:text-[#f7f7f2]/58">
-              Exit run
+              {t("game.exitRun")}
             </p>
             <h2 className="pc-card-title mt-3">
-              Leave game?
+              {t("game.exit")}
             </h2>
           </div>
           <button
-            aria-label="Stay in game"
+            aria-label={t("game.stayInGame")}
             className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
             onClick={onCancel}
             type="button"
@@ -41,8 +45,7 @@ export default function PourExitDialog({ onCancel, onExit }) {
           </button>
         </div>
         <p className="pc-copy text-[#0d0d0c]/62 dark:text-[#f7f7f2]/64">
-          Are you sure you want to return to the main menu? This run will be
-          dropped.
+          {t("game.exitConfirm")}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -50,14 +53,14 @@ export default function PourExitDialog({ onCancel, onExit }) {
             onClick={onCancel}
             type="button"
           >
-            Stay
+            {t("game.stay")}
           </button>
           <button
             className="pc-action inline-flex items-center justify-center bg-[#0d0d0c] text-[#f7f7f2] shadow-[0_18px_42px_rgba(13,13,12,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
             onClick={onExit}
             type="button"
           >
-            Exit
+            {t("game.exit")}
           </button>
         </div>
       </div>

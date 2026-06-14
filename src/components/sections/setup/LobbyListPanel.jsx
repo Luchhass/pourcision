@@ -18,7 +18,7 @@ function LobbyPasswordModal({
   return (
     <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:place-items-center">
       <button
-        aria-label="Close password panel"
+        aria-label={t("room.closeSettings")}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
@@ -29,7 +29,7 @@ function LobbyPasswordModal({
             {t("setup.lobbyPassword")}
           </h2>
           <button
-            aria-label="Close password panel"
+            aria-label={t("room.closeSettings")}
             className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
             onClick={onClose}
             type="button"
@@ -191,7 +191,11 @@ export default function LobbyListPanel({ isJoining, onJoin }) {
         )}
       </div>
 
-      <div className="grid gap-4" data-screen-reveal-row="true" data-screen-reveal-target="self">
+      <div
+        className="grid gap-4"
+        data-screen-reveal-row="true"
+        data-screen-reveal-target="children"
+      >
         {error ? (
           <p className="pc-copy-strong text-[#0d0d0c]">{error}</p>
         ) : null}

@@ -15,6 +15,7 @@ import {
   SITE_URL,
 } from "@/lib/seo";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -155,7 +156,11 @@ export default function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col overflow-hidden" suppressHydrationWarning>
-        <script dangerouslySetInnerHTML={{ __html: PAGE_INTRO_SCRIPT }} />
+        <Script
+          id="pourcision-page-intro-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: PAGE_INTRO_SCRIPT }}
+        />
         <PreferenceBootstrap />
         <GoogleAnalytics />
         <StructuredData />

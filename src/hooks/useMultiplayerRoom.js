@@ -40,7 +40,7 @@ function getSubmittedWaterState(payload) {
   };
 }
 
-export function useMultiplayerRoom(roomCode) {
+export function useMultiplayerRoom(roomCode, sessionPlayerId = "") {
   const { t } = useTranslation();
   const [room, setRoom] = useState(null);
   const [leaderboard, setLeaderboard] = useState(null);
@@ -51,6 +51,30 @@ export function useMultiplayerRoom(roomCode) {
   const [kickedMessage, setKickedMessage] = useState("");
   const [closedMessage, setClosedMessage] = useState("");
 
+  const applyStateData = useCallback((data) => {
+    const nextRoom = data.room;
+    const nextWaterStates = data.waterStates || nextRoom?.waterStates || [];
+
+    setRoom(nextRoom);
+    if (nextRoom) {
+      setClosedMessage("");
+      setConnectionError("");
+      setKickedMessage("");
+    }
+    setStartedGame(
+      nextRoom?.status === "completed"
+        ? null
+        : data.game || nextRoom?.game || null,
+    );
+    setLeaderboard(data.leaderboard || nextRoom?.leaderboard || null);
+
+    if (nextRoom?.status !== "in_game") {
+      setWaterStates([]);
+    } else if (Array.isArray(nextWaterStates)) {
+      setWaterStates(nextWaterStates);
+    }
+  }, []);
+
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return undefined;
@@ -59,8 +83,14 @@ export function useMultiplayerRoom(roomCode) {
       if (nextRoom?.code !== roomCode) return;
 
       setRoom(nextRoom);
+      setClosedMessage("");
+      setConnectionError("");
+      setKickedMessage("");
       if (nextRoom.status === "in_game" && nextRoom.game) {
         setStartedGame(nextRoom.game);
+        if (Array.isArray(nextRoom.waterStates)) {
+          setWaterStates(nextRoom.waterStates);
+        }
       }
       if (nextRoom.status === "lobby") {
         setStartedGame(null);
@@ -71,6 +101,9 @@ export function useMultiplayerRoom(roomCode) {
       if (nextRoom.status === "completed") {
         setStartedGame(null);
         setWaterStates([]);
+        if (nextRoom.leaderboard) {
+          setLeaderboard(nextRoom.leaderboard);
+        }
       }
     };
 
@@ -161,6 +194,17 @@ export function useMultiplayerRoom(roomCode) {
 
     const handleConnect = () => {
       setConnectionError("");
+
+      if (!sessionPlayerId) return;
+
+      void emitWithAck("room:getState", {
+        playerId: sessionPlayerId,
+        roomCode,
+      }).then((response) => {
+        if (!response?.ok) return;
+
+        applyStateData(responseData(response));
+      });
     };
 
     socket.on("room:state", handleRoomState);
@@ -186,7 +230,7 @@ export function useMultiplayerRoom(roomCode) {
       socket.off("connect_error", handleConnectError);
       socket.off("connect", handleConnect);
     };
-  }, [roomCode, t]);
+  }, [applyStateData, roomCode, sessionPlayerId, t]);
 
   const requestState = useCallback(
     async (playerId) => {
@@ -196,22 +240,12 @@ export function useMultiplayerRoom(roomCode) {
       });
 
       if (response.ok) {
-        const data = responseData(response);
-        const nextRoom = data.room;
-
-        setRoom(nextRoom);
-        setStartedGame(
-          nextRoom?.status === "completed"
-            ? null
-            : data.game || nextRoom?.game || null,
-        );
-        setLeaderboard(data.leaderboard || null);
-        setWaterStates([]);
+        applyStateData(responseData(response));
       }
 
       return response;
     },
-    [roomCode],
+    [applyStateData, roomCode],
   );
 
   const joinRoom = useCallback(
@@ -228,7 +262,9 @@ export function useMultiplayerRoom(roomCode) {
         const data = responseData(response);
         setRoom(data.room);
         setStartedGame(data.game || data.room?.game || null);
-        setWaterStates([]);
+        if (data.room?.status !== "in_game") {
+          setWaterStates([]);
+        }
       }
 
       return response;

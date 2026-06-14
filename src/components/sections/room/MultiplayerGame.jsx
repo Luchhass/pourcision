@@ -45,7 +45,7 @@ export default function MultiplayerGame({
   });
   const activeRoomPlayers =
     room?.players?.filter(
-      (roomPlayer) => !roomPlayer.kicked && roomPlayer.connected !== false,
+      (roomPlayer) => !roomPlayer.kicked && !roomPlayer.inactive,
     ) || [];
   const waitingPlayers = activeRoomPlayers.length
     ? activeRoomPlayers

@@ -40,7 +40,9 @@ export default function PourTargetGuide({
           <div
             className={[
               "absolute inset-x-[-8vw] top-0 border-t-2 border-dashed",
-              isResultPhase ? "border-[#ef2f25]/80 dark:border-[#f7f7f2]/90" : "border-[#0d0d0c]/40 dark:border-[#f7f7f2]/38",
+              isResultPhase
+                ? "border-[#ef2f25]/80 dark:border-[#f7f7f2]/78"
+                : "border-[#0d0d0c]/40 dark:border-[#f7f7f2]/46",
             ].join(" ")}
             data-gameplay-reveal-line="true"
           />
@@ -48,7 +50,9 @@ export default function PourTargetGuide({
             <span
               className={[
                 "pc-label absolute right-6 top-0 inline-flex -translate-y-1/2 rounded-md px-3 py-2 text-white md:right-8",
-                isResultPhase ? "bg-[#ef2f25] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]" : "bg-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]",
+                isResultPhase
+                  ? "bg-[#ef2f25] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+                  : "bg-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c]",
               ].join(" ")}
               data-gameplay-reveal-badge="true"
             >
@@ -72,11 +76,11 @@ export default function PourTargetGuide({
             data-gameplay-reveal-line="true"
             ref={targetGuideLineRef}
           >
-            <div className="absolute inset-x-0 top-[22%] border-t-2 border-dashed border-[#0d0d0c]/72 dark:border-[#f7f7f2]/62" />
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-[#0d0d0c]/34 dark:border-[#f7f7f2]/28" />
-            <div className="absolute inset-x-0 bottom-[22%] border-t-2 border-dashed border-[#0d0d0c]/72 dark:border-[#f7f7f2]/62" />
-            <div className="absolute bottom-[22%] left-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/42" />
-            <div className="absolute bottom-[22%] right-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/42" />
+            <div className="absolute inset-x-0 top-[22%] border-t-2 border-dashed border-[#0d0d0c]/72 dark:border-[#f7f7f2]/68" />
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-[#0d0d0c]/34 dark:border-[#f7f7f2]/36" />
+            <div className="absolute inset-x-0 bottom-[22%] border-t-2 border-dashed border-[#0d0d0c]/72 dark:border-[#f7f7f2]/68" />
+            <div className="absolute bottom-[22%] left-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/48" />
+            <div className="absolute bottom-[22%] right-6 top-[22%] w-px bg-[#0d0d0c]/46 dark:bg-[#f7f7f2]/48" />
           </div>
           {showBadge ? (
             <span
@@ -95,7 +99,7 @@ export default function PourTargetGuide({
           style={{ top: `${100 - target}%` }}
         >
           <div
-            className="absolute inset-x-[-8vw] top-0 border-t-2 border-dashed border-[#0d0d0c]/40 [transform-origin:center_center] dark:border-[#f7f7f2]/38"
+            className="absolute inset-x-[-8vw] top-0 border-t-2 border-dashed border-[#0d0d0c]/40 [transform-origin:center_center] dark:border-[#f7f7f2]/46"
             data-gameplay-reveal-line="true"
             ref={targetGuideLineRef}
           />

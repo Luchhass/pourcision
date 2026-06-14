@@ -30,6 +30,9 @@ const STREAM_DESCEND_SPEED = 3.6;
 const STREAM_SOURCE_FOLLOW = 0.24;
 const STREAM_MID_FOLLOW = 0.14;
 const STREAM_TAIL_FOLLOW = 0.09;
+const SETTLED_MAX_SURFACE_PX = 0.35;
+const SETTLED_MAX_VELOCITY_PX = 0.28;
+const SETTLED_MAX_UNSETTLED_WATER = 0.00008;
 const WHITE_RGB = { b: 255, g: 255, r: 255 };
 const DEEP_RGB = { b: 36, g: 28, r: 20 };
 
@@ -396,10 +399,24 @@ function writeSurfaceLevelRef(
   dimensions,
   xRatio = 0.5,
   isInvertedWater = false,
+  state = null,
+  currentStatus = "idle",
 ) {
   const surfaceLevelRef = surfaceLevelTargetRef?.current;
 
   if (!surfaceLevelRef || !dimensions.height) {
+    return;
+  }
+
+  if (
+    state &&
+    currentStatus !== "filling" &&
+    currentStatus !== "leaking" &&
+    isSimulationSettled(state, dimensions)
+  ) {
+    const settledLevel = clamp(getWaterLevelPercent(state), 0, 100);
+
+    surfaceLevelRef.current = isInvertedWater ? 100 - settledLevel : settledLevel;
     return;
   }
 
@@ -419,7 +436,7 @@ function writeSurfaceLevelRef(
 }
 
 function isSimulationSettled(state, dimensions) {
-  if (state.activeCount > 0 || state.unsettledWater > 0.0015) {
+  if (state.activeCount > 0 || state.unsettledWater > SETTLED_MAX_UNSETTLED_WATER) {
     return false;
   }
 
@@ -432,7 +449,10 @@ function isSimulationSettled(state, dimensions) {
     maxVelocity = Math.max(maxVelocity, Math.abs(state.vel[i]));
   }
 
-  return maxHeight * waveVisualScale < 2.5 && maxVelocity * waveVisualScale < 2;
+  return (
+    maxHeight * waveVisualScale < SETTLED_MAX_SURFACE_PX &&
+    maxVelocity * waveVisualScale < SETTLED_MAX_VELOCITY_PX
+  );
 }
 
 function writeSettledRef(settledTargetRef, state, currentStatus, dimensions) {
@@ -856,6 +876,8 @@ function renderWater(
     dimensions,
     surfaceSampleX,
     isInvertedWater,
+    state,
+    status,
   );
   applyAmbientSurfaceMotion(
     surfaceY,

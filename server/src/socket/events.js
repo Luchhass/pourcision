@@ -13,6 +13,7 @@ import {
   kickPlayer,
   leaveRoom,
   listJoinableRooms,
+  recordWaterState,
   requestRoomState,
   returnRoomToLobby,
   scheduleCompletedCleanup,
@@ -124,6 +125,8 @@ function sanitizeWaterState(room, payload) {
   const tilt = Number(payload.tilt);
   const activeSplitIndex = Number(payload.activeSplitIndex);
   const allowedStatuses = new Set([
+    "burst",
+    "complete",
     "filling",
     "idle",
     "intro",
@@ -346,10 +349,17 @@ export function registerSocketEvents(io) {
         const result = sanitizeWaterState(roomResult.data.room, payload);
         if (!result.ok) return;
 
+        const waterState =
+          recordWaterState(
+            roomResult.data.room,
+            result.data.player,
+            result.data.waterState,
+          ) || result.data.waterState;
+
         emitters.emitWaterState(
           roomResult.data.room,
           result.data.player,
-          result.data.waterState,
+          waterState,
           socket.id,
         );
       }),

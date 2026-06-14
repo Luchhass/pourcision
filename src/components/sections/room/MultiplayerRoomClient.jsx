@@ -30,6 +30,18 @@ import ScoreboardScreen from "@/components/sections/scoreboard/ScoreboardScreen"
 
 const ROOM_CODE_PATTERN = /^\d{6}$/;
 
+function subscribeToHydration() {
+  return () => {};
+}
+
+function getClientHydrationSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
 function responseData(response) {
   return response?.data || response || {};
 }
@@ -85,7 +97,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
     updatePlayerColor,
     updateSettings,
     waterStates,
-  } = useMultiplayerRoom(roomCode);
+  } = useMultiplayerRoom(roomCode, session?.playerId);
   const bootstrappedRef = useRef(false);
   const [error, setError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
@@ -96,11 +108,19 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const [isLobbySettingsOpen, setIsLobbySettingsOpen] = useState(false);
   const [player, setPlayer] = useState(null);
   const [view, setView] = useState("loading");
-  const preferredWaterColorId = useSyncExternalStore(
+  const storedPreferredWaterColorId = useSyncExternalStore(
     subscribeToWaterColorPreference,
     getWaterColorPreferenceSnapshot,
     getFallbackWaterColorId,
   );
+  const hasHydratedClient = useSyncExternalStore(
+    subscribeToHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot,
+  );
+  const preferredWaterColorId = hasHydratedClient
+    ? storedPreferredWaterColorId
+    : getFallbackWaterColorId();
   const playerId = player?.playerId || "";
   const currentPlayer = findRoomPlayer(room, playerId);
   const activeGame = startedGame || room?.game;
@@ -171,7 +191,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
     const nextPlayer = {
       isHost: false,
       playerId: createPlayerId(),
-      playerName: playerName.trim() || "Player",
+      playerName: playerName.trim() || t("room.defaultPlayer"),
       roomCode,
       waterColorId: preferredWaterColorId,
     };
@@ -363,7 +383,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
       : t("room.multiplayerDescription");
   const roomPlayers = room?.players || [];
   const activeRoomPlayers = roomPlayers.filter(
-    (roomPlayer) => !roomPlayer.kicked && roomPlayer.connected !== false,
+    (roomPlayer) => !roomPlayer.kicked && !roomPlayer.inactive,
   );
   const waitingLobbyPlayers = activeRoomPlayers.length
     ? activeRoomPlayers
@@ -385,6 +405,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
         preferredWaterColorId;
   const shouldStretchWaterContent =
     effectiveView === "lobby" ||
+    effectiveView === "join" ||
     effectiveView === "waiting-lobby" ||
     effectiveView === "not-found" ||
     effectiveView === "loading" ||
