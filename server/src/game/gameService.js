@@ -84,6 +84,7 @@ function serializeResult(result) {
     level: result.level,
     round: result.round,
     roundIndex: result.roundIndex,
+    ruleMode: result.ruleMode,
     score: result.score,
     bandDiffs: result.bandDiffs || null,
     bandLevels: result.bandLevels || null,

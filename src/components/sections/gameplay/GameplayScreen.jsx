@@ -1142,7 +1142,11 @@ export default function GameplayScreen({
     }
 
     if (label) {
-      label.style.transform = `translateY(${(maxOffset * safeTilt) / 2}px)`;
+      const offset = (maxOffset * safeTilt) / 2;
+      const offsetSign = offset >= 0 ? "+" : "-";
+      const offsetValue = Math.abs(offset).toFixed(2);
+
+      label.style.transform = `translateY(calc(-50% ${offsetSign} ${offsetValue}px))`;
     }
   }, []);
 

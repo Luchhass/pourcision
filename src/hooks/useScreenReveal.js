@@ -227,7 +227,7 @@ function restoreParagraphLineReveals(scope) {
 function getRevealRows(groups) {
   return groups.flatMap((group) => {
     const rows = Array.from(group.querySelectorAll(REVEAL_ROW_SELECTOR)).filter(
-      (row) => row instanceof HTMLElement,
+      (row) => row instanceof HTMLElement && row.getClientRects().length > 0,
     );
 
     if (!rows.length) return getRevealChildren(group);
@@ -315,8 +315,31 @@ function getRevealDirection(element, fallback = "down") {
   return fallback;
 }
 
+function classNameHasRevealShadow(element) {
+  if (!(element instanceof HTMLElement)) return false;
+
+  const className =
+    typeof element.className === "string" ? element.className : "";
+
+  return /\b(?:shadow-|drop-shadow-)/.test(className);
+}
+
+function hasShadowedRevealSurface(element) {
+  if (element.dataset.screenRevealLineRow === "true") return false;
+
+  const targets = getRevealTargets(element);
+
+  return [element, ...targets].some(
+    (target) =>
+      classNameHasRevealShadow(target) ||
+      Boolean(target.querySelector?.('[class*="shadow-"], [class*="drop-shadow-"]')),
+  );
+}
+
 function shouldMask(element) {
-  return element.dataset.screenRevealMask !== "none";
+  if (element.dataset.screenRevealMask === "none") return false;
+
+  return !hasShadowedRevealSurface(element);
 }
 
 function getMaskRows(rows) {
@@ -419,6 +442,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
   const timelineRef = useRef(null);
   const cancelIntroWaitRef = useRef(null);
   const cancelDelayRef = useRef(null);
+  const forcedWaterRevealKeysRef = useRef(new Set());
   const hasPlayedInitialRevealRef = useRef(false);
   const shouldRevealWaterBgRef = useRef(false);
 
@@ -534,9 +558,17 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
     };
 
     const prepareReveal = () => {
+      const forceWaterRevealKey = options.waterRevealKey;
+      const shouldForceWaterBg =
+        Boolean(forceWaterRevealKey) &&
+        !forcedWaterRevealKeysRef.current.has(forceWaterRevealKey);
       const shouldRevealWaterBg =
-        !hasPlayedInitialRevealRef.current && !hasRevealedWaterBackground();
+        shouldForceWaterBg ||
+        (!hasPlayedInitialRevealRef.current && !hasRevealedWaterBackground());
       shouldRevealWaterBgRef.current = shouldRevealWaterBg;
+      if (shouldForceWaterBg) {
+        forcedWaterRevealKeysRef.current.add(forceWaterRevealKey);
+      }
       if (shouldRevealWaterBg) {
         markWaterBackgroundRevealed();
       }

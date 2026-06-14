@@ -27,9 +27,16 @@ export default function JoinRoomCard({
   };
 
   return (
-    <section className="grid h-full w-full min-w-0 content-end gap-5 lg:h-auto lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem] lg:content-start">
+    <section
+      className="grid h-full w-full min-w-0 content-end gap-5 lg:h-auto lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem] lg:content-end"
+      data-room-join-card="true"
+    >
       <div className="grid min-w-0 gap-5">
-        <label className="grid min-w-0 gap-2.5">
+        <label
+          className="grid min-w-0 gap-2.5"
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="self"
+        >
           <span className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
             {t("setup.playerName")}
           </span>
@@ -44,7 +51,11 @@ export default function JoinRoomCard({
         </label>
 
         {requiresPassword ? (
-          <label className="grid min-w-0 gap-2.5">
+          <label
+            className="grid min-w-0 gap-2.5"
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+          >
             <span className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
               {t("setup.lobbyPassword")}
             </span>
@@ -71,17 +82,29 @@ export default function JoinRoomCard({
         ) : null}
       </div>
 
-      {error ? <p className="pc-copy-strong text-[#0d0d0c] dark:text-[#f7f7f2]">{error}</p> : null}
+      {error ? (
+        <p
+          className="pc-copy-strong text-[#0d0d0c] dark:text-[#f7f7f2]"
+          data-screen-reveal-row="true"
+        >
+          {error}
+        </p>
+      ) : null}
 
-      <Button
-        className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
-        disabled={isJoining}
-        onClick={() =>
-          onJoin(playerName.trim() || t("room.defaultPlayer"), password.trim())
-        }
+      <div
+        data-screen-reveal-row="true"
+        data-screen-reveal-target="self"
       >
-        {isJoining ? t("room.joining") : t("room.join")}
-      </Button>
+        <Button
+          className="rounded-none !shadow-none"
+          disabled={isJoining}
+          onClick={() =>
+            onJoin(playerName.trim() || t("room.defaultPlayer"), password.trim())
+          }
+        >
+          {isJoining ? t("room.joining") : t("room.join")}
+        </Button>
+      </div>
     </section>
   );
 }

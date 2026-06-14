@@ -4,6 +4,38 @@ import { useCallback, useSyncExternalStore } from "react";
 import { THEME_STORAGE_KEY } from "@/lib/constants";
 
 const THEME_CHANGE_EVENT = "pourcision-theme-change";
+const THEME_TRANSITION_MS = 280;
+
+let themeTransitionTimer = null;
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return true;
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function setThemeAttributes(theme) {
+  const root = document.documentElement;
+
+  root.classList.toggle("dark", theme === "dark");
+  root.dataset.theme = theme;
+  root.style.colorScheme = theme;
+}
+
+function startFallbackThemeTransition() {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  if (prefersReducedMotion()) return;
+
+  const root = document.documentElement;
+  root.dataset.themeTransitioning = "true";
+  window.clearTimeout(themeTransitionTimer);
+
+  root.getBoundingClientRect();
+
+  themeTransitionTimer = window.setTimeout(() => {
+    delete root.dataset.themeTransitioning;
+  }, THEME_TRANSITION_MS + 80);
+}
 
 function getStoredTheme() {
   if (typeof window === "undefined") return "light";
@@ -16,12 +48,16 @@ function getStoredTheme() {
     : "light";
 }
 
-function applyTheme(theme) {
+function applyTheme(theme, { animate = false } = {}) {
   if (typeof document === "undefined") return;
 
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.colorScheme = theme;
+  if (!animate || prefersReducedMotion()) {
+    setThemeAttributes(theme);
+    return;
+  }
+
+  startFallbackThemeTransition();
+  setThemeAttributes(theme);
 }
 
 function getThemeSnapshot() {
@@ -39,7 +75,7 @@ function subscribeToTheme(callback) {
     if (event.key !== THEME_STORAGE_KEY) return;
 
     const nextTheme = event.newValue === "dark" ? "dark" : "light";
-    applyTheme(nextTheme);
+    applyTheme(nextTheme, { animate: true });
     callback();
   };
 
@@ -47,7 +83,7 @@ function subscribeToTheme(callback) {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     if (stored === "light" || stored === "dark") return;
 
-    applyTheme(mediaQuery.matches ? "dark" : "light");
+    applyTheme(mediaQuery.matches ? "dark" : "light", { animate: true });
     callback();
   };
 
@@ -76,7 +112,7 @@ export function useTheme() {
     const nextTheme = currentTheme === "dark" ? "light" : "dark";
 
     window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-    applyTheme(nextTheme);
+    applyTheme(nextTheme, { animate: true });
     window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }, []);
 

@@ -876,7 +876,7 @@ export default function GameSetupScreen({
   onStart,
   onWaterColorChange,
 }) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const fallbackCopy = setupCopy[mode] ?? setupCopy[MENU_MODES.SINGLEPLAYER];
   const copy =
     mode === MENU_MODES.MULTIPLAYER
@@ -950,7 +950,7 @@ export default function GameSetupScreen({
   });
   const playSetupExit = useScreenReveal(
     setupRevealRef,
-    [mode, multiplayerStep],
+    [mode, multiplayerStep, locale],
   );
 
   const handleBack = async () => {
@@ -1299,20 +1299,36 @@ export default function GameSetupScreen({
                     <div className="w-full min-w-0 justify-self-stretch md:hidden">
                       <div className="grid w-full min-w-0 justify-self-stretch gap-4">
                         <div className="grid w-full min-w-0 grid-cols-2 items-start gap-3">
-                          <DifficultyControl
-                            label={t("setup.difficulty")}
-                            onChange={setDifficulty}
-                            value={difficulty}
-                          />
-                          <MobileSetupButton
-                            icon={SelectedRuleModeIcon}
-                            label={t("setup.mode")}
-                            onClick={() => setMobileSetupModal("mode")}
-                            value={selectedRuleModeLabel}
-                            wide
-                          />
+                          <div
+                            className="min-w-0"
+                            data-screen-reveal-row="true"
+                            data-screen-reveal-target="self"
+                          >
+                            <DifficultyControl
+                              label={t("setup.difficulty")}
+                              onChange={setDifficulty}
+                              value={difficulty}
+                            />
+                          </div>
+                          <div
+                            className="min-w-0"
+                            data-screen-reveal-row="true"
+                            data-screen-reveal-target="self"
+                          >
+                            <MobileSetupButton
+                              icon={SelectedRuleModeIcon}
+                              label={t("setup.mode")}
+                              onClick={() => setMobileSetupModal("mode")}
+                              value={selectedRuleModeLabel}
+                              wide
+                            />
+                          </div>
                         </div>
-                        <div className="grid w-full min-w-0 grid-cols-[var(--pc-choice-height)_minmax(0,1fr)] items-center gap-3">
+                        <div
+                          className="grid w-full min-w-0 grid-cols-[var(--pc-choice-height)_minmax(0,1fr)] items-center gap-3"
+                          data-screen-reveal-row="true"
+                          data-screen-reveal-target="self"
+                        >
                           <MobileSetupButton
                             icon={Palette}
                             label={t("setup.waterColor")}
@@ -1333,14 +1349,22 @@ export default function GameSetupScreen({
                     </div>
 
                     <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5">
-                      <div className="min-w-0">
+                      <div
+                        className="min-w-0"
+                        data-screen-reveal-row="true"
+                        data-screen-reveal-target="self"
+                      >
                         <DifficultyControl
                           label={t("setup.difficulty")}
                           onChange={setDifficulty}
                           value={difficulty}
                         />
                       </div>
-                      <div className="min-w-0 md:col-span-2 lg:col-span-1">
+                      <div
+                        className="min-w-0 md:col-span-2 lg:col-span-1"
+                        data-screen-reveal-row="true"
+                        data-screen-reveal-target="self"
+                      >
                         <ChoiceGrid
                           label={t("setup.mode")}
                           onChange={setRuleMode}
@@ -1349,13 +1373,19 @@ export default function GameSetupScreen({
                         />
                       </div>
                     </div>
-                    <Button
-                      className="max-md:!hidden rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)] md:!inline-flex"
-                      disabled={isStarting}
-                      onClick={handleStart}
+                    <div
+                      className="hidden md:block"
+                      data-screen-reveal-row="true"
+                      data-screen-reveal-target="self"
                     >
-                      {isStarting ? t("setup.creatingLobby") : copy.startLabel}
-                    </Button>
+                      <Button
+                        className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+                        disabled={isStarting}
+                        onClick={handleStart}
+                      >
+                        {isStarting ? t("setup.creatingLobby") : copy.startLabel}
+                      </Button>
+                    </div>
                   </>
                 ) : null}
               </div>

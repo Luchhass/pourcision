@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import SoundToggle from "@/components/layout/SoundToggle";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import { useTranslation } from "@/hooks/useLanguage";
+import { playActiveScreenExit } from "@/hooks/useScreenReveal";
 
 export default function PageUtilitySwitches({ placement = "inline", tone = "dark" }) {
-  const { locale, t, toggleLanguage } = useTranslation();
+  const { locale, nextLocale, setLanguage, t } = useTranslation();
+  const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
   const isRail = placement === "rail";
   const switchClass =
     tone === "light"
@@ -22,6 +25,18 @@ export default function PageUtilitySwitches({ placement = "inline", tone = "dark
   const buttonClass = isRail
     ? railButtonClass
     : `pc-icon-button grid place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 ${switchClass}`;
+  const handleLanguageSwitch = async () => {
+    if (isSwitchingLanguage) return;
+
+    setIsSwitchingLanguage(true);
+
+    try {
+      await playActiveScreenExit();
+      setLanguage(nextLocale);
+    } finally {
+      setIsSwitchingLanguage(false);
+    }
+  };
 
   return (
     <section className={sectionClass} data-utility-placement={placement}>
@@ -29,7 +44,8 @@ export default function PageUtilitySwitches({ placement = "inline", tone = "dark
         <button
           aria-label={t("utility.language")}
           className={buttonClass}
-          onClick={toggleLanguage}
+          disabled={isSwitchingLanguage}
+          onClick={handleLanguageSwitch}
           type="button"
         >
           <span className="pc-choice-text">{locale.toUpperCase()}</span>

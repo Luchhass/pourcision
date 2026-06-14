@@ -595,7 +595,7 @@ export default function LobbyCard({
           canEditSettings
             ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] sm:grid-cols-[var(--pc-action-height)_minmax(0,1fr)_minmax(0,1fr)]"
             : canOpenColorSettings
-              ? "grid-cols-[var(--pc-action-height)_minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-2"
+              ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] md:grid-cols-[var(--pc-action-height)_minmax(0,1fr)]"
             : "grid-cols-2",
         ].join(" ")}
       >
@@ -635,13 +635,18 @@ export default function LobbyCard({
           aria-label={t("room.copyInvite")}
           data-screen-reveal-row="true"
           data-screen-reveal-target="self"
-          className="pc-action grid w-full place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+          className={[
+            "pc-action grid place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+            canOpenColorSettings ? "aspect-square p-0" : "w-full",
+          ].join(" ")}
           onClick={onCopyInvite}
           type="button"
         >
           <span className="inline-flex items-center gap-3">
             <Clipboard aria-hidden="true" className="pc-icon" />
-            <span className="hidden sm:inline">{t("room.copyInvite")}</span>
+            {canOpenColorSettings ? null : (
+              <span className="hidden sm:inline">{t("room.copyInvite")}</span>
+            )}
           </span>
         </button>
 

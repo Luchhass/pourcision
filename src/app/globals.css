@@ -207,6 +207,7 @@
 }
 
 .pc-action {
+  box-shadow: none !important;
   font-size: var(--pc-action-font);
   font-weight: 900;
   letter-spacing: var(--pc-label-letter);
@@ -386,6 +387,30 @@ select {
     border-color 180ms ease,
     box-shadow 180ms ease,
     color 180ms ease;
+}
+
+html[data-theme-transitioning="true"] *,
+html[data-theme-transitioning="true"] *::before,
+html[data-theme-transitioning="true"] *::after {
+  transition-delay: 0ms;
+  transition-duration: 320ms;
+  transition-property:
+    background-color,
+    border-color,
+    caret-color,
+    color,
+    fill,
+    outline-color,
+    stroke;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-transitioning="true"] *,
+  html[data-theme-transitioning="true"] *::before,
+  html[data-theme-transitioning="true"] *::after {
+    transition: none;
+  }
 }
 
 button {

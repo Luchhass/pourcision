@@ -76,8 +76,22 @@ function HomeStats() {
   const { t } = useTranslation();
   const rotatedStyle = {
     transform: "rotate(-90deg)",
-    transformOrigin: "bottom left",
+    transformOrigin: "top left",
   };
+  const stats = [
+    {
+      label: t("game.rounds"),
+      value: "5",
+    },
+    {
+      label: t("game.target"),
+      value: t("game.line"),
+    },
+    {
+      label: t("game.lowestWins"),
+      value: t("game.diff"),
+    },
+  ];
 
   return (
     <section
@@ -85,45 +99,23 @@ function HomeStats() {
       data-home-stats="true"
       data-screen-reveal="cream"
     >
-      <div
-        className="flex justify-center"
-        data-screen-reveal-direction="up"
-        data-screen-reveal-group="stats"
-        data-screen-reveal-row="true"
-      >
-        <div className="text-left" style={rotatedStyle}>
-          <p className="pc-round-value">5</p>
-          <p className="pc-round-label mt-1">
-            {t("game.rounds")}
-          </p>
+      {stats.map((stat) => (
+        <div
+          className="relative h-[7.5rem] w-9"
+          data-screen-reveal-direction="up"
+          data-screen-reveal-group="stats"
+          data-screen-reveal-row="true"
+          key={`${stat.value}-${stat.label}`}
+        >
+          <div
+            className="absolute left-0 top-full whitespace-nowrap text-left"
+            style={rotatedStyle}
+          >
+            <p className="pc-round-value uppercase">{stat.value}</p>
+            <p className="pc-round-label mt-1">{stat.label}</p>
+          </div>
         </div>
-      </div>
-      <div
-        className="flex justify-center"
-        data-screen-reveal-direction="up"
-        data-screen-reveal-group="stats"
-        data-screen-reveal-row="true"
-      >
-        <div className="text-left" style={rotatedStyle}>
-          <p className="pc-round-value uppercase">{t("game.line")}</p>
-          <p className="pc-round-label mt-1">
-            {t("game.target")}
-          </p>
-        </div>
-      </div>
-      <div
-        className="flex justify-center"
-        data-screen-reveal-direction="up"
-        data-screen-reveal-group="stats"
-        data-screen-reveal-row="true"
-      >
-        <div className="text-left" style={rotatedStyle}>
-          <p className="pc-round-value uppercase">{t("game.diff")}</p>
-          <p className="pc-round-label mt-1">
-            {t("game.lowestWins")}
-          </p>
-        </div>
-      </div>
+      ))}
     </section>
   );
 }
@@ -146,7 +138,7 @@ function HomeModePanel({
       data-screen-reveal={reveal ? "water-content" : undefined}
     >
       <div className="overflow-hidden" data-screen-reveal-row="true">
-        <div className="grid grid-cols-2 bg-[#0d0d0c]/[0.035] shadow-[0_22px_48px_rgba(13,13,12,0.08)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+        <div className="grid grid-cols-2">
           {modeOptions.map((mode) => (
             <ModeSelectCard
               description={mode.description}
@@ -162,7 +154,7 @@ function HomeModePanel({
 
       <div className="overflow-hidden" data-screen-reveal-row="true">
         <Button
-          className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+          className="rounded-none !shadow-none"
           onClick={onContinue}
         >
           {continueLabel}

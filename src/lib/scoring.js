@@ -75,6 +75,7 @@ export function calculateRoundResult({
       level: levelAverage,
       round: roundIndex + 1,
       roundIndex,
+      ruleMode,
       score,
       target: targetAverage,
     };
@@ -103,6 +104,7 @@ export function calculateRoundResult({
       level: levelAverage,
       round: roundIndex + 1,
       roundIndex,
+      ruleMode,
       score,
       splitDiffs,
       splitLevels: safeSplitLevels,
@@ -128,6 +130,7 @@ export function calculateRoundResult({
     level: safeLevel,
     round: roundIndex + 1,
     roundIndex,
+    ruleMode,
     score,
     target,
   };

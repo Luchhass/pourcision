@@ -5,7 +5,12 @@ import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
-import { GAME_MODE_OPTIONS, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
+import {
+  GAME_MODE_OPTIONS,
+  GAME_RULE_MODES,
+  PERFECT_ZONE_RADIUS,
+  WATER_COLORS,
+} from "@/lib/constants";
 import { getRoundScore } from "@/lib/scoring";
 import { playFinalScore } from "@/lib/sound";
 
@@ -29,7 +34,7 @@ function getRoundModeTag(ruleMode) {
     [GAME_RULE_MODES.TILT]: "TILT",
     [GAME_RULE_MODES.FAKE_TARGET]: "FAKE",
     [GAME_RULE_MODES.SPLIT_FILL]: "SPLIT",
-    [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "ALL",
+    [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "ALL/0",
     [GAME_RULE_MODES.BAND_RUN]: "BAND",
     [GAME_RULE_MODES.CHARGE_POUR]: "PRESS",
     [GAME_RULE_MODES.BURST_CLICK]: "BURST",
@@ -101,6 +106,37 @@ function getReadableInkColor(colorValue) {
   const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
 
   return luminance > 0.54 ? "#0d0d0c" : "#f7f7f2";
+}
+
+function clampPercent(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return Math.max(0, Math.min(100, parsed));
+}
+
+function getResultRuleMode(result, fallbackRuleMode) {
+  return (
+    result?.ruleMode ||
+    result?.gameMode ||
+    result?.mode ||
+    fallbackRuleMode ||
+    GAME_RULE_MODES.CLASSIC
+  );
+}
+
+function getPercentPair(values, fallback) {
+  if (!Array.isArray(values) || values.length < 2) {
+    return [fallback, fallback];
+  }
+
+  return [clampPercent(values[0], fallback), clampPercent(values[1], fallback)];
+}
+
+function getPercentList(values) {
+  if (!Array.isArray(values)) return [];
+
+  return values.map((value) => clampPercent(value));
 }
 
 function ResultsTitleBand({ onMenu }) {
@@ -228,9 +264,53 @@ function RoundCard({
   result,
   waterColor,
 }) {
-  const fillPercent = Math.max(0, Math.min(100, result.level));
-  const targetPercent = Math.max(0, Math.min(100, result.target));
-  const bandTargets = Array.isArray(result.bandTargets) ? result.bandTargets : [];
+  const effectiveRuleMode = getResultRuleMode(result, ruleMode);
+  const isBandRun = effectiveRuleMode === GAME_RULE_MODES.BAND_RUN;
+  const isBlind = effectiveRuleMode === GAME_RULE_MODES.BLIND;
+  const isBurstClick = effectiveRuleMode === GAME_RULE_MODES.BURST_CLICK;
+  const isChargePour = effectiveRuleMode === GAME_RULE_MODES.CHARGE_POUR;
+  const isColorblind = effectiveRuleMode === GAME_RULE_MODES.COLORBLIND;
+  const isFakeTarget = effectiveRuleMode === GAME_RULE_MODES.FAKE_TARGET;
+  const isFlash = effectiveRuleMode === GAME_RULE_MODES.FLASH;
+  const isInvert = effectiveRuleMode === GAME_RULE_MODES.INVERT;
+  const isLeaky = effectiveRuleMode === GAME_RULE_MODES.LEAKY;
+  const isPerfectZone =
+    effectiveRuleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING;
+  const isReversePour = effectiveRuleMode === GAME_RULE_MODES.REVERSE_POUR;
+  const isSplitFill = effectiveRuleMode === GAME_RULE_MODES.SPLIT_FILL;
+  const isTilt = effectiveRuleMode === GAME_RULE_MODES.TILT;
+  const cardWaterColor = isColorblind
+    ? COLORBLIND_WATER_COLOR
+    : waterColor || WATER_COLORS[0];
+  const fillPercent = clampPercent(result.level);
+  const targetPercent = clampPercent(result.target);
+  const fakeTargetPercent = clampPercent(result.fakeTarget, targetPercent);
+  const bandTargets = getPercentList(result.bandTargets);
+  const bandLevels = getPercentList(result.bandLevels);
+  const splitLevels = getPercentPair(result.splitLevels, fillPercent);
+  const splitTargets = getPercentPair(result.splitTargets, targetPercent);
+  const zoneStart = clampPercent(targetPercent - PERFECT_ZONE_RADIUS);
+  const zoneEnd = clampPercent(targetPercent + PERFECT_ZONE_RADIUS);
+  const zoneHeight = Math.max(5, zoneEnd - zoneStart);
+  const waterPosition = isInvert
+    ? { height: `${fillPercent}%`, top: 0 }
+    : { bottom: 0, height: `${fillPercent}%` };
+  const targetPosition = isInvert
+    ? { top: `${targetPercent}%` }
+    : { bottom: `${targetPercent}%` };
+  const guideBaseClass = [
+    "absolute z-[4] border-t-2 border-dashed",
+    "border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46",
+    isTilt ? "left-[-10%] w-[120%] origin-center -rotate-[5deg]" : "inset-x-0",
+  ].join(" ");
+  const waterTexture = isColorblind
+    ? {
+        backgroundImage:
+          "repeating-linear-gradient(135deg, rgba(247,247,242,0.18) 0 5px, transparent 5px 10px)",
+      }
+    : {};
+  const showStandardTarget =
+    !isBandRun && !isBlind && !isPerfectZone && !isSplitFill;
 
   return (
     <div
@@ -239,54 +319,183 @@ function RoundCard({
         leaderboardDense
           ? "aspect-square min-h-[4.4rem] md:min-h-[5rem] lg:min-h-[5.4rem]"
           : mobileShort
-          ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] md:aspect-square md:h-auto md:min-h-[5.5rem]"
-          : [
-              "aspect-square",
-              compact ? "min-h-[4.4rem]" : "min-h-[5.5rem]",
-            ].join(" "),
+            ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] md:aspect-square md:h-auto md:min-h-[5.5rem]"
+            : [
+                "aspect-square",
+                compact ? "min-h-[4.4rem]" : "min-h-[5.5rem]",
+              ].join(" "),
       ].join(" ")}
     >
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 bottom-0"
-        style={{
-          backgroundColor: waterColor.value,
-          height: `${fillPercent}%`,
-        }}
-      />
-      {ruleMode !== GAME_RULE_MODES.BAND_RUN ? (
+      {isSplitFill ? (
+        <>
+          {splitLevels.map((level, index) => (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute bottom-0 z-[1] w-1/2",
+                index === 0 ? "left-0" : "right-0",
+              ].join(" ")}
+              key={`split-water-${index}`}
+              style={{
+                backgroundColor: cardWaterColor.value,
+                height: `${level}%`,
+              }}
+            />
+          ))}
+          {splitTargets.map((splitTarget, index) => (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute z-[4] w-1/2 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46",
+                index === 0 ? "left-0" : "right-0",
+              ].join(" ")}
+              key={`split-target-${index}`}
+              style={{ bottom: `${splitTarget}%` }}
+            />
+          ))}
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 left-1/2 z-[5] border-l border-[#0d0d0c]/22 dark:border-[#f7f7f2]/24"
+          />
+        </>
+      ) : (
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46"
-          style={{ bottom: `${targetPercent}%` }}
+          className="absolute inset-x-0 z-[1]"
+          style={{
+            backgroundColor: cardWaterColor.value,
+            ...waterPosition,
+            ...waterTexture,
+          }}
+        />
+      )}
+      {showStandardTarget ? (
+        <span
+          aria-hidden="true"
+          className={guideBaseClass}
+          style={targetPosition}
         />
       ) : null}
-      {ruleMode === GAME_RULE_MODES.BAND_RUN
+      {isBandRun
         ? bandTargets.map((bandTarget, index) => (
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/42 dark:border-[#f7f7f2]/44"
+              className="absolute inset-x-0 z-[4] border-t-2 border-dashed border-[#0d0d0c]/42 dark:border-[#f7f7f2]/44"
               key={`${bandTarget}-${index}`}
-              style={{ bottom: `${Math.max(0, Math.min(100, bandTarget))}%` }}
+              style={{ bottom: `${bandTarget}%` }}
             />
           ))
         : null}
-      {ruleMode === GAME_RULE_MODES.FAKE_TARGET && result.fakeTarget !== null ? (
+      {isBandRun
+        ? bandLevels.map((bandLevel, index) => (
+            <span
+              aria-hidden="true"
+              className="absolute z-[5] h-2 w-2 -translate-x-1/2 bg-[#0d0d0c] dark:bg-[#f7f7f2]"
+              key={`band-level-${index}`}
+              style={{
+                bottom: `${bandLevel}%`,
+                left: `${((index + 1) / (bandLevels.length + 1)) * 100}%`,
+              }}
+            />
+          ))
+        : null}
+      {isFakeTarget && result.fakeTarget !== null ? (
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 border-t-2 border-dashed border-[#ef2f25]/54 dark:border-[#f7f7f2]/30"
-          style={{ bottom: `${Math.max(0, Math.min(100, result.fakeTarget))}%` }}
+          className="absolute inset-x-0 z-[4] border-t-2 border-dashed border-[#ef2f25]/54 dark:border-[#f7f7f2]/30"
+          style={{ bottom: `${fakeTargetPercent}%` }}
         />
       ) : null}
-      {ruleMode === GAME_RULE_MODES.SPLIT_FILL ? (
+      {isPerfectZone ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 z-[4] border-y-2 border-[#0d0d0c]/62 bg-[#0d0d0c]/[0.055] dark:border-[#f7f7f2]/62 dark:bg-[#f7f7f2]/[0.08]"
+            style={{
+              bottom: `${zoneStart}%`,
+              height: `${zoneHeight}%`,
+            }}
+          />
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 z-[5] border-t border-dashed border-[#0d0d0c]/38 dark:border-[#f7f7f2]/40"
+            style={{ bottom: `${targetPercent}%` }}
+          />
+        </>
+      ) : null}
+      {isFlash ? (
         <span
           aria-hidden="true"
-          className="absolute inset-y-0 left-1/2 border-l border-[#0d0d0c]/22 dark:border-[#f7f7f2]/24"
+          className="absolute inset-x-0 z-[3] h-[18%] bg-[#f7f7f2]/28 mix-blend-screen dark:bg-[#f7f7f2]/14"
+          style={
+            isInvert
+              ? { top: `calc(${targetPercent}% - 9%)` }
+              : { bottom: `calc(${targetPercent}% - 9%)` }
+          }
         />
       ) : null}
-      {ruleMode !== GAME_RULE_MODES.CLASSIC ? (
+      {isBlind ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-3 top-3 z-[3] h-2 bg-[#0d0d0c]/10 dark:bg-[#f7f7f2]/10"
+        />
+      ) : null}
+      {isReversePour ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="absolute bottom-0 left-1/2 top-0 z-[3] border-l-2 border-dashed border-[#0d0d0c]/26 dark:border-[#f7f7f2]/28"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute left-1/2 top-0 z-[4] h-2 w-8 -translate-x-1/2 bg-[#0d0d0c]/22 dark:bg-[#f7f7f2]/22"
+          />
+        </>
+      ) : null}
+      {isLeaky
+        ? [0, 1, 2].map((index) => (
+            <span
+              aria-hidden="true"
+              className="absolute z-[4] w-1 bg-[#0d0d0c]/34 dark:bg-[#f7f7f2]/36"
+              key={`leak-${index}`}
+              style={{
+                bottom: `${Math.max(6, fillPercent - 15 + index * 5)}%`,
+                height: `${10 + index * 3}px`,
+                left: `${28 + index * 22}%`,
+              }}
+            />
+          ))
+        : null}
+      {isChargePour ? (
+        <>
+          <span
+            aria-hidden="true"
+            className="absolute left-1/2 top-0 z-[4] h-[46%] w-1 -translate-x-1/2"
+            style={{ backgroundColor: cardWaterColor.value, opacity: 0.58 }}
+          />
+          <span
+            aria-hidden="true"
+            className="absolute left-1/2 z-[5] h-2 w-10 -translate-x-1/2 border border-[#0d0d0c]/30 dark:border-[#f7f7f2]/34"
+            style={{ bottom: `${fillPercent}%` }}
+          />
+        </>
+      ) : null}
+      {isBurstClick
+        ? [0, 1, 2].map((index) => (
+            <span
+              aria-hidden="true"
+              className="absolute top-3 z-[4] h-2 bg-[#0d0d0c]/28 dark:bg-[#f7f7f2]/30"
+              key={`burst-${index}`}
+              style={{
+                left: `${28 + index * 18}%`,
+                width: `${12 + index * 4}px`,
+              }}
+            />
+          ))
+        : null}
+      {effectiveRuleMode !== GAME_RULE_MODES.CLASSIC ? (
         <span className="pc-round-label absolute right-2 top-2 z-10 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
-          {getRoundModeTag(ruleMode)}
+          {getRoundModeTag(effectiveRuleMode)}
         </span>
       ) : null}
       <div className="relative z-10 flex h-full flex-col justify-between p-2 sm:p-3">
@@ -312,7 +521,11 @@ function LeaderboardResultsList({
   if (!players.length) return null;
 
   return (
-    <div className="grid h-full min-h-0 min-w-0 content-start gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-5 [&::-webkit-scrollbar]:hidden">
+    <div
+      className="grid h-full min-h-0 min-w-0 content-start gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-5 [&::-webkit-scrollbar]:hidden"
+      data-screen-reveal-row="true"
+      data-screen-reveal-target="children"
+    >
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
         const playerWaterColor =
@@ -504,15 +717,31 @@ function UniversalResultsScreen({
 
       <main className="flex h-full min-h-0 w-full flex-col px-6 pb-6 pt-8 md:px-8 md:pb-8 md:pt-10 lg:px-10 lg:pb-10 lg:pt-10">
         <div className="grid min-w-0 content-start gap-6 md:max-w-[46rem] md:gap-7 lg:max-w-[54rem]">
-          <h1 className="pc-page-title text-[#f7f7f2]">
-            {t("results.title")}
-          </h1>
+          <div
+            className="min-w-0 overflow-hidden"
+            data-screen-reveal="title"
+          >
+            <h1 className="pc-page-title text-[#f7f7f2]">
+              {t("results.title")}
+            </h1>
+          </div>
 
-          <div className="grid min-w-0 gap-8 md:gap-10">
-            <p className="pc-copy max-w-[calc(100vw-7rem)] overflow-hidden text-[#f7f7f2]/68 md:max-w-[40rem]">
+          <div
+            className="grid min-w-0 gap-8 md:gap-10"
+            data-screen-reveal="cream"
+          >
+            <p
+              className="pc-copy max-w-[calc(100vw-7rem)] overflow-hidden text-[#f7f7f2]/68 md:max-w-[40rem]"
+              data-screen-reveal-row="true"
+            >
               <span className="block">{scoreMessage}</span>
             </p>
-            <ScoreBlock dark score={totalScore} />
+            <div
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="self"
+            >
+              <ScoreBlock dark score={totalScore} />
+            </div>
           </div>
         </div>
 
@@ -523,6 +752,7 @@ function UniversalResultsScreen({
               ? "flex-1 overflow-hidden md:max-w-[60rem] lg:max-w-[68rem]"
               : "overflow-visible md:max-w-[46rem] lg:max-w-[54rem]",
           ].join(" ")}
+          data-screen-reveal="cream"
         >
           {hasLeaderboard ? (
             <LeaderboardResultsList
@@ -532,7 +762,11 @@ function UniversalResultsScreen({
               waterColor={waterColor}
             />
           ) : (
-            <div className="grid min-h-0 min-w-0 grid-cols-5 gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] sm:gap-2 [&::-webkit-scrollbar]:hidden">
+            <div
+              className="grid min-h-0 min-w-0 grid-cols-5 gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] sm:gap-2 [&::-webkit-scrollbar]:hidden"
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="children"
+            >
               {rounds.map((result) => (
                 <RoundCard
                   key={result.round}
@@ -553,6 +787,9 @@ function UniversalResultsScreen({
               ? "md:max-w-[60rem] lg:max-w-[68rem]"
               : "md:max-w-[46rem] lg:max-w-[54rem]",
           ].join(" ")}
+          data-screen-reveal="cream"
+          data-screen-reveal-row="true"
+          data-screen-reveal-target="children"
         >
           <Button
             className="rounded-none border-0 !bg-[#f7f7f2] px-3 !text-[#0d0d0c] shadow-[0_18px_42px_rgba(247,247,242,0.08)] hover:!bg-white"
@@ -573,7 +810,16 @@ function UniversalResultsScreen({
           </Button>
         </div>
 
-        {error ? <p className="pc-copy-strong text-[#f7f7f2]/72">{error}</p> : null}
+        {error ? (
+          <div data-screen-reveal="cream">
+            <p
+              className="pc-copy-strong text-[#f7f7f2]/72"
+              data-screen-reveal-row="true"
+            >
+              {error}
+            </p>
+          </div>
+        ) : null}
       </main>
     </div>
   );
@@ -590,7 +836,7 @@ export default function ScoreboardScreen({
   results,
   settings,
 }) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const leaderboardPlayers = getLeaderboardPlayers(leaderboard);
   const currentLeaderboardPlayer =
     leaderboardPlayers.find((player) => player.id === currentPlayerId) ||
@@ -627,6 +873,10 @@ export default function ScoreboardScreen({
   const resultsRevealRef = useRef(null);
   const playResultsExit = useScreenReveal(resultsRevealRef, [
     leaderboardPlayers.length,
+    locale,
+    rounds.length,
+    scoreMessage,
+    settings?.ruleMode,
     totalScore,
   ]);
 

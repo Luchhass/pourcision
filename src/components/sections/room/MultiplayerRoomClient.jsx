@@ -405,7 +405,6 @@ export default function MultiplayerRoomClient({ roomCode }) {
         preferredWaterColorId;
   const shouldStretchWaterContent =
     effectiveView === "lobby" ||
-    effectiveView === "join" ||
     effectiveView === "waiting-lobby" ||
     effectiveView === "not-found" ||
     effectiveView === "loading" ||
@@ -507,12 +506,12 @@ export default function MultiplayerRoomClient({ roomCode }) {
       ) : null}
 
       {effectiveView === "join" ? (
-      <JoinRoomCard
-        error={error || connectionError}
-        isJoining={isJoining}
-        onJoin={handleJoin}
-        room={room}
-      />
+        <JoinRoomCard
+          error={error || connectionError}
+          isJoining={isJoining}
+          onJoin={handleJoin}
+          room={room}
+        />
       ) : null}
 
       {effectiveView === "lobby" && room && currentPlayer ? (

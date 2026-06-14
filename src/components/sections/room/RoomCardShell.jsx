@@ -98,7 +98,7 @@ export default function RoomCardShell({
   waterContentPlacement = "end",
   waterColorId,
 }) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === waterColorId) ?? WATER_COLORS[2];
   const startsAtTop = waterContentPlacement === "start";
@@ -107,7 +107,10 @@ export default function RoomCardShell({
     revealKey,
     title,
     waterContentPlacement,
-  ]);
+    locale,
+  ], {
+    waterRevealKey: revealKey === "join" ? "room-direct-join" : "",
+  });
 
   return (
     <div
