@@ -1,5 +1,6 @@
 import HomeScreen from "@/components/sections/home/HomeScreen";
 import {
+  DEFAULT_DIFFICULTY_ID,
   GAME_DIFFICULTIES,
   GAME_ROUND_COUNT,
   GAME_RULE_MODES,
@@ -60,7 +61,7 @@ export default async function PlayPage({ params, searchParams }) {
     mode === MENU_MODES.MULTIPLAYER ? ROUTES.MULTIPLAYER : ROUTES.SINGLEPLAYER;
   const difficulty = pickValid(
     resolvedSearchParams?.difficulty,
-    GAME_DIFFICULTIES.NORMAL,
+    DEFAULT_DIFFICULTY_ID,
     GAME_DIFFICULTIES,
   );
   const ruleMode = pickValid(

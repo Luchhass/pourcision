@@ -14,6 +14,7 @@ import {
   Gauge,
   Lock,
   MousePointerClick,
+  Palette,
   Pencil,
   RotateCcw,
   Shuffle,
@@ -485,10 +486,13 @@ function LobbySettingsModal({ children, onClose, title }) {
   );
 }
 
-function LobbySettingsButton({ icon: Icon, label, onClick }) {
+function LobbySettingsButton({ icon: Icon, label, onClick, wide = false }) {
   return (
     <div
-      className="grid w-[var(--pc-choice-height)] grid-rows-[auto_var(--pc-choice-height)] gap-3"
+      className={[
+        "grid grid-rows-[auto_var(--pc-choice-height)] gap-3",
+        wide ? "w-full" : "w-[var(--pc-choice-height)]",
+      ].join(" ")}
       data-screen-reveal-atomic="true"
     >
       <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
@@ -496,11 +500,22 @@ function LobbySettingsButton({ icon: Icon, label, onClick }) {
       </p>
       <button
         aria-label={label}
-        className="grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+        className={[
+          "grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+          wide ? "px-3" : "",
+        ].join(" ")}
         onClick={onClick}
         type="button"
       >
-        <Icon aria-hidden="true" className="pc-icon" strokeWidth={2.7} />
+        <span
+          className={[
+            "flex min-w-0 items-center gap-2",
+            wide ? "w-full justify-start" : "justify-center",
+          ].join(" ")}
+        >
+          <Icon aria-hidden="true" className="pc-icon shrink-0" strokeWidth={2.7} />
+          {wide ? <span className="pc-choice-text truncate">{label}</span> : null}
+        </span>
       </button>
     </div>
   );
@@ -529,7 +544,7 @@ export default function LobbyCard({
   const [mobileSettingsModal, setMobileSettingsModal] = useState(null);
   const isHost = Boolean(currentPlayer?.isHost);
   const canEditSettings = isHost;
-  const canOpenColorSettings = !canEditSettings;
+  const canOpenColorSettings = Boolean(currentPlayer);
   const isSettingsOpen = canEditSettings && isEditingSettings;
   const settingsDisabled = isUpdatingSettings;
   const roomRoundCount = room.roundCount || GAME_ROUND_COUNT;
@@ -544,7 +559,7 @@ export default function LobbyCard({
   return (
     <section
       className={[
-        "h-full min-h-0 w-full min-w-0 gap-5 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]",
+        "h-full min-h-0 w-full min-w-0 gap-5 lg:max-w-full xl:w-[82%] xl:min-w-[28rem] xl:max-w-[52rem]",
         isSettingsOpen
           ? "flex flex-col justify-end"
           : "grid grid-rows-[minmax(0,1fr)_auto] content-stretch",
@@ -561,7 +576,7 @@ export default function LobbyCard({
         {isSettingsOpen ? (
           <>
             <div
-              className="w-full min-w-0 justify-self-stretch md:hidden"
+              className="w-full min-w-0 justify-self-stretch lg:hidden"
               data-screen-reveal-row="true"
               data-screen-reveal-target="children"
             >
@@ -583,22 +598,22 @@ export default function LobbyCard({
                   />
                 </div>
               </div>
-              <div className="mt-4 grid min-w-0 grid-cols-2 gap-3">
+              <div
+                className="mt-4 min-w-0"
+                data-screen-reveal-row="true"
+                data-screen-reveal-target="self"
+              >
                 <LobbySettingsButton
                   icon={Shuffle}
                   label={t("setup.mode")}
                   onClick={() => setMobileSettingsModal("mode")}
-                />
-                <LobbySettingsButton
-                  icon={Palette}
-                  label={t("setup.waterColor")}
-                  onClick={() => setMobileSettingsModal("color")}
+                  wide
                 />
               </div>
             </div>
 
             <div
-              className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:gap-5"
+              className="hidden min-w-0 grid-cols-2 gap-4 lg:grid lg:gap-5"
               data-screen-reveal-row="true"
               data-screen-reveal-target="children"
             >
@@ -619,7 +634,7 @@ export default function LobbyCard({
                 />
               </div>
 
-              <div className="min-w-0 md:col-span-2">
+              <div className="min-w-0 lg:col-span-2">
                 <LobbyModeGrid
                   disabled={settingsDisabled}
                   label={t("setup.mode")}
@@ -627,6 +642,7 @@ export default function LobbyCard({
                   value={room.ruleMode}
                 />
               </div>
+
             </div>
           </>
         ) : (
@@ -653,12 +669,25 @@ export default function LobbyCard({
         className={[
           "grid gap-4 lg:gap-5",
           canEditSettings
-            ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] sm:grid-cols-[var(--pc-action-height)_minmax(0,1fr)_minmax(0,1fr)]"
+            ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] lg:grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)]"
             : canOpenColorSettings
-              ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] md:grid-cols-[var(--pc-action-height)_minmax(0,1fr)]"
+              ? "grid-cols-[var(--pc-action-height)_var(--pc-action-height)_minmax(0,1fr)] lg:grid-cols-[var(--pc-action-height)_minmax(0,1fr)]"
             : "grid-cols-2",
         ].join(" ")}
       >
+        {canOpenColorSettings ? (
+          <button
+            aria-label={t("setup.waterColor")}
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+            className="pc-action grid aspect-square place-items-center bg-[#f7f7f2]/96 p-0 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] lg:hidden dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+            onClick={() => setMobileSettingsModal("color")}
+            type="button"
+          >
+            <Palette aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+          </button>
+        ) : null}
+
         {canEditSettings ? (
           <button
             aria-label={t("room.editSettings")}
@@ -675,19 +704,6 @@ export default function LobbyCard({
             type="button"
           >
             <Pencil aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
-          </button>
-        ) : null}
-
-        {canOpenColorSettings ? (
-          <button
-            aria-label={t("setup.waterColor")}
-            data-screen-reveal-row="true"
-            data-screen-reveal-target="self"
-            className="pc-action grid aspect-square place-items-center bg-[#f7f7f2]/96 p-0 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] md:hidden dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
-            onClick={() => setMobileSettingsModal("color")}
-            type="button"
-          >
-            <Palette aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
           </button>
         ) : null}
 

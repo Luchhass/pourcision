@@ -538,7 +538,7 @@ export default function HomeScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--home-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--home-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]"
             data-home-water="true"
             data-screen-reveal="water-bg"
           >
@@ -550,9 +550,9 @@ export default function HomeScreen({
               primary={t("game.precision")}
               secondary={t("game.actionPour")}
             />
-            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0">
+            <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch lg:min-h-0 lg:justify-items-end">
               <HomeModePanel
-                className="w-full lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]"
+                className="w-full lg:max-w-full xl:w-[82%] xl:min-w-[28rem] xl:max-w-[52rem]"
                 continueLabel={t("common.continue")}
                 menuError={menuError}
                 modeOptions={modeOptions}

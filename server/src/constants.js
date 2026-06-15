@@ -57,7 +57,7 @@ export const WATER_COLOR_ID_LIST = [
 
 export const WATER_COLOR_IDS = new Set(WATER_COLOR_ID_LIST);
 
-export const GAME_ROUND_COUNT = 5;
+export const GAME_ROUND_COUNT = 3;
 export const ROUND_COUNT = GAME_ROUND_COUNT;
 export const ROUND_COUNT_OPTIONS = [1, 3, 5, 10];
 export const MAX_ROUND_SCORE = 10;
@@ -119,7 +119,7 @@ export const GAME_MODE_CONFIG = {
 };
 
 export const DEFAULT_SETTINGS = {
-  difficulty: GAME_DIFFICULTIES.NORMAL,
+  difficulty: GAME_DIFFICULTIES.EASY,
   roundCount: GAME_ROUND_COUNT,
   ruleMode: GAME_RULE_MODES.CLASSIC,
   waterColorId: "blue",

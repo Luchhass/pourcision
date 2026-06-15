@@ -28,7 +28,7 @@ export default function JoinRoomCard({
 
   return (
     <section
-      className="grid h-full w-full min-w-0 content-end gap-5 lg:h-auto lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem] lg:content-end"
+      className="grid h-full w-full min-w-0 content-end gap-5 lg:h-auto lg:max-w-full lg:content-end xl:w-[82%] xl:min-w-[28rem] xl:max-w-[52rem]"
       data-room-join-card="true"
     >
       <div className="grid min-w-0 gap-5">

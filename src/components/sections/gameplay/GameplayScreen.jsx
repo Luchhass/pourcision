@@ -11,6 +11,7 @@ import OpponentWaterLayers from "@/components/sections/gameplay/OpponentWaterLay
 import WaterPhysicsCanvas from "@/components/sections/gameplay/WaterPhysicsCanvas";
 import {
   CHAOS_BRIEFING_MS,
+  DEFAULT_DIFFICULTY_ID,
   GAME_DIFFICULTIES,
   GAME_MODE_OPTIONS,
   GAME_RULE_MODES,
@@ -302,6 +303,7 @@ export default function GameplayScreen({
   const gameplayRevealKeyRef = useRef("");
   const gameplayRevealTimelineRef = useRef(null);
   const gameplayRootRef = useRef(null);
+  const gameplayRootRectRef = useRef({ left: 0, width: 1 });
   const gameplayTiltLayerRef = useRef(null);
   const resultSoundKeyRef = useRef("");
   const soundStatusRef = useRef("");
@@ -334,7 +336,7 @@ export default function GameplayScreen({
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === settings?.waterColorId) ??
     WATER_COLORS[0];
-  const difficulty = settings?.difficulty ?? GAME_DIFFICULTIES.NORMAL;
+  const difficulty = settings?.difficulty ?? DEFAULT_DIFFICULTY_ID;
   const ruleMode = settings?.ruleMode ?? GAME_RULE_MODES.CLASSIC;
   const getInitialLevelForMode = useCallback(
     (nextRuleMode = ruleMode) =>
@@ -533,6 +535,32 @@ export default function GameplayScreen({
     roundIndex,
     shouldShowChaosBriefing,
   ]);
+
+  useLayoutEffect(() => {
+    const root = gameplayRootRef.current;
+    if (!root) return undefined;
+
+    const syncRootRect = () => {
+      const rect = root.getBoundingClientRect();
+      gameplayRootRectRef.current = {
+        left: rect.left,
+        width: rect.width || 1,
+      };
+    };
+
+    syncRootRect();
+
+    if ("ResizeObserver" in window) {
+      const resizeObserver = new ResizeObserver(syncRootRect);
+      resizeObserver.observe(root);
+
+      return () => resizeObserver.disconnect();
+    }
+
+    window.addEventListener("resize", syncRootRect);
+
+    return () => window.removeEventListener("resize", syncRootRect);
+  }, []);
 
   useLayoutEffect(() => {
     const root = gameplayRootRef.current;
@@ -1260,7 +1288,7 @@ export default function GameplayScreen({
     event.target.closest?.("[data-game-control='true']");
 
   const updatePourX = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = gameplayRootRectRef.current;
 
     if (!rect.width) {
       return;

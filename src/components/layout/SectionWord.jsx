@@ -11,7 +11,7 @@ export default function SectionWord({
     <div
       aria-hidden="true"
       className={[
-        "pc-section-word justify-self-end text-right md:justify-self-start md:text-left",
+        "pc-section-word pointer-events-none min-w-0 justify-self-end text-right md:justify-self-start md:self-start md:text-left",
         className,
       ].join(" ")}
       data-screen-reveal="water-content"

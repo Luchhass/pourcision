@@ -26,7 +26,7 @@ export default function WaitingCard({
     : 0;
 
   return (
-    <section className="grid h-full min-h-0 w-full min-w-0 content-end justify-items-end lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]">
+    <section className="grid h-full min-h-0 w-full min-w-0 content-end justify-items-end lg:max-w-full xl:w-[82%] xl:min-w-[28rem] xl:max-w-[52rem]">
       <div className="w-full max-w-[18rem] text-right">
         <div className="flex items-end justify-end gap-3">
           <p className="pc-label pb-2 text-[#0d0d0c]/54 dark:text-[#f7f7f2]/48">

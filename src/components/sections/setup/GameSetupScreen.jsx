@@ -31,6 +31,7 @@ import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
 import {
+  DEFAULT_DIFFICULTY_ID,
   GAME_DIFFICULTIES,
   GAME_RULE_MODES,
   GAME_ROUND_COUNT,
@@ -629,19 +630,21 @@ function MobileSetupModal({ children, onClose, title }) {
 }
 
 function MobileSetupButton({
+  buttonSizeClassName = "h-[var(--pc-choice-height)]",
   icon: Icon,
   label,
   onClick,
   showLabel = true,
   value = "",
   wide = false,
+  wrapperSizeClassName = "w-[var(--pc-choice-height)]",
 }) {
   return (
     <div
       className={[
         "grid min-w-0",
         showLabel ? "grid-rows-[auto_var(--pc-choice-height)] gap-3" : "",
-        wide ? "w-full" : "w-[var(--pc-choice-height)]",
+        wide ? "w-full" : wrapperSizeClassName,
       ].join(" ")}
       data-screen-reveal-atomic="true"
     >
@@ -653,7 +656,8 @@ function MobileSetupButton({
       <button
         aria-label={label}
         className={[
-          "grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+          "grid min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+          buttonSizeClassName,
           wide ? "px-3" : "",
         ].join(" ")}
         onClick={onClick}
@@ -928,7 +932,7 @@ export default function GameSetupScreen({
           startLabel: t("setup.singleplayerStart"),
           title: t("setup.singleplayerTitle"),
         };
-  const [difficulty, setDifficulty] = useState(GAME_DIFFICULTIES.NORMAL);
+  const [difficulty, setDifficulty] = useState(DEFAULT_DIFFICULTY_ID);
   const [lobbyName, setLobbyName] = useState("");
   const [lobbyNameError, setLobbyNameError] = useState(false);
   const [lobbyPassword, setLobbyPassword] = useState("");
@@ -1147,7 +1151,7 @@ export default function GameSetupScreen({
 
             {!isMultiplayer ? (
               <div
-                className="mt-7 hidden min-w-0 md:block lg:hidden"
+                className="hidden"
                 data-screen-reveal="cream"
                 data-setup-color-panel="true"
               >
@@ -1266,7 +1270,7 @@ export default function GameSetupScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--setup-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--setup-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]"
             data-setup-water="true"
             data-screen-reveal="water-bg"
           >
@@ -1280,7 +1284,7 @@ export default function GameSetupScreen({
             />
             <div
               className={[
-                "grid h-full min-h-0 min-w-0 justify-items-stretch pt-8 md:pt-10 lg:min-h-0 lg:justify-items-end lg:pt-0",
+                "grid h-full min-h-0 min-w-0 justify-items-stretch lg:min-h-0 lg:justify-items-end",
                 isJoiningLobby
                   ? "grid-rows-[minmax(0,1fr)] content-stretch items-stretch lg:h-full"
                   : "content-end",
@@ -1288,7 +1292,7 @@ export default function GameSetupScreen({
             >
               <div
                 className={[
-                  "grid w-full min-w-0 gap-5 lg:w-[82%] lg:min-w-[28rem] lg:max-w-[52rem]",
+                  "grid w-full min-w-0 gap-5 lg:max-w-full xl:w-[82%] xl:min-w-[28rem] xl:max-w-[52rem]",
                   isJoiningLobby ? "h-full" : "",
                 ].join(" ")}
                 data-setup-controls-panel="true"
@@ -1335,7 +1339,7 @@ export default function GameSetupScreen({
                   />
                 ) : !isMultiplayer ? (
                   <>
-                    <div className="w-full min-w-0 justify-self-stretch md:hidden">
+                    <div className="w-full min-w-0 justify-self-stretch lg:hidden">
                       <div className="grid w-full min-w-0 justify-self-stretch gap-4">
                         <div className="grid w-full min-w-0 grid-cols-2 items-start gap-3">
                           <div
@@ -1375,15 +1379,17 @@ export default function GameSetupScreen({
                           />
                         </div>
                         <div
-                          className="grid w-full min-w-0 grid-cols-[var(--pc-choice-height)_minmax(0,1fr)] items-center gap-3"
+                          className="grid w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3"
                           data-screen-reveal-row="true"
                           data-screen-reveal-target="self"
                         >
                           <MobileSetupButton
+                            buttonSizeClassName="h-[60px]"
                             icon={Palette}
                             label={t("setup.waterColor")}
                             onClick={() => setMobileSetupModal("color")}
                             showLabel={false}
+                            wrapperSizeClassName="w-[60px]"
                           />
                           <Button
                             className="h-[var(--pc-choice-height)] rounded-none px-3 shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
@@ -1398,7 +1404,7 @@ export default function GameSetupScreen({
                       </div>
                     </div>
 
-                    <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:gap-5">
+                    <div className="hidden min-w-0 grid-cols-2 gap-4 lg:grid lg:gap-5">
                       <div
                         className="min-w-0"
                         data-screen-reveal-row="true"
@@ -1422,7 +1428,7 @@ export default function GameSetupScreen({
                         />
                       </div>
                       <div
-                        className="min-w-0 md:col-span-2"
+                        className="min-w-0 lg:col-span-2"
                         data-screen-reveal-row="true"
                         data-screen-reveal-target="self"
                       >
@@ -1435,7 +1441,7 @@ export default function GameSetupScreen({
                       </div>
                     </div>
                     <div
-                      className="hidden md:block"
+                      className="hidden lg:block"
                       data-screen-reveal-row="true"
                       data-screen-reveal-target="self"
                     >

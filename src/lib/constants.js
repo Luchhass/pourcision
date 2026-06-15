@@ -36,7 +36,7 @@ export const GAME_DIFFICULTIES = {
   HARD: "hard",
 };
 
-export const GAME_ROUND_COUNT = 5;
+export const GAME_ROUND_COUNT = 3;
 export const ROUND_COUNT = GAME_ROUND_COUNT;
 export const ROUND_COUNT_OPTIONS = [1, 3, 5, 10];
 export const MAX_ROUND_SCORE = 10;
@@ -223,7 +223,7 @@ export const DIFFICULTY_OPTIONS = [
   },
 ];
 
-export const DEFAULT_DIFFICULTY_ID = GAME_DIFFICULTIES.NORMAL;
+export const DEFAULT_DIFFICULTY_ID = GAME_DIFFICULTIES.EASY;
 
 export const GAME_MODE_OPTIONS = [
   {

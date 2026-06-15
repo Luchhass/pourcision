@@ -140,6 +140,28 @@ function toArray(selector, scope) {
   return gsap.utils.toArray(selector, scope);
 }
 
+function hasGsapTargets(targets) {
+  return Array.isArray(targets) ? targets.length > 0 : Boolean(targets);
+}
+
+function safeSet(targets, vars, position) {
+  if (!hasGsapTargets(targets)) return undefined;
+
+  return gsap.set(targets, vars, position);
+}
+
+function safeTimelineSet(timeline, targets, vars, position) {
+  if (!hasGsapTargets(targets)) return timeline;
+
+  return timeline.set(targets, vars, position);
+}
+
+function safeTimelineTo(timeline, targets, vars, position) {
+  if (!hasGsapTargets(targets)) return timeline;
+
+  return timeline.to(targets, vars, position);
+}
+
 function getRevealChildren(element) {
   const children = Array.from(element.children).filter(
     (child) => child instanceof HTMLElement,
@@ -195,40 +217,6 @@ function prepareParagraphLineReveals(scope) {
 
   paragraphs.forEach((paragraph) => {
     restoreParagraphLineReveal(paragraph);
-
-    const text = paragraph.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    if (!text) return;
-
-    paragraph.dataset.screenRevealOriginalHtml = paragraph.innerHTML;
-    paragraph.dataset.screenRevealDynamicLines = "true";
-    paragraph.style.overflow = "visible";
-    paragraph.textContent = "";
-
-    const words = text.split(" ");
-    const wordSpans = words.map((word, index) => {
-      const span = document.createElement("span");
-      span.textContent = index === words.length - 1 ? word : `${word} `;
-      paragraph.appendChild(span);
-      return span;
-    });
-
-    const lines = groupWordsByRenderedLine(wordSpans)
-      .map((line) => line.words.map((span) => span.textContent).join("").trimEnd())
-      .filter(Boolean);
-
-    paragraph.textContent = "";
-
-    lines.forEach((line) => {
-      const outer = document.createElement("span");
-      const inner = document.createElement("span");
-
-      outer.dataset.screenRevealLineRow = "true";
-      outer.className = "block overflow-hidden";
-      inner.className = "block";
-      inner.textContent = line;
-      outer.appendChild(inner);
-      paragraph.appendChild(outer);
-    });
   });
 }
 
@@ -392,8 +380,9 @@ function revealRows(timeline, rows, startAt, options = {}) {
 
     const position = `${startAt}+=${delay}`;
 
-    timeline.set(items, { autoAlpha: 1 }, position);
-    timeline.to(
+    safeTimelineSet(timeline, items, { autoAlpha: 1 }, position);
+    safeTimelineTo(
+      timeline,
       items,
       {
         clipPath: "inset(0% 0% 0% 0%)",
@@ -504,7 +493,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         onComplete: resolve,
       });
 
-      exitTimeline.set(
+      safeTimelineSet(
+        exitTimeline,
         [...titleFills, ...waterBackgrounds, ...utilityRails],
         {
           autoAlpha: 1,
@@ -512,7 +502,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         },
         0,
       );
-      exitTimeline.set(
+      safeTimelineSet(
+        exitTimeline,
         [...titleFills, ...waterBackgrounds],
         {
           clipPath: "inset(0 0% 0 0)",
@@ -520,7 +511,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         0,
       );
 
-      exitTimeline.to(
+      safeTimelineTo(
+        exitTimeline,
         fadeTargets,
         {
           autoAlpha: 0,
@@ -531,7 +523,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       );
 
       exitTimeline.add("layoutPause", ">+=0.3");
-      exitTimeline.to(
+      safeTimelineTo(
+        exitTimeline,
         titleFills,
         {
           clipPath: "inset(0 0% 0 100%)",
@@ -540,7 +533,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         },
         "layoutPause",
       );
-      exitTimeline.to(
+      safeTimelineTo(
+        exitTimeline,
         waterBackgrounds,
         {
           clipPath: "inset(0 0% 0 100%)",
@@ -549,7 +543,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         },
         "layoutPause+=0.14",
       );
-      exitTimeline.to(
+      safeTimelineTo(
+        exitTimeline,
         utilityRails,
         {
           ...STABLE_REVEAL_TRANSFORM,
@@ -616,7 +611,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       timelineRef.current?.kill();
       timelineRef.current = null;
 
-      gsap.set(
+      safeSet(
         [
           ...titleGroups,
           ...titleFills,
@@ -661,32 +656,32 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         markWaterBackgroundRevealed();
       }
 
-      gsap.set(scope, { autoAlpha: 1 });
-      gsap.set(titleFills, {
+      safeSet(scope, { autoAlpha: 1 });
+      safeSet(titleFills, {
         clipPath: introActiveAtPrepare
           ? "inset(0 0% 0 0)"
           : "inset(0 100% 0 0)",
         willChange: introActiveAtPrepare ? "auto" : "clip-path",
       });
-      gsap.set(titleGroups, { autoAlpha: 1, overflow: "hidden" });
-      gsap.set(titleLetters, {
+      safeSet(titleGroups, { autoAlpha: 1, overflow: "hidden" });
+      safeSet(titleLetters, {
         autoAlpha: 1,
         ...STABLE_REVEAL_TRANSFORM,
         yPercent: -115,
       });
-      gsap.set(waterBackgrounds, {
+      safeSet(waterBackgrounds, {
         clipPath: shouldAnimateLayoutBgs
           ? "inset(0 100% 0 0)"
           : "inset(0 0% 0 0)",
         willChange: shouldAnimateLayoutBgs ? "clip-path" : "auto",
       });
-      gsap.set(utilityRails, {
+      safeSet(utilityRails, {
         autoAlpha: 1,
         ...STABLE_REVEAL_TRANSFORM,
         xPercent: shouldAnimateLayoutBgs ? 115 : 0,
         willChange: shouldAnimateLayoutBgs ? "transform" : "auto",
       });
-      gsap.set(utilityContentItems, {
+      safeSet(utilityContentItems, {
         autoAlpha: shouldAnimateLayoutBgs ? 0 : 1,
         clipPath: shouldAnimateLayoutBgs
           ? "inset(0% 0% 100% 0%)"
@@ -697,15 +692,15 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           ? "clip-path, transform, opacity"
           : "auto",
       });
-      gsap.set(creamGroups, { autoAlpha: 1 });
-      gsap.set(creamRows, {
+      safeSet(creamGroups, { autoAlpha: 1 });
+      safeSet(creamRows, {
         autoAlpha: 1,
       });
-      gsap.set(creamMaskRows, {
+      safeSet(creamMaskRows, {
         autoAlpha: 1,
         overflow: "hidden",
       });
-      gsap.set(creamItems, {
+      safeSet(creamItems, {
         autoAlpha: 0,
         clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
         ...STABLE_REVEAL_TRANSFORM,
@@ -714,15 +709,15 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           shouldTranslateRevealItem(item) ? getRevealY(getRevealOwner(item)) : 0,
         willChange: "clip-path, transform",
       });
-      gsap.set(homeStatsGroups, { autoAlpha: 1 });
-      gsap.set(homeStatsRows, {
+      safeSet(homeStatsGroups, { autoAlpha: 1 });
+      safeSet(homeStatsRows, {
         autoAlpha: 1,
       });
-      gsap.set(homeStatsMaskRows, {
+      safeSet(homeStatsMaskRows, {
         autoAlpha: 1,
         overflow: "hidden",
       });
-      gsap.set(homeStatsItems, {
+      safeSet(homeStatsItems, {
         autoAlpha: 0,
         clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
         ...STABLE_REVEAL_TRANSFORM,
@@ -731,15 +726,15 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           shouldTranslateRevealItem(item) ? getRevealY(getRevealOwner(item)) : 0,
         willChange: "clip-path, transform",
       });
-      gsap.set(waterContentGroups, { autoAlpha: 1 });
-      gsap.set(waterContentRows, {
+      safeSet(waterContentGroups, { autoAlpha: 1 });
+      safeSet(waterContentRows, {
         autoAlpha: 1,
       });
-      gsap.set(waterContentMaskRows, {
+      safeSet(waterContentMaskRows, {
         autoAlpha: 1,
         overflow: "hidden",
       });
-      gsap.set(waterContentItems, {
+      safeSet(waterContentItems, {
         autoAlpha: 0,
         clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
         ...STABLE_REVEAL_TRANSFORM,
@@ -755,7 +750,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
 
       if (prefersReducedMotion()) {
         hasPlayedInitialRevealRef.current = true;
-        gsap.set(
+        safeSet(
           [
             ...titleGroups,
             ...titleFills,
@@ -800,11 +795,11 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           onComplete: () => {
             hasPlayedInitialRevealRef.current = true;
             markWaterBackgroundRevealed();
-            gsap.set(sectionWordItems, {
+            safeSet(sectionWordItems, {
               clearProps: "opacity,visibility,willChange",
               y: 0,
             });
-            gsap.set(
+            safeSet(
               [
                 ...titleGroups,
                 ...titleFills,
@@ -842,7 +837,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
 
           if (shouldAnimateTitleBg) {
             timeline.add("titleBgIn", 0);
-            timeline.to(
+            safeTimelineTo(
+              timeline,
               titleFills,
               {
                 clipPath: "inset(0 0% 0 0)",
@@ -853,7 +849,12 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             );
           } else {
             timeline.add("titleBgIn", 0);
-            timeline.set(titleFills, { clipPath: "inset(0 0% 0 0)" }, 0);
+            safeTimelineSet(
+              timeline,
+              titleFills,
+              { clipPath: "inset(0 0% 0 0)" },
+              0,
+            );
             bgStart = 0;
           }
 
@@ -861,7 +862,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             "waterBgIn",
             shouldAnimateTitleBg ? `${bgStart}+=0.14` : bgStart,
           );
-          timeline.to(
+          safeTimelineTo(
+            timeline,
             waterBackgrounds,
             {
               clipPath: "inset(0 0% 0 0)",
@@ -875,7 +877,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             "utilityRailIn",
             shouldAnimateTitleBg ? `${bgStart}+=0.28` : "waterBgIn+=0.14",
           );
-          timeline.to(
+          safeTimelineTo(
+            timeline,
             utilityRails,
             {
               duration: 0.46,
@@ -885,14 +888,16 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             },
             "utilityRailIn",
           );
-          titleStart = "utilityRailIn+=0.76";
+          titleStart = "utilityRailIn+=0.46";
         } else {
-          timeline.set(
+          safeTimelineSet(
+            timeline,
             [...titleFills, ...waterBackgrounds],
             { clipPath: "inset(0 0% 0 0)" },
             0,
           );
-          timeline.set(
+          safeTimelineSet(
+            timeline,
             utilityRails,
             {
               ...STABLE_REVEAL_TRANSFORM,
@@ -904,7 +909,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         }
 
         timeline.add("titleIn", titleStart);
-        timeline.to(
+        safeTimelineTo(
+          timeline,
           titleLetters,
           {
             duration: 0.74,
@@ -937,7 +943,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         });
 
         timeline.add("utilityContentIn", "waterContentIn+=0.18");
-        timeline.to(
+        safeTimelineTo(
+          timeline,
           utilityContentItems,
           {
             autoAlpha: 1,

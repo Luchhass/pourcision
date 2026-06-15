@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { GAME_DIFFICULTIES, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
+import { DEFAULT_DIFFICULTY_ID, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
 import WaterPhysicsCanvas from "@/components/sections/gameplay/WaterPhysicsCanvas";
 
 function clamp(value, min, max) {
@@ -113,7 +113,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
       <>
         <WaterPhysicsCanvas
           className="pointer-events-none absolute left-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
-          difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+          difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
           externalLevelRef={splitLeftExternalLevelRef}
           initialLevel={0}
           isPourActive={state.isPouring && state.activeSplitIndex === 0}
@@ -127,7 +127,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
         />
         <WaterPhysicsCanvas
           className="pointer-events-none absolute right-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
-          difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+          difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
           externalLevelRef={splitRightExternalLevelRef}
           initialLevel={0}
           isPourActive={state.isPouring && state.activeSplitIndex === 1}
@@ -162,7 +162,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
               : "chunked"
         }
         className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
-        difficulty={settings?.difficulty || GAME_DIFFICULTIES.NORMAL}
+        difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
         externalLevelRef={externalLevelRef}
         initialLevel={getInitialLevel(activeRuleMode)}
         isInvertedWater={isInvert}

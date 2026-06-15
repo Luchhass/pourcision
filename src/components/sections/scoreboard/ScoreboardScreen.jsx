@@ -235,15 +235,12 @@ function PlayerResultHeader({
   return (
     <div
       className={[
-        "pc-player-row grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3",
-        "border transition-[box-shadow,transform] duration-200",
+        "pc-player-row grid h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4",
+        "transition-transform duration-200",
       ].join(" ")}
+      data-screen-reveal-atomic="true"
       style={{
         backgroundColor: waterColor?.value || "#f7f7f2",
-        borderColor: dark ? "rgba(247,247,242,0.18)" : "rgba(13,13,12,0.16)",
-        boxShadow: dark
-          ? "0 14px 30px rgba(0,0,0,0.24)"
-          : "0 14px 30px rgba(13,13,12,0.08)",
         color: inkColor,
       }}
     >
@@ -333,7 +330,7 @@ function RoundCard({
       className={[
         "relative overflow-hidden bg-[#f7f7f2]/96 shadow-[0_18px_38px_rgba(0,0,0,0.18)] dark:bg-[#f7f7f2]/10 dark:shadow-[0_20px_46px_rgba(0,0,0,0.3)]",
         leaderboardDense
-          ? "aspect-square min-h-[4.4rem] md:min-h-[5rem] lg:min-h-[5.4rem]"
+          ? "h-[4.5rem] min-h-0 sm:h-[4.8rem] md:h-[5.15rem] lg:h-[5.35rem]"
           : mobileShort
             ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] md:aspect-square md:h-auto md:min-h-[5.5rem]"
             : [
@@ -472,7 +469,7 @@ function LeaderboardResultsList({
 
         return (
           <section
-            className="grid min-w-0 gap-2"
+            className="grid min-w-0 gap-[3px]"
             key={player.id || `${player.name}-${index}`}
           >
             <PlayerResultHeader
@@ -482,7 +479,7 @@ function LeaderboardResultsList({
               waterColor={playerWaterColor}
             />
             {playerRounds.length ? (
-              <div className="grid min-w-0 grid-cols-5 gap-1.5 sm:gap-2">
+              <div className="grid min-w-0 grid-cols-5 gap-[3px]">
                 {playerRounds.map((result) => (
                   <RoundCard
                     compact

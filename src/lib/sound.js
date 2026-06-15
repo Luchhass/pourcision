@@ -399,6 +399,7 @@ function scheduleSplash(
 
 export function prepareAudio() {
   if (!isSoundEnabled()) return;
+  if (!userActivated && audioContext?.state !== "running") return;
 
   const context = ensureAudioContext();
   if (!context) return;
@@ -431,6 +432,7 @@ export function unlockAudio() {
 
 export function resumeAudioIfAllowed() {
   if (!userActivated || !isSoundEnabled()) return;
+  if (!audioContext) return;
 
   const context = ensureAudioContext();
   if (!context) return;

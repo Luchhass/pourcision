@@ -416,7 +416,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
       .map((roomPlayer) => roomPlayer.waterColorId)
       .filter(Boolean) || [];
   const lobbyWaterColorPanel =
-    effectiveView === "lobby" && room && currentPlayer && !isLobbySettingsOpen ? (
+    effectiveView === "lobby" && room && currentPlayer ? (
       <LobbyWaterColorPanel
         disabled={isUpdatingPlayerColor}
         label={t("setup.waterColor")}

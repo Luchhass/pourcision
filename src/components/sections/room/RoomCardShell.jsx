@@ -130,15 +130,6 @@ export default function RoomCardShell({
           <section className="mx-auto grid w-full max-w-[44rem] content-start min-w-0 px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)] lg:content-stretch lg:px-10 lg:pb-10 lg:pt-16">
             <RoomIntro description={description} />
 
-            {leftContent ? (
-              <div
-                className="mt-7 hidden min-w-0 self-start gap-7 md:grid lg:hidden"
-                data-room-left-content="true"
-              >
-                {leftContent}
-              </div>
-            ) : null}
-
             <div className="hidden min-h-0 grid-cols-[auto_minmax(0,1fr)] items-end gap-8 lg:grid">
               <div className="shrink-0">
                 <div data-screen-reveal="cream">
@@ -158,7 +149,7 @@ export default function RoomCardShell({
 
           <section
             className={[
-              "relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-[var(--room-water-color)] px-6 pb-8 pt-8 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:p-10 dark:bg-[#161616]",
+              "relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--room-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]",
               "max-lg:content-stretch",
             ].join(" ")}
             data-room-water="true"
@@ -172,7 +163,7 @@ export default function RoomCardShell({
               primary={title.toUpperCase()}
               secondary={t("room.lobby")}
             />
-            <div className="grid h-full min-h-0 min-w-0 gap-5 pt-8 md:gap-6 md:pt-10 lg:h-full lg:min-h-0 lg:gap-0 lg:pt-0">
+            <div className="grid h-full min-h-0 min-w-0 gap-5 md:gap-6 lg:h-full lg:min-h-0 lg:gap-0">
               <div
                 className={[
                   "min-h-0 w-full",

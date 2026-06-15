@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "@/hooks/useLanguage";
-import { GAME_DIFFICULTIES, GAME_RULE_MODES, MENU_MODES, ROUTES, WATER_COLORS } from "@/lib/constants";
+import { DEFAULT_DIFFICULTY_ID, GAME_RULE_MODES, MENU_MODES, ROUTES, WATER_COLORS } from "@/lib/constants";
 import { emitWithAck, getSocket } from "@/lib/socket";
 
 function responseData(response) {
@@ -30,7 +30,7 @@ export function useMultiplayerGame({
 
   const gameSettings = useMemo(
     () => ({
-      difficulty: activeGame?.difficulty || room?.difficulty || GAME_DIFFICULTIES.NORMAL,
+      difficulty: activeGame?.difficulty || room?.difficulty || DEFAULT_DIFFICULTY_ID,
       mode: MENU_MODES.MULTIPLAYER,
       modeQueue: activeGame?.modeQueue || null,
       route: ROUTES.MULTIPLAYER,
