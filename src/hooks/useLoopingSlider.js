@@ -21,6 +21,24 @@ function getSegmentWidth(slider) {
   return slider.scrollWidth / 3;
 }
 
+function getScrollBounds(slider, loop) {
+  if (!slider) return { max: 0, min: 0 };
+  if (isLoopActive(loop)) {
+    return { max: Number.POSITIVE_INFINITY, min: Number.NEGATIVE_INFINITY };
+  }
+
+  return {
+    max: Math.max(0, slider.scrollWidth - slider.clientWidth),
+    min: 0,
+  };
+}
+
+function clampScrollLeft(slider, value, loop) {
+  const { max, min } = getScrollBounds(slider, loop);
+
+  return clamp(value, min, max);
+}
+
 export function useLoopingSlider(
   itemCount,
   {
@@ -50,8 +68,22 @@ export function useLoopingSlider(
 
   const normalizeCurrentPosition = (targetLeft = null) => {
     const slider = sliderRef.current;
-    if (!slider || itemCount <= 0 || !isLoopActive(loop)) {
+    if (!slider || itemCount <= 0) {
       return { shift: 0, targetLeft };
+    }
+
+    if (!isLoopActive(loop)) {
+      const nextLeft = clampScrollLeft(
+        slider,
+        targetLeft === null ? slider.scrollLeft : targetLeft,
+        loop,
+      );
+
+      if (slider.scrollLeft !== nextLeft) {
+        slider.scrollLeft = nextLeft;
+      }
+
+      return { shift: 0, targetLeft: targetLeft === null ? targetLeft : nextLeft };
     }
 
     const segmentWidth = getSegmentWidth(slider);
@@ -105,7 +137,11 @@ export function useLoopingSlider(
     if (!slider || itemCount <= 0 || disabled) return;
 
     stopTween();
-    targetLeftRef.current = prepareLoopTarget(targetLeft);
+    targetLeftRef.current = clampScrollLeft(
+      slider,
+      prepareLoopTarget(targetLeft),
+      loop,
+    );
 
     tweenRef.current = gsap.to(slider, {
       duration,
@@ -203,8 +239,11 @@ export function useLoopingSlider(
 
     if (!drag.moved) return;
 
-    event.preventDefault();
-    slider.scrollLeft = drag.scrollLeft - deltaX;
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+
+    slider.scrollLeft = clampScrollLeft(slider, drag.scrollLeft - deltaX, loop);
     targetLeftRef.current = slider.scrollLeft;
 
     const { shift } = normalizeCurrentPosition();
@@ -258,7 +297,10 @@ export function useLoopingSlider(
       );
 
       if (Math.abs(glideDistance) > 3) {
-        animateScrollTo(slider.scrollLeft + glideDistance, 0.94);
+        animateScrollTo(
+          clampScrollLeft(slider, slider.scrollLeft + glideDistance, loop),
+          0.94,
+        );
         return;
       }
     }
@@ -274,7 +316,9 @@ export function useLoopingSlider(
   const handleClickCapture = (event) => {
     if (!suppressClickRef.current) return;
 
-    event.preventDefault();
+    if (event.cancelable) {
+      event.preventDefault();
+    }
     event.stopPropagation();
     suppressClickRef.current = false;
   };

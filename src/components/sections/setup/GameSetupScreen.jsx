@@ -55,7 +55,7 @@ const setupCopy = {
   [MENU_MODES.SINGLEPLAYER]: {
     title: "Singleplayer",
     description:
-      "Choose the rule, tune the water feel, and start a precision run built around touch instead of luck.",
+      "Choose the rule, tune the water feel, and start a timing run built around touch instead of luck.",
     startLabel: "Start Singleplayer",
     route: ROUTES.SINGLEPLAYER,
   },
@@ -343,8 +343,8 @@ function ChoiceGrid({
     handleScroll,
     handleWheel,
     sliderRef,
-  } = useLoopingSlider(options.length);
-  const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
+  } = useLoopingSlider(options.length, { loop: "never" });
+  const visibleOptions = options;
 
   return (
     <div
@@ -374,9 +374,8 @@ function ChoiceGrid({
         ref={sliderRef}
       >
         {visibleOptions.map((option, loopIndex) => {
-          const optionIndex = modalGrid ? loopIndex : loopIndex % options.length;
-          const cycleIndex = modalGrid ? 1 : Math.floor(loopIndex / options.length);
-          const isDesktopCopy = modalGrid || cycleIndex === 1;
+          const optionIndex = loopIndex;
+          const isDesktopCopy = true;
           const selected = value === option.id;
           const Icon = option.icon ?? Timer;
           const title = t(`modes.${option.id}.label`);
@@ -395,7 +394,7 @@ function ChoiceGrid({
               ].join(" ")}
               data-sound-index={optionIndex}
               data-sound-kind="game-mode"
-              key={`${option.id}-${cycleIndex}`}
+              key={option.id}
               onClick={() => {
                 playGameModeSelect(option.id, optionIndex);
                 onChange(option.id);

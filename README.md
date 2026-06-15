@@ -1,6 +1,6 @@
 # Pourcision
 
-Precision fill game built with Next.js.
+Water-fill timing game built with Next.js.
 
 ## Getting Started
 

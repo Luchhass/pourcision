@@ -83,11 +83,11 @@ export const metadata = {
   openGraph: {
     title: ROUTE_SEO.home.title,
     description: SITE_DESCRIPTION,
-    url: "/",
+    url: SITE_URL,
     siteName: APP_NAME,
     images: [
       {
-        alt: `${APP_NAME} free online precision fill game preview`,
+        alt: `${APP_NAME} water-fill timing game preview`,
         height: SITE_IMAGE_HEIGHT,
         type: "image/png",
         url: SITE_IMAGE_URL,
@@ -103,7 +103,7 @@ export const metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        alt: `${APP_NAME} free online precision fill game preview`,
+        alt: `${APP_NAME} water-fill timing game preview`,
         url: SITE_IMAGE_URL,
       },
     ],

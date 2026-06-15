@@ -7,7 +7,7 @@ import {
 
 export default function manifest() {
   return {
-    name: `${APP_NAME} - Precision Fill Game`,
+    name: `${APP_NAME} - Water Fill Timing Game`,
     short_name: APP_NAME,
     description: SITE_DESCRIPTION,
     id: "/",
@@ -42,7 +42,7 @@ export default function manifest() {
     screenshots: [
       {
         form_factor: "wide",
-        label: `${APP_NAME} precision fill game preview`,
+        label: `${APP_NAME} water-fill timing game preview`,
         sizes: `${SITE_IMAGE_WIDTH}x${SITE_IMAGE_HEIGHT}`,
         src: "/og-image.png",
         type: "image/png",

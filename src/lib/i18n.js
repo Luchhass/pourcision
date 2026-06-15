@@ -26,10 +26,10 @@ const dictionaries = {
       introOne:
         "A target line appears each round. Hold to raise the water, then release near the mark.",
       introTwo:
-        "Five quick rounds turn timing into a clean score.",
+        "Three quick rounds turn timing into a clean score.",
       multiplayerDescription: "Prepare a shared match format for future lobbies.",
       multiplayerTitle: "Multiplayer",
-      singleplayerDescription: "Play a solo precision run across five target rounds.",
+      singleplayerDescription: "Play a solo water-timing run across target rounds.",
       singleplayerTitle: "Singleplayer",
     },
     setup: {
@@ -70,9 +70,9 @@ const dictionaries = {
       singleplayerModeDescription:
         "{mode} sets the rule: {modeDescription}",
       singleplayerSelectionDescription:
-        "{mode} sets the rule: {modeDescription} {difficulty} sets the pressure: {difficultyDescription} Together they shape fill speed, waves, and release precision.",
+        "{mode} sets the rule: {modeDescription} {difficulty} sets the pressure: {difficultyDescription} Together they shape fill speed, waves, and release control.",
       singleplayerDescription:
-        "Choose the rule mode, pick the water color, and start a precision run built around your timing.",
+        "Choose the rule mode, pick the water color, and start a timing run built around your release.",
       singleplayerStart: "Start Singleplayer",
       singleplayerTitle: "Singleplayer",
       setup: "SETUP",
@@ -154,7 +154,7 @@ const dictionaries = {
       bandMiss: "BAND MISS",
       line: "Line",
       lowestWins: "Lowest wins",
-      precision: "PRECISION",
+      timing: "TIMING",
       round: "Round",
       rounds: "Rounds",
       labels: {
@@ -348,12 +348,12 @@ const dictionaries = {
       howToPlay: "Nas\u0131l oynan\u0131r",
       introOne:
         "Her turda hedef \u00e7izgisi belirir. Suyu y\u00fckseltmek i\u00e7in bas\u0131l\u0131 tut, hedefe yakla\u015f\u0131nca b\u0131rak.",
-      introTwo: "Be\u015f k\u0131sa tur, zamanlamay\u0131 temiz bir skora \u00e7evirir.",
+      introTwo: "\u00dc\u00e7 k\u0131sa tur, zamanlamay\u0131 temiz bir skora \u00e7evirir.",
       multiplayerDescription:
         "Arkada\u015flar\u0131nla ayn\u0131 hedef \u00e7izgisine kar\u015f\u0131 oynayaca\u011f\u0131n ortak bir lobi kur.",
       multiplayerTitle: "\u00c7ok Oyunculu",
       singleplayerDescription:
-        "Be\u015f hedef turunda tek ba\u015f\u0131na hassasiyet ko\u015fusu oyna.",
+        "Hedef turlar\u0131nda tek ba\u015f\u0131na su zamanlamas\u0131 ko\u015fusu oyna.",
       singleplayerTitle: "Tek Oyunculu",
     },
     setup: {
@@ -394,9 +394,9 @@ const dictionaries = {
       singleplayerModeDescription:
         "{mode} kural\u0131 belirler: {modeDescription}",
       singleplayerSelectionDescription:
-        "{mode} kural\u0131 belirler: {modeDescription} {difficulty} tempoyu belirler: {difficultyDescription} Birlikte dolma h\u0131z\u0131n\u0131, dalgay\u0131 ve b\u0131rak\u0131\u015f hassasiyetini \u015fekillendirir.",
+        "{mode} kural\u0131 belirler: {modeDescription} {difficulty} tempoyu belirler: {difficultyDescription} Birlikte dolma h\u0131z\u0131n\u0131, dalgay\u0131 ve b\u0131rak\u0131\u015f kontrol\u00fcn\u00fc \u015fekillendirir.",
       singleplayerDescription:
-        "Kural modunu se\u00e7, su rengini belirle ve zamanlamaya dayal\u0131 hassas bir ko\u015fuya ba\u015fla.",
+        "Kural modunu se\u00e7, su rengini belirle ve b\u0131rak\u0131\u015fa dayal\u0131 bir zamanlama ko\u015fusuna ba\u015fla.",
       singleplayerStart: "Tek Oyunculu Ba\u015flat",
       singleplayerTitle: "Tek Oyunculu",
       setup: "AYAR",
@@ -478,7 +478,7 @@ const dictionaries = {
       bandMiss: "BANT KA\u00c7TI",
       line: "\u00c7izgi",
       lowestWins: "En d\u00fc\u015f\u00fck kazan\u0131r",
-      precision: "HASSAS\u0130YET",
+      timing: "ZAMANLAMA",
       round: "Tur",
       rounds: "Tur",
       labels: {

@@ -547,7 +547,7 @@ export default function HomeScreen({
               property="--home-water-color"
             />
             <SectionWord
-              primary={t("game.precision")}
+              primary={t("game.timing")}
               secondary={t("game.actionPour")}
             />
             <div className="grid h-full min-h-0 min-w-0 content-end justify-items-stretch lg:min-h-0 lg:justify-items-end">

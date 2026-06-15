@@ -138,8 +138,8 @@ function LobbyModeGrid({
     handleScroll,
     handleWheel,
     sliderRef,
-  } = useLoopingSlider(options.length);
-  const visibleOptions = modalGrid ? options : [...options, ...options, ...options];
+  } = useLoopingSlider(options.length, { loop: "never" });
+  const visibleOptions = options;
 
   return (
     <div
@@ -169,9 +169,8 @@ function LobbyModeGrid({
         ref={sliderRef}
       >
         {visibleOptions.map((option, loopIndex) => {
-          const optionIndex = modalGrid ? loopIndex : loopIndex % options.length;
-          const cycleIndex = modalGrid ? 1 : Math.floor(loopIndex / options.length);
-          const isDesktopCopy = modalGrid || cycleIndex === 1;
+          const optionIndex = loopIndex;
+          const isDesktopCopy = true;
           const selected = value === option.id;
           const Icon = modeIcons[option.id] ?? Timer;
           const optionLabel = t(`modes.${option.id}.label`);
@@ -190,7 +189,7 @@ function LobbyModeGrid({
                 disabled && !selected ? "opacity-70" : "",
               ].join(" ")}
               disabled={disabled}
-              key={`${option.id}-${cycleIndex}`}
+              key={option.id}
               onClick={() => {
                 playGameModeSelect(option.id, optionIndex);
                 onChange(option.id);

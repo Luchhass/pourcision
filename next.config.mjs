@@ -3,6 +3,7 @@ const nextConfig = {
   allowedDevOrigins: ["*.trycloudflare.com"],
   poweredByHeader: false,
   reactCompiler: true,
+  trailingSlash: false,
   async redirects() {
     return [
       {
@@ -21,6 +22,21 @@ const nextConfig = {
         source: "/:path*",
         has: [{ type: "host", value: "www.pourcision.app" }],
         destination: "https://www.pourcision.com/:path*",
+        permanent: true,
+      },
+      {
+        source: "/home",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/index",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/index.html",
+        destination: "/",
         permanent: true,
       },
     ];

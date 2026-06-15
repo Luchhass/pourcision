@@ -3,11 +3,15 @@ import { APP_NAME } from "@/lib/constants";
 
 export const metadata = {
   title: {
-    absolute: `Multiplayer Lobby | ${APP_NAME}`,
+    absolute: `${APP_NAME} Multiplayer Lobby`,
   },
   robots: {
     follow: false,
     index: false,
+    googleBot: {
+      follow: false,
+      index: false,
+    },
   },
 };
 
