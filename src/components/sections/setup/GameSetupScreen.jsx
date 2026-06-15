@@ -33,8 +33,10 @@ import { useScreenReveal } from "@/hooks/useScreenReveal";
 import {
   GAME_DIFFICULTIES,
   GAME_RULE_MODES,
+  GAME_ROUND_COUNT,
   MENU_MODES,
   MODE_GRID_ORDER,
+  ROUND_COUNT_OPTIONS,
   ROUTES,
   WATER_COLORS,
 } from "@/lib/constants";
@@ -52,14 +54,14 @@ const setupCopy = {
   [MENU_MODES.SINGLEPLAYER]: {
     title: "Singleplayer",
     description:
-      "Choose the rule, tune the water feel, and start a five-round run built around touch instead of luck.",
+      "Choose the rule, tune the water feel, and start a precision run built around touch instead of luck.",
     startLabel: "Start Singleplayer",
     route: ROUTES.SINGLEPLAYER,
   },
   [MENU_MODES.MULTIPLAYER]: {
     title: "Multiplayer",
     description:
-      "Shape the match rules before the lobby opens, then carry the same clean five-round flow into a shared run.",
+      "Shape the match rules before the lobby opens, then carry the same clean flow into a shared run.",
     startLabel: "Start Multiplayer",
     route: ROUTES.MULTIPLAYER,
   },
@@ -135,8 +137,8 @@ const ruleModeOptions = [
   },
   {
     id: GAME_RULE_MODES.BLIND,
-    icon: EyeOff,
-    title: "Blind",
+    icon: Eye,
+    title: "No Guide",
     description: "No target line. Trust the goal percentage.",
   },
   {
@@ -213,9 +215,9 @@ const ruleModeOptions = [
   },
   {
     id: GAME_RULE_MODES.COLORBLIND,
-    icon: Palette,
-    title: "Colorblind",
-    description: "Classic timing in strict black and white.",
+    icon: EyeOff,
+    title: "Blind",
+    description: "The screen fades out after the round begins.",
   },
 ];
 
@@ -449,6 +451,40 @@ function DifficultyControl({ label, value, onChange }) {
                 type="button"
               >
                 {t(`difficulties.${option.id}.label`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoundCountControl({ label, value, onChange }) {
+  return (
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
+      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+        {label}
+      </p>
+      <div className="w-full">
+        <div className="grid grid-cols-4 bg-[#0d0d0c]/[0.035] shadow-[0_18px_38px_rgba(13,13,12,0.07)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+          {ROUND_COUNT_OPTIONS.map((option) => {
+            const selected = value === option;
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={[
+                  "pc-choice pc-difficulty-choice transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
+                  selected
+                    ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+                    : "bg-[#f7f7f2]/96 text-[#0d0d0c]/72 hover:bg-[#f7f7f2] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2]/70 dark:hover:bg-[#f7f7f2]/14",
+                ].join(" ")}
+                key={option}
+                onClick={() => onChange(option)}
+                type="button"
+              >
+                {option}
               </button>
             );
           })}
@@ -906,6 +942,7 @@ export default function GameSetupScreen({
   const [mobileSetupModal, setMobileSetupModal] = useState(null);
   const [playerName, setPlayerName] = useState(readSessionPlayerName);
   const [playerNameError, setPlayerNameError] = useState(false);
+  const [roundCount, setRoundCount] = useState(GAME_ROUND_COUNT);
   const [ruleMode, setRuleMode] = useState(GAME_RULE_MODES.CLASSIC);
   const setupRevealRef = useRef(null);
   const waterColorId = initialWaterColorId;
@@ -998,6 +1035,7 @@ export default function GameSetupScreen({
       mode,
       route: copy.route,
       ruleMode,
+      roundCount,
       waterColorId,
     });
   };
@@ -1061,6 +1099,7 @@ export default function GameSetupScreen({
       roomName: cleanLobbyName,
       route: copy.route,
       ruleMode,
+      roundCount,
       visibility: lobbyVisibility,
       waterColorId,
     });
@@ -1315,14 +1354,25 @@ export default function GameSetupScreen({
                             data-screen-reveal-row="true"
                             data-screen-reveal-target="self"
                           >
-                            <MobileSetupButton
-                              icon={SelectedRuleModeIcon}
-                              label={t("setup.mode")}
-                              onClick={() => setMobileSetupModal("mode")}
-                              value={selectedRuleModeLabel}
-                              wide
+                            <RoundCountControl
+                              label={t("setup.levels")}
+                              onChange={setRoundCount}
+                              value={roundCount}
                             />
                           </div>
+                        </div>
+                        <div
+                          className="min-w-0"
+                          data-screen-reveal-row="true"
+                          data-screen-reveal-target="self"
+                        >
+                          <MobileSetupButton
+                            icon={SelectedRuleModeIcon}
+                            label={t("setup.mode")}
+                            onClick={() => setMobileSetupModal("mode")}
+                            value={selectedRuleModeLabel}
+                            wide
+                          />
                         </div>
                         <div
                           className="grid w-full min-w-0 grid-cols-[var(--pc-choice-height)_minmax(0,1fr)] items-center gap-3"
@@ -1348,7 +1398,7 @@ export default function GameSetupScreen({
                       </div>
                     </div>
 
-                    <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5">
+                    <div className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:gap-5">
                       <div
                         className="min-w-0"
                         data-screen-reveal-row="true"
@@ -1361,7 +1411,18 @@ export default function GameSetupScreen({
                         />
                       </div>
                       <div
-                        className="min-w-0 md:col-span-2 lg:col-span-1"
+                        className="min-w-0"
+                        data-screen-reveal-row="true"
+                        data-screen-reveal-target="self"
+                      >
+                        <RoundCountControl
+                          label={t("setup.levels")}
+                          onChange={setRoundCount}
+                          value={roundCount}
+                        />
+                      </div>
+                      <div
+                        className="min-w-0 md:col-span-2"
                         data-screen-reveal-row="true"
                         data-screen-reveal-target="self"
                       >

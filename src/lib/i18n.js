@@ -45,9 +45,10 @@ const dictionaries = {
       lobbyNameRequired: "Lobby name is required",
       lobbyPassword: "Lobby password",
       lobbyPasswordRequired: "Password is required",
+      levels: "Levels",
       mode: "Mode",
       multiplayerDescription:
-        "Create a private lobby, keep the same five-round rhythm, and watch every opponent's water line chase yours in real time.",
+        "Create a private lobby, set the run length, and watch every opponent's water line chase yours in real time.",
       multiplayerStart: "Start Multiplayer",
       multiplayerTitle: "Multiplayer",
       noLobbies: "No open lobbies.",
@@ -71,7 +72,7 @@ const dictionaries = {
       singleplayerSelectionDescription:
         "{mode} sets the rule: {modeDescription} {difficulty} sets the pressure: {difficultyDescription} Together they shape fill speed, waves, and release precision.",
       singleplayerDescription:
-        "Choose the rule mode, pick the water color, and start a five-round precision run built around your timing.",
+        "Choose the rule mode, pick the water color, and start a precision run built around your timing.",
       singleplayerStart: "Start Singleplayer",
       singleplayerTitle: "Singleplayer",
       setup: "SETUP",
@@ -239,7 +240,7 @@ const dictionaries = {
       blind: {
         briefing: "No target line appears. Read the percentage and trust the pour.",
         description: "No target line. Trust the goal percentage.",
-        label: "Blind",
+        label: "No Guide",
       },
       flash: {
         briefing: "The target line flashes for a moment, then disappears.",
@@ -262,9 +263,9 @@ const dictionaries = {
         label: "Burst Click",
       },
       colorblind: {
-        briefing: "Classic timing, stripped to black and white.",
-        description: "Classic timing in strict black and white.",
-        label: "Colorblind",
+        briefing: "The screen fades to black after one second. Hold the timing in your head.",
+        description: "The screen fades out after the round begins.",
+        label: "Blind",
       },
       "chaos-queue": {
         briefing: "A random rule appears before every round.",
@@ -368,9 +369,10 @@ const dictionaries = {
       lobbyNameRequired: "Lobi ad\u0131 gerekli",
       lobbyPassword: "Lobi \u015fifresi",
       lobbyPasswordRequired: "\u015eifre gerekli",
+      levels: "Seviyeler",
       mode: "Mod",
       multiplayerDescription:
-        "\u00d6zel bir lobi kur, be\u015f turluk ritmi payla\u015f ve rakiplerinin su \u00e7izgisini anl\u0131k izle.",
+        "\u00d6zel bir lobi kur, tur say\u0131s\u0131n\u0131 belirle ve rakiplerinin su \u00e7izgisini anl\u0131k izle.",
       multiplayerStart: "\u00c7ok Oyunculu Ba\u015flat",
       multiplayerTitle: "\u00c7ok Oyunculu",
       noLobbies: "A\u00e7\u0131k lobi yok.",
@@ -394,7 +396,7 @@ const dictionaries = {
       singleplayerSelectionDescription:
         "{mode} kural\u0131 belirler: {modeDescription} {difficulty} tempoyu belirler: {difficultyDescription} Birlikte dolma h\u0131z\u0131n\u0131, dalgay\u0131 ve b\u0131rak\u0131\u015f hassasiyetini \u015fekillendirir.",
       singleplayerDescription:
-        "Kural modunu se\u00e7, su rengini belirle ve zamanlamaya dayal\u0131 be\u015f turluk ko\u015fuya ba\u015fla.",
+        "Kural modunu se\u00e7, su rengini belirle ve zamanlamaya dayal\u0131 hassas bir ko\u015fuya ba\u015fla.",
       singleplayerStart: "Tek Oyunculu Ba\u015flat",
       singleplayerTitle: "Tek Oyunculu",
       setup: "AYAR",
@@ -565,7 +567,7 @@ const dictionaries = {
       blind: {
         briefing: "Hedef \u00e7izgisi yok. Y\u00fczdeyi oku ve dokunu\u015funa g\u00fcven.",
         description: "\u00c7izgi yok. Sadece hedef y\u00fczdesine g\u00fcven.",
-        label: "Gizli",
+        label: "K\u0131lavuzsuz",
       },
       flash: {
         briefing: "Hedef \u00e7izgisi bir an g\u00f6r\u00fcn\u00fcr, sonra kaybolur.",
@@ -591,9 +593,9 @@ const dictionaries = {
         label: "Seri T\u0131k",
       },
       colorblind: {
-        briefing: "Klasik zamanlama, sadece siyah beyaz g\u00f6r\u00fcn\u00fcm.",
-        description: "Siyah beyaz klasik zamanlama.",
-        label: "Siyah Beyaz",
+        briefing: "Bir saniye sonra ekran karar\u0131r. Zamanlamay\u0131 akl\u0131nda tut.",
+        description: "Tur ba\u015flad\u0131ktan sonra ekran karar\u0131r.",
+        label: "Blind",
       },
       "chaos-queue": {
         briefing: "Her turdan \u00f6nce rastgele bir kural gelir.",

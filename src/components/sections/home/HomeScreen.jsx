@@ -15,7 +15,13 @@ import { useTranslation } from "@/hooks/useLanguage";
 import { createPlayerId, saveRoomSession } from "@/hooks/useRoomSession";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
 import { trackEvent, trackMatchEnd, trackMatchStart } from "@/lib/analytics";
-import { APP_NAME, MENU_MODES, ROUTES, WATER_COLORS } from "@/lib/constants";
+import {
+  APP_NAME,
+  GAME_ROUND_COUNT,
+  MENU_MODES,
+  ROUTES,
+  WATER_COLORS,
+} from "@/lib/constants";
 import { emitWithAck } from "@/lib/socket";
 import {
   getFallbackWaterColorId,
@@ -181,6 +187,7 @@ function getPlayPath(settings) {
   const params = new URLSearchParams({
     difficulty: settings.difficulty,
     gameMode: settings.ruleMode,
+    roundCount: String(settings.roundCount || GAME_ROUND_COUNT),
     waterColor: settings.waterColorId,
   });
 
@@ -209,6 +216,7 @@ function createTargetSeed(settings) {
     settings.mode,
     settings.difficulty,
     settings.ruleMode,
+    settings.roundCount || GAME_ROUND_COUNT,
     settings.waterColorId,
     Date.now().toString(36),
     Math.random().toString(36).slice(2, 10),
@@ -288,6 +296,7 @@ export default function HomeScreen({
       gameSettings.targetSeed,
       gameSettings.difficulty,
       gameSettings.ruleMode,
+      gameSettings.roundCount || GAME_ROUND_COUNT,
     ].join(":");
 
     if (trackedGameStartRef.current === gameStartKey) return;
@@ -297,6 +306,7 @@ export default function HomeScreen({
       difficulty: gameSettings.difficulty,
       gameMode: gameSettings.ruleMode,
       gameType: "singleplayer",
+      levelCount: gameSettings.roundCount || GAME_ROUND_COUNT,
     });
   }, [gameSettings, step]);
 
@@ -339,6 +349,7 @@ export default function HomeScreen({
             roomName:
               settings.roomName?.trim() ||
               t("setup.playerLobbyName", { name: playerName }),
+            roundCount: settings.roundCount || GAME_ROUND_COUNT,
             ruleMode: settings.ruleMode,
             visibility: lobbyVisibility,
             waterColorId: settings.waterColorId,

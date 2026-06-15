@@ -34,6 +34,13 @@ export function useMultiplayerGame({
       mode: MENU_MODES.MULTIPLAYER,
       modeQueue: activeGame?.modeQueue || null,
       route: ROUTES.MULTIPLAYER,
+      roundCount:
+        activeGame?.roundCount ||
+        activeGame?.targets?.length ||
+        room?.roundCount ||
+        room?.game?.roundCount ||
+        room?.game?.targets?.length ||
+        null,
       ruleMode: activeGame?.ruleMode || room?.ruleMode || GAME_RULE_MODES.CLASSIC,
       targetSeed: activeGame?.seed || null,
       waterColorId:
@@ -57,6 +64,7 @@ export function useMultiplayerGame({
         roomCode,
         roundIndex: result.roundIndex,
         splitLevels: result.splitLevels,
+        tilt: result.tilt,
       });
 
       if (!response.ok) {

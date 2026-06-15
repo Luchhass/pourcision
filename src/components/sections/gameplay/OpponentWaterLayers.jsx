@@ -77,18 +77,10 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
   );
   const tiltRef = useRef(clamp(state.tilt ?? 0, -1, 1));
   const playerName = state.player?.name || "";
-  const waterColor =
-    activeRuleMode === GAME_RULE_MODES.COLORBLIND
-      ? {
-          id: "colorblind",
-          name: "Colorblind",
-          text: "#f7f7f2",
-          value: "#0d0d0c",
-        }
-      : getWaterColor(
-          state.player?.waterColorId,
-          settings?.waterColorId,
-        );
+  const waterColor = getWaterColor(
+    state.player?.waterColorId,
+    settings?.waterColorId,
+  );
 
   useEffect(() => {
     const nextLevel = clamp(state.level ?? levelRef.current, 0, 100);

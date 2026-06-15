@@ -156,7 +156,7 @@ export function createJsonLd() {
           "Singleplayer precision fill rounds",
           "Public and private multiplayer lobbies",
           "Easy, Normal, and Hard difficulty",
-          "Classic, Invert, Flash, Blind, Draining, Leaky, Fake Target, Split Fill, All or Nothing, Band Run, Pressure Charge, Burst Click, Colorblind, Tilt, and Chaos Queue rule modes",
+          "Classic, Invert, Flash, No Guide, Draining, Leaky, Fake Target, Split Fill, All or Nothing, Band Run, Pressure Charge, Burst Click, Blind, Tilt, and Chaos Queue rule modes",
           "Five-round target-line scoring",
           "Shared multiplayer lobbies with the same rule set as singleplayer",
         ],

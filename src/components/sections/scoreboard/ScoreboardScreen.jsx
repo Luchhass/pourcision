@@ -38,7 +38,7 @@ function getRoundModeTag(ruleMode) {
     [GAME_RULE_MODES.BAND_RUN]: "BAND",
     [GAME_RULE_MODES.CHARGE_POUR]: "PRESS",
     [GAME_RULE_MODES.BURST_CLICK]: "BURST",
-    [GAME_RULE_MODES.COLORBLIND]: "BW",
+    [GAME_RULE_MODES.COLORBLIND]: "BLIND",
     [GAME_RULE_MODES.FLASH]: "FLASH",
     [GAME_RULE_MODES.BLIND]: "BLIND",
   };
@@ -78,13 +78,6 @@ function getWaterColorById(waterColorId, fallback) {
   );
 }
 
-const COLORBLIND_WATER_COLOR = {
-  id: "colorblind",
-  name: "Colorblind",
-  text: "#f7f7f2",
-  value: "#0d0d0c",
-};
-
 function hexToRgb(hex) {
   const cleanHex = String(hex || "").replace("#", "");
   if (cleanHex.length !== 6) return null;
@@ -113,6 +106,13 @@ function clampPercent(value, fallback = 0) {
   if (!Number.isFinite(parsed)) return fallback;
 
   return Math.max(0, Math.min(100, parsed));
+}
+
+function clampTilt(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return Math.max(-1, Math.min(1, parsed));
 }
 
 function getResultRuleMode(result, fallbackRuleMode) {
@@ -269,7 +269,6 @@ function RoundCard({
   const isBlind = effectiveRuleMode === GAME_RULE_MODES.BLIND;
   const isBurstClick = effectiveRuleMode === GAME_RULE_MODES.BURST_CLICK;
   const isChargePour = effectiveRuleMode === GAME_RULE_MODES.CHARGE_POUR;
-  const isColorblind = effectiveRuleMode === GAME_RULE_MODES.COLORBLIND;
   const isFakeTarget = effectiveRuleMode === GAME_RULE_MODES.FAKE_TARGET;
   const isFlash = effectiveRuleMode === GAME_RULE_MODES.FLASH;
   const isInvert = effectiveRuleMode === GAME_RULE_MODES.INVERT;
@@ -279,9 +278,7 @@ function RoundCard({
   const isReversePour = effectiveRuleMode === GAME_RULE_MODES.REVERSE_POUR;
   const isSplitFill = effectiveRuleMode === GAME_RULE_MODES.SPLIT_FILL;
   const isTilt = effectiveRuleMode === GAME_RULE_MODES.TILT;
-  const cardWaterColor = isColorblind
-    ? COLORBLIND_WATER_COLOR
-    : waterColor || WATER_COLORS[0];
+  const cardWaterColor = waterColor || WATER_COLORS[0];
   const fillPercent = clampPercent(result.level);
   const targetPercent = clampPercent(result.target);
   const fakeTargetPercent = clampPercent(result.fakeTarget, targetPercent);
@@ -292,25 +289,44 @@ function RoundCard({
   const zoneStart = clampPercent(targetPercent - PERFECT_ZONE_RADIUS);
   const zoneEnd = clampPercent(targetPercent + PERFECT_ZONE_RADIUS);
   const zoneHeight = Math.max(5, zoneEnd - zoneStart);
+  const tiltValue = isTilt ? clampTilt(result.tilt, -0.5) : 0;
+  const tiltDegrees = Math.max(-7, Math.min(7, tiltValue * 7));
+  const tiltSpread = tiltValue * 8;
+  const tiltSurfaceY = 100 - fillPercent;
+  const tiltSurfaceLeft = clampPercent(tiltSurfaceY - tiltSpread);
+  const tiltSurfaceRight = clampPercent(tiltSurfaceY + tiltSpread);
+  const drainDipY = 100 - fillPercent;
   const waterPosition = isInvert
     ? { height: `${fillPercent}%`, top: 0 }
+    : isReversePour
+      ? {
+          inset: 0,
+          clipPath: `polygon(0 ${100 - fillPercent}%, 37% ${100 - fillPercent}%, 50% ${Math.min(100, drainDipY + 12)}%, 63% ${100 - fillPercent}%, 100% ${100 - fillPercent}%, 100% 100%, 0 100%)`,
+        }
+    : isTilt
+      ? {
+          inset: 0,
+          clipPath: `polygon(0 ${tiltSurfaceLeft}%, 100% ${tiltSurfaceRight}%, 100% 100%, 0 100%)`,
+        }
     : { bottom: 0, height: `${fillPercent}%` };
   const targetPosition = isInvert
     ? { top: `${targetPercent}%` }
     : { bottom: `${targetPercent}%` };
+  const targetTiltStyle = isTilt
+    ? { transform: `rotate(${tiltDegrees}deg)` }
+    : {};
   const guideBaseClass = [
     "absolute z-[4] border-t-2 border-dashed",
     "border-[#0d0d0c]/45 dark:border-[#f7f7f2]/46",
-    isTilt ? "left-[-10%] w-[120%] origin-center -rotate-[5deg]" : "inset-x-0",
+    isTilt ? "left-[-10%] w-[120%] origin-center" : "inset-x-0",
   ].join(" ");
-  const waterTexture = isColorblind
-    ? {
-        backgroundImage:
-          "repeating-linear-gradient(135deg, rgba(247,247,242,0.18) 0 5px, transparent 5px 10px)",
-      }
-    : {};
+  const waterTexture = {};
   const showStandardTarget =
-    !isBandRun && !isBlind && !isPerfectZone && !isSplitFill;
+    !isBandRun &&
+    !isBlind &&
+    !isFlash &&
+    !isPerfectZone &&
+    !isSplitFill;
 
   return (
     <div
@@ -373,7 +389,7 @@ function RoundCard({
         <span
           aria-hidden="true"
           className={guideBaseClass}
-          style={targetPosition}
+          style={{ ...targetPosition, ...targetTiltStyle }}
         />
       ) : null}
       {isBandRun
@@ -383,19 +399,6 @@ function RoundCard({
               className="absolute inset-x-0 z-[4] border-t-2 border-dashed border-[#0d0d0c]/42 dark:border-[#f7f7f2]/44"
               key={`${bandTarget}-${index}`}
               style={{ bottom: `${bandTarget}%` }}
-            />
-          ))
-        : null}
-      {isBandRun
-        ? bandLevels.map((bandLevel, index) => (
-            <span
-              aria-hidden="true"
-              className="absolute z-[5] h-2 w-2 -translate-x-1/2 bg-[#0d0d0c] dark:bg-[#f7f7f2]"
-              key={`band-level-${index}`}
-              style={{
-                bottom: `${bandLevel}%`,
-                left: `${((index + 1) / (bandLevels.length + 1)) * 100}%`,
-              }}
             />
           ))
         : null}
@@ -410,7 +413,7 @@ function RoundCard({
         <>
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 z-[4] border-y-2 border-[#0d0d0c]/62 bg-[#0d0d0c]/[0.055] dark:border-[#f7f7f2]/62 dark:bg-[#f7f7f2]/[0.08]"
+            className="absolute inset-x-0 z-[4] border-y border-[#0d0d0c]/58 bg-[#0d0d0c]/[0.055] dark:border-[#f7f7f2]/58 dark:bg-[#f7f7f2]/[0.08]"
             style={{
               bottom: `${zoneStart}%`,
               height: `${zoneHeight}%`,
@@ -423,76 +426,13 @@ function RoundCard({
           />
         </>
       ) : null}
-      {isFlash ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 z-[3] h-[18%] bg-[#f7f7f2]/28 mix-blend-screen dark:bg-[#f7f7f2]/14"
-          style={
-            isInvert
-              ? { top: `calc(${targetPercent}% - 9%)` }
-              : { bottom: `calc(${targetPercent}% - 9%)` }
-          }
-        />
-      ) : null}
-      {isBlind ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-3 top-3 z-[3] h-2 bg-[#0d0d0c]/10 dark:bg-[#f7f7f2]/10"
-        />
-      ) : null}
-      {isReversePour ? (
-        <>
-          <span
-            aria-hidden="true"
-            className="absolute bottom-0 left-1/2 top-0 z-[3] border-l-2 border-dashed border-[#0d0d0c]/26 dark:border-[#f7f7f2]/28"
-          />
-          <span
-            aria-hidden="true"
-            className="absolute left-1/2 top-0 z-[4] h-2 w-8 -translate-x-1/2 bg-[#0d0d0c]/22 dark:bg-[#f7f7f2]/22"
-          />
-        </>
-      ) : null}
-      {isLeaky
-        ? [0, 1, 2].map((index) => (
-            <span
-              aria-hidden="true"
-              className="absolute z-[4] w-1 bg-[#0d0d0c]/34 dark:bg-[#f7f7f2]/36"
-              key={`leak-${index}`}
-              style={{
-                bottom: `${Math.max(6, fillPercent - 15 + index * 5)}%`,
-                height: `${10 + index * 3}px`,
-                left: `${28 + index * 22}%`,
-              }}
-            />
-          ))
-        : null}
       {isChargePour ? (
-        <>
-          <span
-            aria-hidden="true"
-            className="absolute left-1/2 top-0 z-[4] h-[46%] w-1 -translate-x-1/2"
-            style={{ backgroundColor: cardWaterColor.value, opacity: 0.58 }}
-          />
-          <span
-            aria-hidden="true"
-            className="absolute left-1/2 z-[5] h-2 w-10 -translate-x-1/2 border border-[#0d0d0c]/30 dark:border-[#f7f7f2]/34"
-            style={{ bottom: `${fillPercent}%` }}
-          />
-        </>
+        <span
+          aria-hidden="true"
+          className="absolute left-1/2 top-0 z-[4] h-[48%] w-2.5 -translate-x-1/2 sm:w-3"
+          style={{ backgroundColor: cardWaterColor.value, opacity: 0.72 }}
+        />
       ) : null}
-      {isBurstClick
-        ? [0, 1, 2].map((index) => (
-            <span
-              aria-hidden="true"
-              className="absolute top-3 z-[4] h-2 bg-[#0d0d0c]/28 dark:bg-[#f7f7f2]/30"
-              key={`burst-${index}`}
-              style={{
-                left: `${28 + index * 18}%`,
-                width: `${12 + index * 4}px`,
-              }}
-            />
-          ))
-        : null}
       {effectiveRuleMode !== GAME_RULE_MODES.CLASSIC ? (
         <span className="pc-round-label absolute right-2 top-2 z-10 text-[#0d0d0c]/42 dark:text-[#f7f7f2]/42">
           {getRoundModeTag(effectiveRuleMode)}
@@ -528,10 +468,7 @@ function LeaderboardResultsList({
     >
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
-        const playerWaterColor =
-          ruleMode === GAME_RULE_MODES.COLORBLIND
-            ? COLORBLIND_WATER_COLOR
-            : getWaterColorById(player.waterColorId, waterColor);
+        const playerWaterColor = getWaterColorById(player.waterColorId, waterColor);
 
         return (
           <section
@@ -584,8 +521,7 @@ function ResultsPanel({
   const modeOption =
     GAME_MODE_OPTIONS.find((option) => option.id === ruleMode) ||
     GAME_MODE_OPTIONS[0];
-  const displayWaterColor =
-    ruleMode === GAME_RULE_MODES.COLORBLIND ? COLORBLIND_WATER_COLOR : waterColor;
+  const displayWaterColor = waterColor;
 
   return (
     <div
@@ -685,8 +621,7 @@ function UniversalResultsScreen({
 }) {
   const { t } = useTranslation();
   const hasLeaderboard = leaderboardPlayers.length > 0;
-  const displayWaterColor =
-    ruleMode === GAME_RULE_MODES.COLORBLIND ? COLORBLIND_WATER_COLOR : waterColor;
+  const displayWaterColor = waterColor;
 
   return (
     <div
@@ -799,7 +734,7 @@ function UniversalResultsScreen({
           >
             {isReturningLobby
               ? t("room.returningLobby")
-              : playAgainLabel || t("room.returnLobby")}
+              : playAgainLabel || t("common.playAgain")}
           </Button>
           <Button
             className="rounded-none border-0 bg-[#f7f7f2]/44 px-3 text-[#0d0d0c] shadow-[0_18px_42px_rgba(247,247,242,0.08)] hover:bg-[#f7f7f2]/58"

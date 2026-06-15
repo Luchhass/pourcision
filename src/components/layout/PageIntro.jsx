@@ -3,12 +3,15 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import gsap from "gsap";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, WATER_COLORS } from "@/lib/constants";
 
 const WHEEL_CHARS = "POURCISION";
 const TARGET_SLOT_INDEX = 3;
 const BLANK_SLOT_TOP = 0;
 const BLANK_SLOT_BOTTOM = 6;
+const COLOR_CARD_STAGGER = 0.085;
+const COLOR_CARD_DURATION = 0.78;
+const COLOR_CARD_INTRO_END = 1.64;
 const TITLE_FILL_SELECTOR = [
   "[data-home-title-fill]",
   "[data-setup-title-fill]",
@@ -168,6 +171,15 @@ export default function PageIntro() {
         const wheelNodes = Array.from(
           word.querySelectorAll("[data-intro-wheel]"),
         );
+        const colorCards = Array.from(
+          overlay.querySelectorAll("[data-intro-color-card]"),
+        );
+        const colorLeftPanels = Array.from(
+          overlay.querySelectorAll("[data-intro-color-left]"),
+        );
+        const colorRightPanels = Array.from(
+          overlay.querySelectorAll("[data-intro-color-right]"),
+        );
         const enterOrder = shuffleIndexes(letterNodes.length);
         const exitOrder = shuffleIndexes(letterNodes.length);
         const wheelDirections = wheelNodes.map((_, index) =>
@@ -211,8 +223,19 @@ export default function PageIntro() {
         delete document.documentElement.dataset.pageIntroPending;
 
         timeline
-          .set(letterNodes, {
+          .set(colorCards, {
             autoAlpha: 1,
+          })
+          .set(colorLeftPanels, {
+            xPercent: 0,
+            transformOrigin: "right center",
+          })
+          .set(colorRightPanels, {
+            xPercent: 0,
+            transformOrigin: "left center",
+          })
+          .set(letterNodes, {
+            autoAlpha: 0,
             filter: "blur(0px)",
             scaleY: 1,
             y: 0,
@@ -225,9 +248,39 @@ export default function PageIntro() {
                 : getSlotY(index, BLANK_SLOT_BOTTOM),
           });
 
+        colorCards.forEach((card, index) => {
+          const startAt = index * COLOR_CARD_STAGGER;
+
+          timeline.to(
+            colorLeftPanels[index],
+            {
+              duration: COLOR_CARD_DURATION,
+              ease: "expo.inOut",
+              xPercent: -102,
+            },
+            startAt,
+          );
+          timeline.to(
+            colorRightPanels[index],
+            {
+              duration: COLOR_CARD_DURATION,
+              ease: "expo.inOut",
+              xPercent: 102,
+            },
+            startAt,
+          );
+          timeline.set(card, { autoAlpha: 0 }, startAt + COLOR_CARD_DURATION);
+        });
+
+        timeline.set(letterNodes, { autoAlpha: 1 }, COLOR_CARD_INTRO_END);
+
         enterOrder.forEach((letterIndex, orderIndex) => {
           const wheelNode = wheelNodes[letterIndex];
-          const startAt = 0.18 + orderIndex * 0.055 + Math.random() * 0.12;
+          const startAt =
+            COLOR_CARD_INTRO_END +
+            0.18 +
+            orderIndex * 0.055 +
+            Math.random() * 0.12;
 
           timeline.to(
             wheelNode,
@@ -243,7 +296,11 @@ export default function PageIntro() {
         exitOrder.forEach((letterIndex, orderIndex) => {
           const wheelNode = wheelNodes[letterIndex];
           const exitToBottom = (letterIndex + orderIndex) % 2 === 0;
-          const startAt = 2.25 + orderIndex * 0.052 + Math.random() * 0.08;
+          const startAt =
+            COLOR_CARD_INTRO_END +
+            2.25 +
+            orderIndex * 0.052 +
+            Math.random() * 0.08;
 
           timeline.to(
             wheelNode,
@@ -258,7 +315,7 @@ export default function PageIntro() {
           );
         });
 
-        timeline.set(word, { autoAlpha: 0 }, 3.62);
+        timeline.set(word, { autoAlpha: 0 }, COLOR_CARD_INTRO_END + 3.62);
 
         timeline.to(
           blackLayer,
@@ -267,7 +324,7 @@ export default function PageIntro() {
             duration: 1.08,
             ease: "power3.inOut",
           },
-          3.65,
+          COLOR_CARD_INTRO_END + 3.65,
         );
 
         timeline.set(blackLayer, { autoAlpha: 0 }, ">");
@@ -297,6 +354,30 @@ export default function PageIntro() {
         ref={blackLayerRef}
       />
 
+      <div className="pointer-events-none fixed inset-0 z-[5] overflow-hidden">
+        {WATER_COLORS.map((color, index) => (
+          <div
+            className="absolute inset-0 overflow-hidden"
+            data-intro-color-card="true"
+            key={color.id}
+            style={{ zIndex: WATER_COLORS.length - index }}
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 left-0 w-1/2 will-change-transform"
+              data-intro-color-left="true"
+              style={{ backgroundColor: color.value }}
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-y-0 right-0 w-1/2 will-change-transform"
+              data-intro-color-right="true"
+              style={{ backgroundColor: color.value }}
+            />
+          </div>
+        ))}
+      </div>
+
       <h1
         className="fixed left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-0 overflow-hidden px-6 text-center font-black uppercase leading-[0.82] tracking-normal"
         ref={wordRef}
@@ -307,7 +388,7 @@ export default function PageIntro() {
       >
         {letters.map((item) => (
           <span
-            className="relative inline-block h-[0.88em] overflow-hidden align-top"
+            className="relative inline-block h-[0.88em] overflow-hidden align-top opacity-0"
             data-intro-letter="true"
             key={item.id}
           >

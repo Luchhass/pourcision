@@ -44,14 +44,22 @@ export const WATER_COLOR_ID_LIST = [
   "rose",
   "violet",
   "plum",
-  "slate",
-  "graphite",
+  "peach",
+  "apricot",
+  "butter",
+  "sage",
+  "seafoam",
+  "lagoon",
+  "lilac",
+  "orchid",
+  "bubblegum",
 ];
 
 export const WATER_COLOR_IDS = new Set(WATER_COLOR_ID_LIST);
 
 export const GAME_ROUND_COUNT = 5;
 export const ROUND_COUNT = GAME_ROUND_COUNT;
+export const ROUND_COUNT_OPTIONS = [1, 3, 5, 10];
 export const MAX_ROUND_SCORE = 10;
 export const MIN_TARGET = 24;
 export const MAX_TARGET = 86;
@@ -112,6 +120,7 @@ export const GAME_MODE_CONFIG = {
 
 export const DEFAULT_SETTINGS = {
   difficulty: GAME_DIFFICULTIES.NORMAL,
+  roundCount: GAME_ROUND_COUNT,
   ruleMode: GAME_RULE_MODES.CLASSIC,
   waterColorId: "blue",
 };

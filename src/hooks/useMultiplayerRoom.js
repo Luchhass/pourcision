@@ -36,7 +36,7 @@ function getSubmittedWaterState(payload) {
     splitLevels: payload.result.splitLevels || null,
     splitPourX: null,
     status: "idle",
-    tilt: 0,
+    tilt: payload.result.tilt || 0,
   };
 }
 

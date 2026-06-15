@@ -38,6 +38,7 @@ export const GAME_DIFFICULTIES = {
 
 export const GAME_ROUND_COUNT = 5;
 export const ROUND_COUNT = GAME_ROUND_COUNT;
+export const ROUND_COUNT_OPTIONS = [1, 3, 5, 10];
 export const MAX_ROUND_SCORE = 10;
 export const MIN_TARGET = 24;
 export const MAX_TARGET = 86;
@@ -85,80 +86,122 @@ export const WATER_COLORS = [
   {
     id: "blue",
     name: "Blue",
-    value: "#8abfec",
-    text: "#2f4a61",
+    value: "#9fd4f5",
+    text: "#2e5368",
   },
   {
     id: "aqua",
     name: "Aqua",
-    value: "#55d7ef",
-    text: "#235460",
+    value: "#7ce3ef",
+    text: "#255b64",
   },
   {
     id: "red",
     name: "Red",
-    value: "#ef2f25",
-    text: "#3a2726",
+    value: "#ff746d",
+    text: "#61322f",
   },
   {
     id: "mint",
     name: "Mint",
-    value: "#78d9c2",
-    text: "#284f47",
+    value: "#8fe4d1",
+    text: "#2f5a51",
   },
   {
     id: "lime",
     name: "Lime",
-    value: "#a5dd65",
-    text: "#3d5228",
+    value: "#b8e978",
+    text: "#465a2c",
   },
   {
     id: "lemon",
     name: "Lemon",
-    value: "#f4d95c",
-    text: "#5a4d21",
+    value: "#f8e16d",
+    text: "#5e5125",
   },
   {
     id: "amber",
     name: "Amber",
-    value: "#f0b34f",
-    text: "#5a421f",
+    value: "#f7c469",
+    text: "#634a25",
   },
   {
     id: "coral",
     name: "Coral",
-    value: "#ff786d",
-    text: "#5c3230",
+    value: "#ff9187",
+    text: "#633936",
   },
   {
     id: "rose",
     name: "Rose",
-    value: "#ea6aa3",
-    text: "#573041",
+    value: "#f27fb2",
+    text: "#61344a",
   },
   {
     id: "violet",
     name: "Violet",
-    value: "#a99af4",
-    text: "#393253",
+    value: "#b8a8f7",
+    text: "#40375c",
   },
   {
     id: "plum",
     name: "Plum",
-    value: "#7d5bd6",
-    text: "#32264e",
+    value: "#aa86ea",
+    text: "#44335d",
   },
   {
-    id: "slate",
-    name: "Slate",
-    value: "#7f9db8",
-    text: "#2f3f4c",
+    id: "peach",
+    name: "Peach",
+    value: "#ffb199",
+    text: "#684334",
   },
   {
-    id: "graphite",
-    name: "Graphite",
-    value: "#5d6773",
-    text: "#252b31",
+    id: "apricot",
+    name: "Apricot",
+    value: "#ffc96f",
+    text: "#684d25",
+  },
+  {
+    id: "butter",
+    name: "Butter",
+    value: "#f6ed91",
+    text: "#5c562d",
+  },
+  {
+    id: "sage",
+    name: "Sage",
+    value: "#b9dea3",
+    text: "#435637",
+  },
+  {
+    id: "seafoam",
+    name: "Seafoam",
+    value: "#a7eadc",
+    text: "#365d55",
+  },
+  {
+    id: "lagoon",
+    name: "Lagoon",
+    value: "#8fddea",
+    text: "#315862",
+  },
+  {
+    id: "lilac",
+    name: "Lilac",
+    value: "#c7b7f5",
+    text: "#4d4165",
+  },
+  {
+    id: "orchid",
+    name: "Orchid",
+    value: "#dfa2ee",
+    text: "#5d3d65",
+  },
+  {
+    id: "bubblegum",
+    name: "Bubblegum",
+    value: "#f7a4c9",
+    text: "#663d50",
   },
 ];
 
@@ -191,7 +234,7 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.BLIND,
-    label: "Blind",
+    label: "No Guide",
     description: "No target line. Trust the goal percentage.",
     oneHold: true,
   },
@@ -267,8 +310,8 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.COLORBLIND,
-    label: "Colorblind",
-    description: "Classic timing in strict black and white.",
+    label: "Blind",
+    description: "The screen fades to black one second after the round starts.",
     oneHold: true,
   },
 ];

@@ -9,6 +9,7 @@ import {
   ROOM_PASSWORD_MAX_LENGTH,
   ROOM_PASSWORD_MIN_LENGTH,
   ROOM_VISIBILITIES,
+  ROUND_COUNT_OPTIONS,
   WATER_COLOR_IDS,
 } from "../constants.js";
 
@@ -126,6 +127,16 @@ export function validateWaterColor(waterColorId) {
   }
 
   return ok({ waterColorId: cleanWaterColor });
+}
+
+export function validateRoundCount(roundCount) {
+  const value = Number(roundCount ?? DEFAULT_SETTINGS.roundCount);
+
+  if (!Number.isInteger(value) || !ROUND_COUNT_OPTIONS.includes(value)) {
+    return fail("Invalid level count.");
+  }
+
+  return ok({ roundCount: value });
 }
 
 export function validateRoundIndex(roundIndex, roundCount) {

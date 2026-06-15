@@ -456,6 +456,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
         results={[]}
         settings={{
           difficulty: room?.difficulty,
+          roundCount: room?.roundCount,
           ruleMode: room?.ruleMode,
           waterColorId: currentPlayerWaterColorId || preferredWaterColorId,
         }}
@@ -525,6 +526,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
           onCopyInvite={handleCopyInvite}
           onDifficultyChange={(difficulty) => handleUpdateSettings({ difficulty })}
           onKickPlayer={handleKickPlayer}
+          onRoundCountChange={(roundCount) => handleUpdateSettings({ roundCount })}
           onRuleModeChange={(ruleMode) => handleUpdateSettings({ ruleMode })}
           onSettingsOpenChange={setIsLobbySettingsOpen}
           onStart={handleStart}

@@ -8,12 +8,12 @@ import {
   Clipboard,
   Columns2,
   Droplet,
+  Eye,
   EyeOff,
   Flag,
   Gauge,
   Lock,
   MousePointerClick,
-  Palette,
   Pencil,
   RotateCcw,
   Shuffle,
@@ -27,9 +27,11 @@ import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
 import {
   DIFFICULTY_OPTIONS,
+  GAME_ROUND_COUNT,
   GAME_RULE_MODES,
   GAME_MODE_OPTIONS,
   MODE_GRID_ORDER,
+  ROUND_COUNT_OPTIONS,
   WATER_COLORS,
 } from "@/lib/constants";
 import {
@@ -39,7 +41,7 @@ import {
 } from "@/lib/sound";
 
 const modeIcons = {
-  [GAME_RULE_MODES.BLIND]: EyeOff,
+  [GAME_RULE_MODES.BLIND]: Eye,
   [GAME_RULE_MODES.FLASH]: Zap,
   [GAME_RULE_MODES.CLASSIC]: CircleDot,
   [GAME_RULE_MODES.CHAOS_QUEUE]: Shuffle,
@@ -50,7 +52,7 @@ const modeIcons = {
   [GAME_RULE_MODES.BAND_RUN]: CircleDot,
   [GAME_RULE_MODES.CHARGE_POUR]: BatteryCharging,
   [GAME_RULE_MODES.BURST_CLICK]: MousePointerClick,
-  [GAME_RULE_MODES.COLORBLIND]: Palette,
+  [GAME_RULE_MODES.COLORBLIND]: EyeOff,
   [GAME_RULE_MODES.REVERSE_POUR]: RotateCcw,
   [GAME_RULE_MODES.SPLIT_FILL]: Columns2,
   [GAME_RULE_MODES.TILT]: Gauge,
@@ -289,6 +291,42 @@ function LobbyPlayersPanel({
   );
 }
 
+function LobbyRoundCountControl({ disabled, label, onChange, value }) {
+  return (
+    <div className="min-w-0 space-y-3" data-screen-reveal-atomic="true">
+      <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
+        {label}
+      </p>
+      <div className="w-full">
+        <div className="grid grid-cols-4 bg-[#0d0d0c]/[0.035] shadow-[0_18px_38px_rgba(13,13,12,0.07)] dark:bg-[#f7f7f2]/6 dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+          {ROUND_COUNT_OPTIONS.map((option) => {
+            const selected = value === option;
+
+            return (
+              <button
+                aria-pressed={selected}
+                className={[
+                  "pc-choice pc-difficulty-choice transition-colors duration-200 focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
+                  selected
+                    ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+                    : "bg-[#f7f7f2]/96 text-[#0d0d0c]/72 hover:bg-[#f7f7f2] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2]/70 dark:hover:bg-[#f7f7f2]/14",
+                  disabled && !selected ? "opacity-70" : "",
+                ].join(" ")}
+                disabled={disabled}
+                key={option}
+                onClick={() => onChange(option)}
+                type="button"
+              >
+                {option}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getWaterColorWheelStep(slider) {
   if (!slider) return 58;
 
@@ -478,6 +516,7 @@ export default function LobbyCard({
   onCopyInvite,
   onDifficultyChange,
   onKickPlayer,
+  onRoundCountChange,
   onSettingsOpenChange,
   onWaterColorChange,
   onRuleModeChange,
@@ -493,6 +532,7 @@ export default function LobbyCard({
   const canOpenColorSettings = !canEditSettings;
   const isSettingsOpen = canEditSettings && isEditingSettings;
   const settingsDisabled = isUpdatingSettings;
+  const roomRoundCount = room.roundCount || GAME_ROUND_COUNT;
 
   const handleEditToggle = () => {
     const next = !isEditingSettings;
@@ -525,28 +565,40 @@ export default function LobbyCard({
               data-screen-reveal-row="true"
               data-screen-reveal-target="children"
             >
-              <div className="grid w-full min-w-0 justify-self-stretch grid-cols-[minmax(0,1fr)_var(--pc-choice-height)_var(--pc-choice-height)] items-start gap-3">
-                <LobbyDifficultyControl
-                  disabled={settingsDisabled}
-                  label={t("setup.difficulty")}
-                  onChange={onDifficultyChange}
-                  value={room.difficulty}
+              <div className="grid w-full min-w-0 justify-self-stretch grid-cols-2 items-start gap-3">
+                <div className="min-w-0">
+                  <LobbyDifficultyControl
+                    disabled={settingsDisabled}
+                    label={t("setup.difficulty")}
+                    onChange={onDifficultyChange}
+                    value={room.difficulty}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <LobbyRoundCountControl
+                    disabled={settingsDisabled}
+                    label={t("setup.levels")}
+                    onChange={onRoundCountChange}
+                    value={roomRoundCount}
+                  />
+                </div>
+              </div>
+              <div className="mt-4 grid min-w-0 grid-cols-2 gap-3">
+                <LobbySettingsButton
+                  icon={Shuffle}
+                  label={t("setup.mode")}
+                  onClick={() => setMobileSettingsModal("mode")}
                 />
                 <LobbySettingsButton
                   icon={Palette}
                   label={t("setup.waterColor")}
                   onClick={() => setMobileSettingsModal("color")}
                 />
-                <LobbySettingsButton
-                  icon={Shuffle}
-                  label={t("setup.mode")}
-                  onClick={() => setMobileSettingsModal("mode")}
-                />
               </div>
             </div>
 
             <div
-              className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:grid-cols-1 lg:gap-5"
+              className="hidden min-w-0 grid-cols-2 gap-4 md:grid lg:gap-5"
               data-screen-reveal-row="true"
               data-screen-reveal-target="children"
             >
@@ -558,8 +610,16 @@ export default function LobbyCard({
                   value={room.difficulty}
                 />
               </div>
+              <div className="min-w-0">
+                <LobbyRoundCountControl
+                  disabled={settingsDisabled}
+                  label={t("setup.levels")}
+                  onChange={onRoundCountChange}
+                  value={roomRoundCount}
+                />
+              </div>
 
-              <div className="min-w-0 md:col-span-2 lg:col-span-1">
+              <div className="min-w-0 md:col-span-2">
                 <LobbyModeGrid
                   disabled={settingsDisabled}
                   label={t("setup.mode")}

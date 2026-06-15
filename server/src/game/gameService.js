@@ -86,6 +86,7 @@ function serializeResult(result) {
     roundIndex: result.roundIndex,
     ruleMode: result.ruleMode,
     score: result.score,
+    tilt: result.tilt || 0,
     bandDiffs: result.bandDiffs || null,
     bandLevels: result.bandLevels || null,
     bandScores: result.bandScores || null,
@@ -130,20 +131,21 @@ export function buildGamePayload(room) {
 
 export function startGameForRoom(room) {
   const seed = createSeed();
+  const roundCount = room.roundCount || GAME_ROUND_COUNT;
   const modeQueue =
     room.ruleMode === GAME_RULE_MODES.CHAOS_QUEUE
-      ? createModeQueue(seed, GAME_ROUND_COUNT)
+      ? createModeQueue(seed, roundCount)
       : null;
 
   room.status = ROOM_STATUSES.IN_GAME;
   room.seed = seed;
   room.game = {
     difficulty: room.difficulty,
-    roundCount: GAME_ROUND_COUNT,
+    roundCount,
     ruleMode: room.ruleMode,
     seed,
     startedAt: now(),
-    targets: createRoundTargets(seed, GAME_ROUND_COUNT),
+    targets: createRoundTargets(seed, roundCount),
     modeQueue,
     playerWaterColorIds: serializePlayerWaterColors(room),
     waterColorId: DEFAULT_SETTINGS.waterColorId,
@@ -238,6 +240,7 @@ export function submitRoundGuess(room, payload) {
       ? target.splitTargets
       : [target.target, target.target],
     target: target.target,
+    tilt: payload.tilt,
   });
 
   player.results[roundIndex] = result;

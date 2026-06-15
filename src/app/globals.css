@@ -217,6 +217,16 @@
   text-transform: uppercase;
 }
 
+*,
+*::before,
+*::after {
+  box-shadow: none !important;
+}
+
+[class*="drop-shadow"] {
+  filter: none !important;
+}
+
 .pc-choice {
   column-gap: var(--pc-choice-gap);
   font-size: var(--pc-choice-font);
@@ -385,7 +395,6 @@ select {
   transition:
     background-color 180ms ease,
     border-color 180ms ease,
-    box-shadow 180ms ease,
     color 180ms ease;
 }
 

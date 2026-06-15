@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 import {
   DEFAULT_SETTINGS,
+  GAME_ROUND_COUNT,
   ROOM_STATUSES,
   ROOM_VISIBILITIES,
   WATER_COLOR_ID_LIST,
@@ -26,6 +27,7 @@ import {
   validateRoomName,
   validateRoomPassword,
   validateRoomVisibility,
+  validateRoundCount,
   validateRuleMode,
   validateWaterColor,
 } from "./roomValidation.js";
@@ -153,7 +155,7 @@ function ensureUniquePlayerWaterColors(room) {
 
 function getPlayerProgress(player, room) {
   const completedRounds = player.results?.filter(Boolean).length || 0;
-  const totalRounds = room?.game?.roundCount || 5;
+  const totalRounds = room?.game?.roundCount || room?.roundCount || GAME_ROUND_COUNT;
   const currentRound =
     room?.status === ROOM_STATUSES.IN_GAME
       ? Math.min(completedRounds + (player.submitted ? 0 : 1), totalRounds)
@@ -178,6 +180,7 @@ function serializeResult(result) {
     roundIndex: result.roundIndex,
     ruleMode: result.ruleMode,
     score: result.score,
+    tilt: result.tilt || 0,
     bandDiffs: result.bandDiffs || null,
     bandLevels: result.bandLevels || null,
     bandScores: result.bandScores || null,
@@ -269,6 +272,7 @@ export function getRoomSnapshot(room) {
       .sort((first, second) => first.joinedAt - second.joinedAt)
       .map((player) => serializePlayer(player, room)),
     roomCode: room.code,
+    roundCount: room.roundCount || GAME_ROUND_COUNT,
     ruleMode: room.ruleMode,
     status: room.status,
     updatedAt: room.updatedAt,
@@ -296,6 +300,7 @@ function getRoomListSnapshot(room) {
       (player) => !player.kicked,
     ).length,
     roomCode: room.code,
+    roundCount: room.roundCount || GAME_ROUND_COUNT,
     ruleMode: room.ruleMode,
     status: room.status,
     updatedAt: room.updatedAt,
@@ -395,6 +400,11 @@ function validateRoomCreatePayload(payload) {
   const waterColor = validateWaterColor(payload.waterColorId);
   if (!waterColor.ok) return waterColor;
 
+  const roundCount = validateRoundCount(
+    payload.roundCount ?? payload.levelCount ?? payload.levels,
+  );
+  if (!roundCount.ok) return roundCount;
+
   const roomName = validateRoomName(
     payload.roomName || payload.lobbyName,
     `${playerName.data.playerName}'s lobby`,
@@ -415,6 +425,7 @@ function validateRoomCreatePayload(payload) {
     playerId: playerId.data.playerId,
     playerName: playerName.data.playerName,
     roomName: roomName.data.roomName,
+    roundCount: roundCount.data.roundCount,
     ruleMode: ruleMode.data.ruleMode,
     visibility: visibility.data.visibility,
     waterColorId: waterColor.data.waterColorId,
@@ -442,6 +453,7 @@ export function createRoom(payload) {
         ? createPasswordRecord(validation.data.password)
         : null,
     players: new Map(),
+    roundCount: validation.data.roundCount,
     ruleMode: validation.data.ruleMode,
     seed: null,
     status: ROOM_STATUSES.LOBBY,
@@ -643,6 +655,18 @@ export function updateRoomSettings(payload) {
     const difficulty = validateDifficulty(payload.difficulty);
     if (!difficulty.ok) return difficulty;
     room.difficulty = difficulty.data.difficulty;
+  }
+
+  if (
+    payload.roundCount !== undefined ||
+    payload.levelCount !== undefined ||
+    payload.levels !== undefined
+  ) {
+    const roundCount = validateRoundCount(
+      payload.roundCount ?? payload.levelCount ?? payload.levels,
+    );
+    if (!roundCount.ok) return roundCount;
+    room.roundCount = roundCount.data.roundCount;
   }
 
   touchRoom(room);

@@ -8,10 +8,10 @@ function formatPercent(value) {
 
 function ResponsiveTargetBadge({ label, value }) {
   return (
-    <>
-      <span className="hidden sm:inline">{label} </span>
-      {formatPercent(value)}
-    </>
+    <span className="inline-flex items-center gap-1">
+      <span className="hidden sm:inline">{label}</span>
+      <span>{formatPercent(value)}</span>
+    </span>
   );
 }
 

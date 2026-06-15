@@ -47,7 +47,14 @@ export function calculateRoundResult({
   splitLevels = null,
   splitTargets = null,
   target,
+  tilt = 0,
 }) {
+  const parsedTilt = Number(tilt);
+  const safeTilt = roundTo(
+    clamp(Number.isFinite(parsedTilt) ? parsedTilt : 0, -1, 1),
+    2,
+  );
+
   if (ruleMode === GAME_RULE_MODES.BAND_RUN && bandLevels && bandTargets) {
     const safeBandLevels = bandLevels.map((bandLevel) =>
       roundTo(clamp(Number(bandLevel), 0, 100), 2),
@@ -78,6 +85,7 @@ export function calculateRoundResult({
       ruleMode,
       score,
       target: targetAverage,
+      tilt: safeTilt,
     };
   }
 
@@ -111,6 +119,7 @@ export function calculateRoundResult({
       splitScores,
       splitTargets: safeSplitTargets,
       target: targetAverage,
+      tilt: safeTilt,
     };
   }
 
@@ -133,6 +142,7 @@ export function calculateRoundResult({
     ruleMode,
     score,
     target,
+    tilt: safeTilt,
   };
 }
 

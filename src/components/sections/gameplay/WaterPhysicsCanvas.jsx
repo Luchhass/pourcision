@@ -1264,7 +1264,7 @@ export default function WaterPhysicsCanvas({
             (isMassBurst
               ? 1.42
               : isSteadyBurst
-                ? 1
+                ? 1.18
                 : 0.32 + stream.chunkPulse * 1.18)
           : 1;
       stepOptions.pourX = effectivePourX;

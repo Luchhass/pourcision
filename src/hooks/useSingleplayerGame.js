@@ -42,10 +42,10 @@ export const POUR_STATUSES = {
 const FULL_LEVEL_LOCK = 99.95;
 const EMPTY_LEVEL_LOCK = 0.05;
 const SETTLING_MIN_MS = 900;
-const BURST_CLICK_WINDOW_MS = 650;
-const BURST_CLICK_MIN_CLICKS = 3;
-const BURST_CLICK_MIN_CPS = 4.55;
-const BURST_CLICK_MAX_CPS = 9.4;
+const BURST_CLICK_WINDOW_MS = 460;
+const BURST_CLICK_MIN_CLICKS = 2;
+const BURST_CLICK_MIN_CPS = 4.25;
+const BURST_CLICK_MAX_CPS = 13.2;
 const CHAOS_ELIGIBLE_MODE_POOL = CHAOS_QUEUE_MODE_POOL.filter(
   (mode) => mode !== GAME_RULE_MODES.ENDLESS,
 );
@@ -106,22 +106,24 @@ function getBurstClickFlow(now, previousClicks = []) {
     };
   }
 
-  const pressure = clampPercent(
+  const rawPressure = clampPercent(
     ((cps - BURST_CLICK_MIN_CPS) / (BURST_CLICK_MAX_CPS - BURST_CLICK_MIN_CPS)) *
       100,
   ) / 100;
+  const pressure = Math.pow(rawPressure, 0.58);
 
   return {
     active: true,
     clicks: recentClicks,
-    durationMs: 230 + pressure * 100,
-    power: 0.9 + pressure * 1.1,
+    durationMs: 135 + pressure * 145,
+    power: 1.1 + pressure * 2.35,
   };
 }
 
 export function useSingleplayerGame({
   getIsSettled,
   getSplitLevels,
+  getTilt,
   getLevel,
   onRoundReset,
   modeQueue = null,
@@ -183,6 +185,7 @@ export function useSingleplayerGame({
   const getSplitLevelsRef = useRef(getSplitLevels);
   const getIsSettledRef = useRef(getIsSettled);
   const getLevelRef = useRef(getLevel);
+  const getTiltRef = useRef(getTilt);
   const onRoundResetRef = useRef(onRoundReset);
   const effectiveRuleModeRef = useRef(effectiveRuleMode);
   const phaseRef = useRef(phase);
@@ -218,6 +221,10 @@ export function useSingleplayerGame({
   useEffect(() => {
     getLevelRef.current = getLevel;
   }, [getLevel]);
+
+  useEffect(() => {
+    getTiltRef.current = getTilt;
+  }, [getTilt]);
 
   useEffect(() => {
     getIsSettledRef.current = getIsSettled;
@@ -295,6 +302,7 @@ export function useSingleplayerGame({
     const currentRuleMode = effectiveRuleModeRef.current;
     const sourceLevel = getLevelRef.current?.() ?? 0;
     const level = Math.round(clampPercent(sourceLevel) * 100) / 100;
+    const tilt = getTiltRef.current?.() ?? 0;
     const splitLevels = getSplitLevelsRef.current?.();
     const currentBandTargets = bandTargetsRef.current;
 
@@ -322,6 +330,7 @@ export function useSingleplayerGame({
         roundIndex: roundIndexRef.current,
         ruleMode: currentRuleMode,
         target: targetRef.current,
+        tilt,
       });
       const nextResults = [...resultsRef.current, result];
 
@@ -344,6 +353,7 @@ export function useSingleplayerGame({
       splitLevels,
       splitTargets: splitTargetsRef.current,
       target: targetRef.current,
+      tilt,
     });
     const nextResults = [...resultsRef.current, result];
 

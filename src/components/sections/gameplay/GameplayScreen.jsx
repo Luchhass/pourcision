@@ -302,6 +302,7 @@ export default function GameplayScreen({
   const gameplayRevealKeyRef = useRef("");
   const gameplayRevealTimelineRef = useRef(null);
   const gameplayRootRef = useRef(null);
+  const gameplayTiltLayerRef = useRef(null);
   const resultSoundKeyRef = useRef("");
   const soundStatusRef = useRef("");
   const splitLeftLevelRef = useRef(0);
@@ -324,6 +325,7 @@ export default function GameplayScreen({
   const [activeSplitIndex, setActiveSplitIndex] = useState(0);
   const activeSplitIndexRef = useRef(0);
   const [chaosBriefingRound, setChaosBriefingRound] = useState(-1);
+  const [blackoutVisible, setBlackoutVisible] = useState(false);
   const [flashTargetVisible, setFlashTargetVisible] = useState(false);
   const [visibleResultKey, setVisibleResultKey] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -351,6 +353,7 @@ export default function GameplayScreen({
     () => [splitLeftSurfaceLevelRef.current, splitRightSurfaceLevelRef.current],
     [],
   );
+  const getTilt = useCallback(() => tiltRef.current, []);
   const resetWaterLevel = useCallback((nextRuleMode = ruleMode) => {
     const nextLevel = getInitialLevelForMode(nextRuleMode);
 
@@ -390,9 +393,11 @@ export default function GameplayScreen({
   } = useFillGame({
     getIsSettled: getWaterSettled,
     getSplitLevels,
+    getTilt,
     getLevel: getWaterLevel,
     modeQueue: settings?.modeQueue,
     onRoundReset: resetWaterLevel,
+    roundCount: settings?.roundCount,
     ruleMode,
     targetSeed: settings?.targetSeed,
     targets: gameTargets,
@@ -408,15 +413,8 @@ export default function GameplayScreen({
   const isBandRunMode = activeRuleMode === GAME_RULE_MODES.BAND_RUN;
   const isChargePourMode = activeRuleMode === GAME_RULE_MODES.CHARGE_POUR;
   const isBurstClickMode = activeRuleMode === GAME_RULE_MODES.BURST_CLICK;
-  const isColorblindMode = activeRuleMode === GAME_RULE_MODES.COLORBLIND;
-  const waterColor = isColorblindMode
-    ? {
-        id: "colorblind",
-        name: "Colorblind",
-        value: "#0d0d0c",
-        text: "#f7f7f2",
-      }
-    : selectedWaterColor;
+  const isBlackoutBlindMode = activeRuleMode === GAME_RULE_MODES.COLORBLIND;
+  const waterColor = selectedWaterColor;
   const canvasStatus =
     isChargePourMode && status === "filling" ? "idle" : status;
   const isPulsePourMode = isChargePourMode || isBurstClickMode;
@@ -510,6 +508,31 @@ export default function GameplayScreen({
       window.clearTimeout(hideTimerId);
     };
   }, [isFlashMode, isIntroPhase, isResultPhase, roundIndex, shouldShowChaosBriefing]);
+
+  useEffect(() => {
+    if (
+      !isBlackoutBlindMode ||
+      isIntroPhase ||
+      isResultPhase ||
+      shouldShowChaosBriefing
+    ) {
+      setBlackoutVisible(false);
+      return undefined;
+    }
+
+    setBlackoutVisible(false);
+    const timerId = window.setTimeout(() => {
+      setBlackoutVisible(true);
+    }, 1000);
+
+    return () => window.clearTimeout(timerId);
+  }, [
+    isBlackoutBlindMode,
+    isIntroPhase,
+    isResultPhase,
+    roundIndex,
+    shouldShowChaosBriefing,
+  ]);
 
   useLayoutEffect(() => {
     const root = gameplayRootRef.current;
@@ -1151,7 +1174,7 @@ export default function GameplayScreen({
   }, []);
 
   useEffect(() => {
-    const root = gameplayRootRef.current;
+    const root = gameplayTiltLayerRef.current;
 
     if (!isTiltMode) {
       tiltRef.current = 0;
@@ -1207,10 +1230,10 @@ export default function GameplayScreen({
       updateTargetGuideTilt(nextTilt);
       if (root) {
         const shakeX =
-          Math.sin(seconds * 16.8) * 6.4 + Math.sin(seconds * 5.6) * 3.2;
+          Math.sin(seconds * 18.4) * 8.6 + Math.sin(seconds * 6.3) * 4.1;
         const shakeY =
-          Math.cos(seconds * 14.2) * 4.6 + Math.sin(seconds * 7.7) * 2.2;
-        root.style.transform = `translate3d(${shakeX}px, ${shakeY}px, 0) rotate(${nextTilt * 2.85}deg) scale(1.07)`;
+          Math.cos(seconds * 15.6) * 6.2 + Math.sin(seconds * 8.5) * 2.9;
+        root.style.transform = `translate3d(${shakeX}px, ${shakeY}px, 0) rotate(${nextTilt * 3.55}deg) scale(1.095)`;
       }
       animationFrameId = window.requestAnimationFrame(tick);
     };
@@ -1317,123 +1340,129 @@ export default function GameplayScreen({
         <PourIntroPhase key={roundIndex} onComplete={completeIntro} />
       ) : null}
 
-      {shouldShowTargetGuide ? (
-        <PourTargetGuide
-          fakeTarget={fakeTarget}
-          isResultPhase={isResultPhase}
-          target={target}
-          targetWindow={
-            isPerfectOrNothingMode ? PERFECT_ZONE_RADIUS * 2 : 0
-          }
-          targetGuideLabelRef={targetGuideLabelRef}
-          targetGuideLineRef={targetGuideLineRef}
-          showBadge={!isFlashMode || isResultPhase}
-        />
-      ) : null}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-20"
+        ref={gameplayTiltLayerRef}
+      >
+        {shouldShowTargetGuide ? (
+          <PourTargetGuide
+            fakeTarget={fakeTarget}
+            isResultPhase={isResultPhase}
+            target={target}
+            targetWindow={
+              isPerfectOrNothingMode ? PERFECT_ZONE_RADIUS * 2 : 0
+            }
+            targetGuideLabelRef={targetGuideLabelRef}
+            targetGuideLineRef={targetGuideLineRef}
+            showBadge={!isFlashMode || isResultPhase}
+          />
+        ) : null}
 
-      {shouldShowSplitTargets ? (
-        <SplitTargetGuides splitTargets={splitTargets} />
-      ) : null}
+        {shouldShowSplitTargets ? (
+          <SplitTargetGuides splitTargets={splitTargets} />
+        ) : null}
 
-      {shouldShowBandTargets ? (
-        <BandTargetGuides
-          activeIndex={bandAttemptIndex}
-          bandTargets={bandTargets}
-        />
-      ) : null}
+        {shouldShowBandTargets ? (
+          <BandTargetGuides
+            activeIndex={bandAttemptIndex}
+            bandTargets={bandTargets}
+          />
+        ) : null}
 
-      {isSplitFillMode ? (
-        <>
+        {isSplitFillMode ? (
+          <>
+            <WaterPhysicsCanvas
+              className="pointer-events-none absolute inset-0 z-20 h-full w-full will-change-transform"
+              difficulty={difficulty}
+              initialLevel={0}
+              isPourActive={status === "filling"}
+              levelRef={splitStreamLevelRef}
+              pourXRef={pourXRef}
+              renderStream
+              roundIndex={roundIndex}
+              status={status}
+              streamOnly
+              surfaceLevelRef={null}
+              tiltRef={tiltRef}
+              waterColor={waterColor}
+            />
+            <WaterPhysicsCanvas
+              className="pointer-events-none absolute left-0 top-0 z-10 h-full w-1/2 border-r border-[#0d0d0c]/10 will-change-transform dark:border-[#f7f7f2]/12"
+              difficulty={difficulty}
+              initialLevel={0}
+              isPourActive={activeSplitIndex === 0}
+              levelRef={splitLeftLevelRef}
+              pourXRef={splitLeftPourXRef}
+              roundIndex={roundIndex}
+              settledRef={splitLeftSettledRef}
+              status={
+                status === "filling"
+                  ? "filling"
+                  : status === "result" || status === "intro"
+                    ? status
+                    : "idle"
+              }
+              surfaceLevelRef={splitLeftSurfaceLevelRef}
+              tiltRef={tiltRef}
+              waterColor={waterColor}
+              renderStream={false}
+            />
+            <WaterPhysicsCanvas
+              className="pointer-events-none absolute right-0 top-0 z-10 h-full w-1/2 will-change-transform"
+              difficulty={difficulty}
+              initialLevel={0}
+              isPourActive={activeSplitIndex === 1}
+              levelRef={splitRightLevelRef}
+              pourXRef={splitRightPourXRef}
+              roundIndex={roundIndex}
+              settledRef={splitRightSettledRef}
+              status={
+                status === "filling"
+                  ? "filling"
+                  : status === "result" || status === "intro"
+                    ? status
+                    : "idle"
+              }
+              surfaceLevelRef={splitRightSurfaceLevelRef}
+              tiltRef={tiltRef}
+              waterColor={waterColor}
+              renderStream={false}
+            />
+          </>
+        ) : (
           <WaterPhysicsCanvas
-            className="pointer-events-none absolute inset-0 z-20 h-full w-full will-change-transform"
+            burstPattern={
+              isBurstClickMode ? "steady" : isChargePourMode ? "mass" : "chunked"
+            }
+            chargePowerRef={chargePowerRef}
             difficulty={difficulty}
-            initialLevel={0}
-            isPourActive={status === "filling"}
-            levelRef={splitStreamLevelRef}
+            initialLevel={initialWaterLevel}
+            isPourActive={
+              isPulsePourMode ? status === "burst" : status === "filling"
+            }
+            isInvertedWater={isInvertMode}
+            isReversePour={isReversePourMode}
+            levelRef={waterLevelRef}
             pourXRef={pourXRef}
-            renderStream
             roundIndex={roundIndex}
-            status={status}
-            streamOnly
-            surfaceLevelRef={null}
+            settledRef={waterSettledRef}
+            status={canvasStatus}
+            surfaceLevelRef={waterSurfaceLevelRef}
             tiltRef={tiltRef}
             waterColor={waterColor}
           />
-          <WaterPhysicsCanvas
-            className="pointer-events-none absolute left-0 top-0 z-10 h-full w-1/2 border-r border-[#0d0d0c]/10 will-change-transform dark:border-[#f7f7f2]/12"
-            difficulty={difficulty}
-            initialLevel={0}
-            isPourActive={activeSplitIndex === 0}
-            levelRef={splitLeftLevelRef}
-            pourXRef={splitLeftPourXRef}
-            roundIndex={roundIndex}
-            settledRef={splitLeftSettledRef}
-            status={
-              status === "filling"
-                ? "filling"
-                : status === "result" || status === "intro"
-                  ? status
-                  : "idle"
-            }
-            surfaceLevelRef={splitLeftSurfaceLevelRef}
-            tiltRef={tiltRef}
-            waterColor={waterColor}
-            renderStream={false}
-          />
-          <WaterPhysicsCanvas
-            className="pointer-events-none absolute right-0 top-0 z-10 h-full w-1/2 will-change-transform"
-            difficulty={difficulty}
-            initialLevel={0}
-            isPourActive={activeSplitIndex === 1}
-            levelRef={splitRightLevelRef}
-            pourXRef={splitRightPourXRef}
-            roundIndex={roundIndex}
-            settledRef={splitRightSettledRef}
-            status={
-              status === "filling"
-                ? "filling"
-                : status === "result" || status === "intro"
-                  ? status
-                  : "idle"
-            }
-            surfaceLevelRef={splitRightSurfaceLevelRef}
-            tiltRef={tiltRef}
-            waterColor={waterColor}
-            renderStream={false}
-          />
-        </>
-      ) : (
-        <WaterPhysicsCanvas
-          burstPattern={
-            isBurstClickMode ? "steady" : isChargePourMode ? "mass" : "chunked"
-          }
-          chargePowerRef={chargePowerRef}
-          difficulty={difficulty}
-          initialLevel={initialWaterLevel}
-          isPourActive={
-            isPulsePourMode ? status === "burst" : status === "filling"
-          }
-          isInvertedWater={isInvertMode}
-          isReversePour={isReversePourMode}
-          levelRef={waterLevelRef}
-          pourXRef={pourXRef}
-          roundIndex={roundIndex}
-          settledRef={waterSettledRef}
-          status={canvasStatus}
-          surfaceLevelRef={waterSurfaceLevelRef}
-          tiltRef={tiltRef}
-          waterColor={waterColor}
-        />
-      )}
+        )}
 
-      {isMultiplayer ? (
-        <OpponentWaterLayers
-          opponentWaterStates={opponentWaterStates}
-          playerId={playerId}
-          roundIndex={roundIndex}
-          settings={settings}
-        />
-      ) : null}
+        {isMultiplayer ? (
+          <OpponentWaterLayers
+            opponentWaterStates={opponentWaterStates}
+            playerId={playerId}
+            roundIndex={roundIndex}
+            settings={settings}
+          />
+        ) : null}
+      </div>
 
       <section className="relative z-30 grid h-full grid-rows-[auto_1fr_auto]">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
@@ -1568,6 +1597,14 @@ export default function GameplayScreen({
           </div>
         </section>
       </section>
+      <div
+        aria-hidden="true"
+        className={[
+          "pointer-events-none absolute inset-0 z-[70] bg-[#050504]",
+          "transition-opacity duration-[900ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
+          blackoutVisible ? "opacity-100" : "opacity-0",
+        ].join(" ")}
+      />
       {showExitConfirm ? (
         <PourExitDialog
           onCancel={() => setShowExitConfirm(false)}
