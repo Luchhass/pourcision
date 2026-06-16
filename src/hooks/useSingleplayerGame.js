@@ -477,7 +477,11 @@ export function useSingleplayerGame({
   const finishIntro = useCallback(() => {
     if (phaseRef.current !== GAME_PHASES.INTRO) return;
 
-    setPourStatusValue(POUR_STATUSES.IDLE);
+    setPourStatusValue(
+      effectiveRuleModeRef.current === GAME_RULE_MODES.AUTO_RISE
+        ? POUR_STATUSES.FILLING
+        : POUR_STATUSES.IDLE,
+    );
     setPhaseValue(GAME_PHASES.POUR);
   }, [setPhaseValue, setPourStatusValue]);
 

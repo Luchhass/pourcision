@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { KeyRound } from "lucide-react";
+import RedeemCodeModal from "@/components/layout/RedeemCodeModal";
 import SoundToggle from "@/components/layout/SoundToggle";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import { useTranslation } from "@/hooks/useLanguage";
@@ -8,6 +10,7 @@ import { playActiveScreenExit } from "@/hooks/useScreenReveal";
 
 export default function PageUtilitySwitches({ placement = "inline", tone = "dark" }) {
   const { locale, nextLocale, setLanguage, t } = useTranslation();
+  const [isRedeemOpen, setIsRedeemOpen] = useState(false);
   const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
   const isRail = placement === "rail";
   const switchClass =
@@ -39,20 +42,33 @@ export default function PageUtilitySwitches({ placement = "inline", tone = "dark
   };
 
   return (
-    <section className={sectionClass} data-utility-placement={placement}>
-      <div className={switchGroupClass}>
-        <button
-          aria-label={t("utility.language")}
-          className={buttonClass}
-          disabled={isSwitchingLanguage}
-          onClick={handleLanguageSwitch}
-          type="button"
-        >
-          <span className="pc-choice-text">{locale.toUpperCase()}</span>
-        </button>
-        <SoundToggle className={buttonClass} />
-        <ThemeToggle className={buttonClass} />
-      </div>
-    </section>
+    <>
+      <section className={sectionClass} data-utility-placement={placement}>
+        <div className={switchGroupClass}>
+          <button
+            aria-label={t("utility.language")}
+            className={buttonClass}
+            disabled={isSwitchingLanguage}
+            onClick={handleLanguageSwitch}
+            type="button"
+          >
+            <span className="pc-choice-text">{locale.toUpperCase()}</span>
+          </button>
+          <SoundToggle className={buttonClass} />
+          <ThemeToggle className={buttonClass} />
+          <button
+            aria-label={t("utility.redeem")}
+            className={buttonClass}
+            onClick={() => setIsRedeemOpen(true)}
+            type="button"
+          >
+            <KeyRound aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+          </button>
+        </div>
+      </section>
+      {isRedeemOpen ? (
+        <RedeemCodeModal onClose={() => setIsRedeemOpen(false)} />
+      ) : null}
+    </>
   );
 }

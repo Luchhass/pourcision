@@ -28,6 +28,7 @@ export const GAME_RULE_MODES = {
   CHARGE_POUR: "charge-pour",
   BURST_CLICK: "burst-click",
   COLORBLIND: "colorblind",
+  AUTO_RISE: "auto-rise",
 };
 
 export const GAME_DIFFICULTIES = {
@@ -62,6 +63,7 @@ export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CHARGE_POUR,
   GAME_RULE_MODES.BURST_CLICK,
   GAME_RULE_MODES.COLORBLIND,
+  GAME_RULE_MODES.AUTO_RISE,
 ];
 
 export const MODE_GRID_ORDER = [
@@ -78,9 +80,12 @@ export const MODE_GRID_ORDER = [
   GAME_RULE_MODES.CHARGE_POUR,
   GAME_RULE_MODES.BURST_CLICK,
   GAME_RULE_MODES.COLORBLIND,
+  GAME_RULE_MODES.AUTO_RISE,
   GAME_RULE_MODES.TILT,
   GAME_RULE_MODES.CHAOS_QUEUE,
 ];
+
+export const RANDOM_WATER_COLOR_ID = "random";
 
 export const WATER_COLORS = [
   {
@@ -100,6 +105,14 @@ export const WATER_COLORS = [
     name: "Red",
     value: "#ff746d",
     text: "#61322f",
+  },
+  {
+    id: RANDOM_WATER_COLOR_ID,
+    name: "Random",
+    value: "#d8d8d2",
+    text: "#34342f",
+    labelColor: "#5e5e57",
+    isRandom: true,
   },
   {
     id: "mint",
@@ -203,7 +216,122 @@ export const WATER_COLORS = [
     value: "#f7a4c9",
     text: "#663d50",
   },
+  {
+    id: "rgb",
+    name: "RGB",
+    value: "#7ce3ef",
+    animated: true,
+    background:
+      "linear-gradient(120deg, #ff4f6d 0%, #ffca3a 16%, #8ac926 32%, #3ddcff 50%, #5271ff 68%, #b44cff 84%, #ff4f6d 100%)",
+    stops: ["#ff4f6d", "#ffca3a", "#8ac926", "#3ddcff", "#5271ff", "#b44cff"],
+    text: "#203042",
+  },
+  {
+    id: "dream-pop",
+    name: "Dream Pop",
+    value: "#c9f3f7",
+    animated: true,
+    background:
+      "linear-gradient(125deg, #f8fff6 0%, #c9f3f7 18%, #d9d2ff 38%, #ffd3ea 58%, #fff1c8 78%, #d8ffd7 100%)",
+    stops: ["#f8fff6", "#c9f3f7", "#d9d2ff", "#ffd3ea", "#fff1c8", "#d8ffd7"],
+    text: "#566073",
+  },
+  {
+    id: "pink-violet",
+    name: "Pink Violet",
+    value: "#a64cf4",
+    animated: true,
+    background:
+      "linear-gradient(115deg, #7257ff 0%, #854fff 20%, #9d48f4 40%, #b841e7 62%, #cb3dcc 80%, #d63d96 100%)",
+    stops: ["#7257ff", "#854fff", "#9d48f4", "#b841e7", "#cb3dcc", "#d63d96"],
+    text: "#20122f",
+  },
+  {
+    id: "peach-glow",
+    name: "Peach Glow",
+    value: "#ffc2a6",
+    animated: true,
+    background:
+      "linear-gradient(125deg, #ffe8dc 0%, #ffd1bd 20%, #ffad9f 42%, #ffc46f 64%, #ff8fb3 84%, #fff0cf 100%)",
+    stops: ["#ffe8dc", "#ffd1bd", "#ffad9f", "#ffc46f", "#ff8fb3", "#fff0cf"],
+    text: "#704333",
+  },
+  {
+    id: "mermaid",
+    name: "Mermaid",
+    value: "#72eadf",
+    animated: true,
+    background:
+      "linear-gradient(120deg, #92f6d6 0%, #57d9ef 24%, #4aa2ff 52%, #7cecf4 78%, #92f6d6 100%)",
+    stops: ["#92f6d6", "#57d9ef", "#4aa2ff", "#7cecf4", "#92f6d6"],
+    text: "#164c5c",
+  },
+  {
+    id: "candy-luxe",
+    name: "Candy Luxe",
+    value: "#ff9bd8",
+    animated: true,
+    background:
+      "linear-gradient(120deg, #ffc4ef 0%, #ff8ccf 24%, #a977ff 50%, #74e5ff 76%, #ffc4ef 100%)",
+    stops: ["#ffc4ef", "#ff8ccf", "#a977ff", "#74e5ff", "#ffc4ef"],
+    text: "#54365f",
+  },
 ];
+
+export const PLAYABLE_WATER_COLORS = WATER_COLORS.filter(
+  (color) => !color.isRandom,
+);
+
+export const PREMIUM_WATER_COLOR_IDS = [
+  "rgb",
+  "dream-pop",
+  "pink-violet",
+  "peach-glow",
+  "mermaid",
+  "candy-luxe",
+];
+
+export const DEFAULT_WATER_COLORS = WATER_COLORS.filter(
+  (color) => !PREMIUM_WATER_COLOR_IDS.includes(color.id),
+);
+
+export const DEFAULT_PLAYABLE_WATER_COLORS = DEFAULT_WATER_COLORS.filter(
+  (color) => !color.isRandom,
+);
+
+export function getVisibleWaterColors(includePremium = false) {
+  return includePremium ? WATER_COLORS : DEFAULT_WATER_COLORS;
+}
+
+export function getPlayableWaterColors(includePremium = false) {
+  return includePremium ? PLAYABLE_WATER_COLORS : DEFAULT_PLAYABLE_WATER_COLORS;
+}
+
+export function resolveWaterColorId(value, options = {}) {
+  if (value !== RANDOM_WATER_COLOR_ID) {
+    return PLAYABLE_WATER_COLORS.some((color) => color.id === value)
+      ? value
+      : DEFAULT_PLAYABLE_WATER_COLORS[2]?.id ||
+          DEFAULT_PLAYABLE_WATER_COLORS[0]?.id ||
+          PLAYABLE_WATER_COLORS[0]?.id ||
+          "red";
+  }
+
+  const excluded = new Set(options.excludeIds || []);
+  const playableColors = getPlayableWaterColors(options.includePremiumColors);
+  const availableColors = playableColors.filter(
+    (color) => !excluded.has(color.id),
+  );
+  const colorPool = availableColors.length ? availableColors : playableColors;
+  const randomIndex = Math.floor(Math.random() * colorPool.length);
+
+  return (
+    colorPool[randomIndex]?.id ||
+    DEFAULT_PLAYABLE_WATER_COLORS[0]?.id ||
+    PLAYABLE_WATER_COLORS[0]?.id ||
+    "red"
+  );
+}
 
 export const DIFFICULTY_OPTIONS = [
   {
@@ -312,6 +440,12 @@ export const GAME_MODE_OPTIONS = [
     id: GAME_RULE_MODES.COLORBLIND,
     label: "Blind",
     description: "The screen fades to black one second after the round starts.",
+    oneHold: true,
+  },
+  {
+    id: GAME_RULE_MODES.AUTO_RISE,
+    label: "Auto Rise",
+    description: "Water rises from center. Touch once to stop it.",
     oneHold: true,
   },
 ];

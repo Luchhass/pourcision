@@ -11,9 +11,10 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@/hooks/useLanguage";
 import { createPlayerId, useRoomSession } from "@/hooks/useRoomSession";
 import { useMultiplayerRoom } from "@/hooks/useMultiplayerRoom";
+import { useRedeemCodes } from "@/hooks/useRedeemCodes";
 import { playActiveScreenExit } from "@/hooks/useScreenReveal";
 import { trackEvent } from "@/lib/analytics";
-import { ROUTES } from "@/lib/constants";
+import { resolveWaterColorId, ROUTES } from "@/lib/constants";
 import {
   getFallbackWaterColorId,
   getWaterColorPreferenceSnapshot,
@@ -80,6 +81,7 @@ function canStartLobbyGame(room) {
 export default function MultiplayerRoomClient({ roomCode }) {
   const router = useRouter();
   const { t } = useTranslation();
+  const { visibleWaterColors } = useRedeemCodes();
   const { clearSession, isLoaded, saveSession, session } = useRoomSession(roomCode);
   const {
     closedMessage,
@@ -187,13 +189,18 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const handleJoin = async (playerName, password = "") => {
     setIsJoining(true);
     setError("");
+    const resolvedWaterColorId = resolveWaterColorId(preferredWaterColorId, {
+      excludeIds:
+        room?.players?.map((roomPlayer) => roomPlayer.waterColorId).filter(Boolean) ||
+        [],
+    });
 
     const nextPlayer = {
       isHost: false,
       playerId: createPlayerId(),
       playerName: playerName.trim() || t("room.defaultPlayer"),
       roomCode,
-      waterColorId: preferredWaterColorId,
+      waterColorId: resolvedWaterColorId,
     };
     const response = await joinRoom({
       ...nextPlayer,
@@ -290,12 +297,19 @@ export default function MultiplayerRoomClient({ roomCode }) {
 
   const handleUpdatePlayerColor = async (waterColorId) => {
     if (!currentPlayer) return;
+    const resolvedWaterColorId = resolveWaterColorId(waterColorId, {
+      excludeIds:
+        room?.players
+          ?.filter((roomPlayer) => roomPlayer.id !== currentPlayer.id)
+          .map((roomPlayer) => roomPlayer.waterColorId)
+          .filter(Boolean) || [],
+    });
 
     setIsUpdatingPlayerColor(true);
     setError("");
     const response = await updatePlayerColor({
       playerId: currentPlayer.id,
-      waterColorId,
+      waterColorId: resolvedWaterColorId,
     });
     setIsUpdatingPlayerColor(false);
 
@@ -306,7 +320,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
 
     saveStoredWaterColorId(waterColorId);
     if (session) {
-      saveSession({ ...session, waterColorId });
+      saveSession({ ...session, waterColorId: resolvedWaterColorId });
     }
   };
 
@@ -418,6 +432,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const lobbyWaterColorPanel =
     effectiveView === "lobby" && room && currentPlayer ? (
       <LobbyWaterColorPanel
+        colors={visibleWaterColors}
         disabled={isUpdatingPlayerColor}
         label={t("setup.waterColor")}
         onChange={handleUpdatePlayerColor}

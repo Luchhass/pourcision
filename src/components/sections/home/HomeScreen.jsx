@@ -19,6 +19,7 @@ import {
   APP_NAME,
   GAME_ROUND_COUNT,
   MENU_MODES,
+  resolveWaterColorId,
   ROUTES,
   WATER_COLORS,
 } from "@/lib/constants";
@@ -322,37 +323,43 @@ export default function HomeScreen({
   const handleStartGame = async (settings) => {
     setMenuError("");
     saveStoredWaterColorId(settings.waterColorId);
+    const resolvedWaterColorId = resolveWaterColorId(settings.waterColorId);
+    const resolvedSettings = {
+      ...settings,
+      waterColorId: resolvedWaterColorId,
+    };
 
-    if (settings.mode === MENU_MODES.MULTIPLAYER) {
+    if (resolvedSettings.mode === MENU_MODES.MULTIPLAYER) {
       setIsCreatingRoom(true);
 
       const playerId = createPlayerId();
-      const playerName = settings.playerName?.trim() || t("room.defaultPlayer");
-      const isJoiningLobby = settings.action === "join";
-      const lobbyVisibility = settings.visibility || "public";
+      const playerName =
+        resolvedSettings.playerName?.trim() || t("room.defaultPlayer");
+      const isJoiningLobby = resolvedSettings.action === "join";
+      const lobbyVisibility = resolvedSettings.visibility || "public";
       const response = isJoiningLobby
         ? await emitWithAck("room:join", {
-            password: settings.password || "",
+            password: resolvedSettings.password || "",
             playerId,
             playerName,
-            roomCode: settings.roomCode,
-            waterColorId: settings.waterColorId,
+            roomCode: resolvedSettings.roomCode,
+            waterColorId: resolvedWaterColorId,
           })
         : await emitWithAck("room:create", {
-            difficulty: settings.difficulty,
+            difficulty: resolvedSettings.difficulty,
             hostName: playerName,
             hostPlayerId: playerId,
             playerName,
             playerId,
             password:
-              lobbyVisibility === "private" ? settings.password || "" : "",
+              lobbyVisibility === "private" ? resolvedSettings.password || "" : "",
             roomName:
-              settings.roomName?.trim() ||
+              resolvedSettings.roomName?.trim() ||
               t("setup.playerLobbyName", { name: playerName }),
-            roundCount: settings.roundCount || GAME_ROUND_COUNT,
-            ruleMode: settings.ruleMode,
+            roundCount: resolvedSettings.roundCount || GAME_ROUND_COUNT,
+            ruleMode: resolvedSettings.ruleMode,
             visibility: lobbyVisibility,
-            waterColorId: settings.waterColorId,
+            waterColorId: resolvedWaterColorId,
           });
 
       setIsCreatingRoom(false);
@@ -366,10 +373,11 @@ export default function HomeScreen({
       }
 
       const data = responseData(response);
-      const nextRoomCode = data.roomCode || data.room?.code || settings.roomCode;
+      const nextRoomCode =
+        data.roomCode || data.room?.code || resolvedSettings.roomCode;
       trackEvent(isJoiningLobby ? "lobby_join" : "lobby_create", {
-        difficulty: settings.difficulty,
-        game_mode: settings.ruleMode,
+        difficulty: resolvedSettings.difficulty,
+        game_mode: resolvedSettings.ruleMode,
         game_type: "multiplayer",
         lobby_visibility: lobbyVisibility,
       });
@@ -378,15 +386,16 @@ export default function HomeScreen({
         playerId,
         playerName,
         roomCode: nextRoomCode,
-        waterColorId: settings.waterColorId,
+        waterColorId: resolvedWaterColorId,
       });
       router.push(`/${nextRoomCode}`);
       return;
     }
 
     const nextSettings = {
-      ...settings,
-      targetSeed: settings.targetSeed || createTargetSeed(settings),
+      ...resolvedSettings,
+      targetSeed:
+        resolvedSettings.targetSeed || createTargetSeed(resolvedSettings),
     };
 
     setGameSettings(nextSettings);
@@ -474,6 +483,8 @@ export default function HomeScreen({
       style={{
         "--home-split-x": "50vw",
         "--home-water-color": selectedWaterColor.value,
+        "--home-water-background":
+          selectedWaterColor.background || selectedWaterColor.value,
       }}
     >
       <PageUtilitySwitches placement="rail" />
@@ -538,13 +549,15 @@ export default function HomeScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--home-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 [background:var(--home-water-background)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:[background:#161616]"
             data-home-water="true"
+            data-premium-water={selectedWaterColor.animated ? "true" : undefined}
             data-screen-reveal="water-bg"
           >
             <WaterColorWipe
-              color={selectedWaterColor.value}
-              property="--home-water-color"
+              animated={selectedWaterColor.animated}
+              color={selectedWaterColor.background || selectedWaterColor.value}
+              property="--home-water-background"
             />
             <SectionWord
               primary={t("game.timing")}

@@ -239,8 +239,9 @@ function PlayerResultHeader({
         "transition-transform duration-200",
       ].join(" ")}
       data-screen-reveal-atomic="true"
+      data-premium-water={waterColor?.animated ? "true" : undefined}
       style={{
-        backgroundColor: waterColor?.value || "#f7f7f2",
+        background: waterColor?.background || waterColor?.value || "#f7f7f2",
         color: inkColor,
       }}
     >
@@ -348,9 +349,10 @@ function RoundCard({
                 "absolute bottom-0 z-[1] w-1/2",
                 index === 0 ? "left-0" : "right-0",
               ].join(" ")}
+              data-premium-water={cardWaterColor.animated ? "true" : undefined}
               key={`split-water-${index}`}
               style={{
-                backgroundColor: cardWaterColor.value,
+                background: cardWaterColor.background || cardWaterColor.value,
                 height: `${level}%`,
               }}
             />
@@ -375,8 +377,9 @@ function RoundCard({
         <span
           aria-hidden="true"
           className="absolute inset-x-0 z-[1]"
+          data-premium-water={cardWaterColor.animated ? "true" : undefined}
           style={{
-            backgroundColor: cardWaterColor.value,
+            background: cardWaterColor.background || cardWaterColor.value,
             ...waterPosition,
             ...waterTexture,
           }}
@@ -427,7 +430,11 @@ function RoundCard({
         <span
           aria-hidden="true"
           className="absolute left-1/2 top-0 z-[4] h-[48%] w-2.5 -translate-x-1/2 sm:w-3"
-          style={{ backgroundColor: cardWaterColor.value, opacity: 0.72 }}
+          data-premium-water={cardWaterColor.animated ? "true" : undefined}
+          style={{
+            background: cardWaterColor.background || cardWaterColor.value,
+            opacity: 0.72,
+          }}
         />
       ) : null}
       {effectiveRuleMode !== GAME_RULE_MODES.CLASSIC ? (
@@ -460,26 +467,34 @@ function LeaderboardResultsList({
   return (
     <div
       className="grid h-full min-h-0 min-w-0 content-start gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-5 [&::-webkit-scrollbar]:hidden"
-      data-screen-reveal-row="true"
-      data-screen-reveal-target="children"
     >
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
         const playerWaterColor = getWaterColorById(player.waterColorId, waterColor);
+        const revealBaseDelay = index * 0.52;
 
         return (
           <section
             className="grid min-w-0 gap-[3px]"
             key={player.id || `${player.name}-${index}`}
           >
-            <PlayerResultHeader
-              dark={dark}
-              index={index}
-              player={player}
-              waterColor={playerWaterColor}
-            />
+            <div
+              data-screen-reveal-delay={revealBaseDelay.toFixed(2)}
+              data-screen-reveal-row="true"
+            >
+              <PlayerResultHeader
+                dark={dark}
+                index={index}
+                player={player}
+                waterColor={playerWaterColor}
+              />
+            </div>
             {playerRounds.length ? (
-              <div className="grid min-w-0 grid-cols-5 gap-[3px]">
+              <div
+                className="grid min-w-0 grid-cols-5 gap-[3px]"
+                data-screen-reveal-delay={(revealBaseDelay + 0.34).toFixed(2)}
+                data-screen-reveal-row="true"
+              >
                 {playerRounds.map((result) => (
                   <RoundCard
                     compact

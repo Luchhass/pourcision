@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
+  ArrowUp,
   BatteryCharging,
   CircleDot,
   Columns2,
@@ -29,6 +30,7 @@ import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import LobbyListPanel from "@/components/sections/setup/LobbyListPanel";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
+import { useRedeemCodes } from "@/hooks/useRedeemCodes";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
 import {
   DEFAULT_DIFFICULTY_ID,
@@ -219,6 +221,12 @@ const ruleModeOptions = [
     icon: EyeOff,
     title: "Blind",
     description: "The screen fades out after the round begins.",
+  },
+  {
+    id: GAME_RULE_MODES.AUTO_RISE,
+    icon: ArrowUp,
+    title: "Auto Rise",
+    description: "Water rises from center. Touch once to stop it.",
   },
 ];
 
@@ -509,6 +517,7 @@ function getWaterColorWheelStep(slider, compact = false) {
 }
 
 function WaterColorSelect({
+  colors = WATER_COLORS,
   label,
   value,
   onChange,
@@ -516,6 +525,8 @@ function WaterColorSelect({
   showLabel = true,
 }) {
   const { t } = useTranslation();
+  const safeColors = colors.length ? colors : WATER_COLORS;
+  const colorCount = safeColors.length;
   const {
     handleClickCapture,
     handlePointerCancel,
@@ -525,14 +536,17 @@ function WaterColorSelect({
     handleScroll,
     handleWheel,
     sliderRef,
-  } = useLoopingSlider(WATER_COLORS.length, {
+  } = useLoopingSlider(colorCount, {
     getWheelStep: (slider) => getWaterColorWheelStep(slider, compact),
     loop: "always",
     wheelDuration: 0.78,
   });
   const selectedColor =
-    WATER_COLORS.find((color) => color.id === value) ?? WATER_COLORS[0];
-  const visibleColors = [...WATER_COLORS, ...WATER_COLORS, ...WATER_COLORS];
+    safeColors.find((color) => color.id === value) ??
+    WATER_COLORS.find((color) => color.id === value) ??
+    safeColors[0] ??
+    WATER_COLORS[0];
+  const visibleColors = [...safeColors, ...safeColors, ...safeColors];
 
   const handleColorSelect = (colorId, colorIndex) => {
     playWaterColorSelect(colorIndex);
@@ -544,7 +558,10 @@ function WaterColorSelect({
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}{" "}
-          <span data-water-color-name="true" style={{ color: selectedColor.value }}>
+          <span
+            data-water-color-name="true"
+            style={{ color: selectedColor.labelColor || selectedColor.value }}
+          >
             {t(`colors.${selectedColor.id}`)}
           </span>
         </p>
@@ -587,6 +604,7 @@ function WaterColorSelect({
         >
           {visibleColors.map((color, index) => {
             const selected = value === color.id;
+            const RandomIcon = color.isRandom ? Shuffle : null;
 
             return (
               <button
@@ -598,20 +616,29 @@ function WaterColorSelect({
                   "transition-[box-shadow] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c]",
                 ].join(" ")}
                 data-color-id={color.id}
-                data-sound-index={index % WATER_COLORS.length}
+                data-static-premium-water={color.animated ? "true" : undefined}
+                data-sound-index={index % colorCount}
                 data-sound-kind="water-color"
                 key={`${color.id}-${index}`}
                 onClick={() =>
-                  handleColorSelect(color.id, index % WATER_COLORS.length)
+                  handleColorSelect(color.id, index % colorCount)
                 }
                 style={{
-                  backgroundColor: color.value,
+                  background: color.background || color.value,
                   boxShadow: selected
                     ? "inset 0 -8px 0 #0d0d0c, 0 14px 28px rgba(13,13,12,0.14)"
                     : "none",
                 }}
                 type="button"
-              />
+              >
+                {RandomIcon ? (
+                  <RandomIcon
+                    aria-hidden="true"
+                    className="pc-icon text-[#0d0d0c]"
+                    strokeWidth={3}
+                  />
+                ) : null}
+              </button>
             );
           })}
         </div>
@@ -916,6 +943,7 @@ export default function GameSetupScreen({
   onWaterColorChange,
 }) {
   const { locale, t } = useTranslation();
+  const { visibleWaterColors } = useRedeemCodes();
   const fallbackCopy = setupCopy[mode] ?? setupCopy[MENU_MODES.SINGLEPLAYER];
   const copy =
     mode === MENU_MODES.MULTIPLAYER
@@ -1135,6 +1163,8 @@ export default function GameSetupScreen({
       style={{
         "--setup-split-x": "50vw",
         "--setup-water-color": selectedWaterColor.value,
+        "--setup-water-background":
+          selectedWaterColor.background || selectedWaterColor.value,
       }}
     >
       <PageUtilitySwitches placement="rail" />
@@ -1156,6 +1186,7 @@ export default function GameSetupScreen({
               >
                 <div className="overflow-hidden" data-screen-reveal-row="true">
                   <WaterColorSelect
+                    colors={visibleWaterColors}
                     label={t("setup.waterColor")}
                     onChange={handleWaterColorChange}
                     value={waterColorId}
@@ -1190,6 +1221,7 @@ export default function GameSetupScreen({
               {!isMultiplayer ? (
                 <div className="grid min-w-0 gap-6 md:grid-cols-2 md:items-start md:gap-7">
                   <WaterColorSelect
+                    colors={visibleWaterColors}
                     label={t("setup.waterColor")}
                     onChange={handleWaterColorChange}
                     value={waterColorId}
@@ -1256,6 +1288,7 @@ export default function GameSetupScreen({
                       data-screen-reveal-row="true"
                     >
                       <WaterColorSelect
+                        colors={visibleWaterColors}
                         compact
                         label={t("setup.waterColor")}
                         onChange={handleWaterColorChange}
@@ -1269,13 +1302,15 @@ export default function GameSetupScreen({
           </section>
 
           <section
-            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--setup-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]"
+            className="relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 [background:var(--setup-water-background)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:[background:#161616]"
             data-setup-water="true"
+            data-premium-water={selectedWaterColor.animated ? "true" : undefined}
             data-screen-reveal="water-bg"
           >
             <WaterColorWipe
-              color={selectedWaterColor.value}
-              property="--setup-water-color"
+              animated={selectedWaterColor.animated}
+              color={selectedWaterColor.background || selectedWaterColor.value}
+              property="--setup-water-background"
             />
             <SectionWord
               primary={sectionWords.primary}
@@ -1465,6 +1500,7 @@ export default function GameSetupScreen({
           title={t("setup.waterColor")}
         >
           <WaterColorSelect
+            colors={visibleWaterColors}
             label={t("setup.waterColor")}
             onChange={handleWaterColorChange}
             showLabel={false}

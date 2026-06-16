@@ -1,4 +1,14 @@
-import { WATER_COLORS, WATER_COLOR_STORAGE_KEY } from "@/lib/constants";
+import {
+  DEFAULT_WATER_COLORS,
+  PREMIUM_WATER_COLOR_IDS,
+  PLAYABLE_WATER_COLORS,
+  WATER_COLORS,
+  WATER_COLOR_STORAGE_KEY,
+} from "@/lib/constants";
+import {
+  PREMIUM_WATER_COLORS_REWARD,
+  hasRedeemedReward,
+} from "@/lib/redeemCodes";
 
 const WATER_COLOR_CHANGE_EVENT = "pourcision-water-color-change";
 
@@ -6,8 +16,19 @@ export function isWaterColorId(value) {
   return WATER_COLORS.some((color) => color.id === value);
 }
 
+export function isVisibleStoredWaterColorId(value) {
+  if (!isWaterColorId(value)) return false;
+  if (!PREMIUM_WATER_COLOR_IDS.includes(value)) return true;
+  return hasRedeemedReward(PREMIUM_WATER_COLORS_REWARD);
+}
+
 export function getFallbackWaterColorId() {
-  return WATER_COLORS[2]?.id || WATER_COLORS[0]?.id || "red";
+  return (
+    DEFAULT_WATER_COLORS.find((color) => color.id === "red")?.id ||
+    PLAYABLE_WATER_COLORS[2]?.id ||
+    PLAYABLE_WATER_COLORS[0]?.id ||
+    "red"
+  );
 }
 
 export function readStoredWaterColorId() {
@@ -15,7 +36,9 @@ export function readStoredWaterColorId() {
 
   try {
     const storedWaterColorId = window.localStorage.getItem(WATER_COLOR_STORAGE_KEY);
-    return isWaterColorId(storedWaterColorId) ? storedWaterColorId : null;
+    return isVisibleStoredWaterColorId(storedWaterColorId)
+      ? storedWaterColorId
+      : null;
   } catch {
     return null;
   }

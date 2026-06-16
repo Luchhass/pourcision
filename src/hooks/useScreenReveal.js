@@ -363,6 +363,12 @@ function getCreamRowDelay(row, index, meta) {
   return index * 0.075;
 }
 
+function getExplicitRevealDelay(row) {
+  const delay = Number.parseFloat(row.dataset.screenRevealDelay || "");
+
+  return Number.isFinite(delay) ? delay : null;
+}
+
 function revealRows(timeline, rows, startAt, options = {}) {
   const groupIndexes = {};
 
@@ -372,7 +378,9 @@ function revealRows(timeline, rows, startAt, options = {}) {
     const groupIndex = groupIndexes[groupName] ?? 0;
     const isStats = groupName === "stats";
     const isSectionWord = items.some(isSectionWordRevealItem);
+    const explicitDelay = getExplicitRevealDelay(row);
     const delay =
+      explicitDelay ??
       options.delayForRow?.(row, index, { groupIndex, groupName }) ??
       index * (options.rowStagger ?? 0.05);
 

@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import gsap from "gsap";
-import { APP_NAME, WATER_COLORS } from "@/lib/constants";
+import { APP_NAME, DEFAULT_PLAYABLE_WATER_COLORS } from "@/lib/constants";
 
 const WHEEL_CHARS = "POURCISION";
 const TARGET_SLOT_INDEX = 3;
@@ -355,24 +355,26 @@ export default function PageIntro() {
       />
 
       <div className="pointer-events-none fixed inset-0 z-[5] overflow-hidden">
-        {WATER_COLORS.map((color, index) => (
+        {DEFAULT_PLAYABLE_WATER_COLORS.map((color, index) => (
           <div
             className="absolute inset-0 overflow-hidden"
             data-intro-color-card="true"
             key={color.id}
-            style={{ zIndex: WATER_COLORS.length - index }}
+            style={{ zIndex: DEFAULT_PLAYABLE_WATER_COLORS.length - index }}
           >
             <span
               aria-hidden="true"
               className="absolute inset-y-0 left-0 w-1/2 will-change-transform"
               data-intro-color-left="true"
-              style={{ backgroundColor: color.value }}
+              data-premium-water={color.animated ? "true" : undefined}
+              style={{ background: color.background || color.value }}
             />
             <span
               aria-hidden="true"
               className="absolute inset-y-0 right-0 w-1/2 will-change-transform"
               data-intro-color-right="true"
-              style={{ backgroundColor: color.value }}
+              data-premium-water={color.animated ? "true" : undefined}
+              style={{ background: color.background || color.value }}
             />
           </div>
         ))}

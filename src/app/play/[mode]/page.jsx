@@ -5,9 +5,9 @@ import {
   GAME_ROUND_COUNT,
   GAME_RULE_MODES,
   MENU_MODES,
+  resolveWaterColorId,
   ROUND_COUNT_OPTIONS,
   ROUTES,
-  WATER_COLORS,
 } from "@/lib/constants";
 import { createPageMetadata } from "@/lib/seo";
 
@@ -16,9 +16,7 @@ function pickValid(value, fallback, source) {
 }
 
 function pickWaterColor(value) {
-  return WATER_COLORS.some((color) => color.id === value)
-    ? value
-    : WATER_COLORS[0].id;
+  return resolveWaterColorId(value);
 }
 
 function pickRoundCount(value) {

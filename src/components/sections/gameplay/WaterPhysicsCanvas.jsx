@@ -5,7 +5,6 @@ import {
   FIXED_TIMESTEP_SECONDS,
   MAX_FRAME_SECONDS,
   WATER_COLUMN_COUNT,
-  WATER_RENDER_COLORS,
   WAVE_VISUAL_SCALE,
   getWaterDifficultyConfig,
   getWaveColumnScale,
@@ -33,8 +32,8 @@ const STREAM_TAIL_FOLLOW = 0.09;
 const SETTLED_MAX_SURFACE_PX = 0.35;
 const SETTLED_MAX_VELOCITY_PX = 0.28;
 const SETTLED_MAX_UNSETTLED_WATER = 0.00008;
-const WHITE_RGB = { b: 255, g: 255, r: 255 };
-const DEEP_RGB = { b: 36, g: 28, r: 20 };
+const ANIMATED_WATER_STOP_COUNT = 13;
+const ANIMATED_WATER_DRIFT_SPEED = 0.055;
 
 function getCanvasDpr(width) {
   const limit = width < 768 ? MOBILE_DPR_LIMIT : DESKTOP_DPR_LIMIT;
@@ -118,11 +117,90 @@ function mixRgb(from, to, amount) {
   };
 }
 
+function wrap01(value) {
+  return ((value % 1) + 1) % 1;
+}
+
 function rgba(color, alpha) {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
 }
 
-function makeWaterPalette(waterColor) {
+function rgbAtStops(stops, amount) {
+  if (!stops?.length) {
+    return null;
+  }
+
+  if (stops.length === 1) {
+    return stops[0];
+  }
+
+  const progress = clamp(amount, 0, 1);
+  const scaled = progress * (stops.length - 1);
+  const index = Math.floor(scaled);
+  const nextIndex = Math.min(stops.length - 1, index + 1);
+
+  return mixRgb(stops[index], stops[nextIndex], smoothStep(scaled - index));
+}
+
+function smoothStep(value) {
+  const amount = clamp(value, 0, 1);
+
+  return amount * amount * (3 - 2 * amount);
+}
+
+function smootherStep(value) {
+  const amount = clamp(value, 0, 1);
+
+  return amount * amount * amount * (amount * (amount * 6 - 15) + 10);
+}
+
+function getWaterColorStops(waterColor) {
+  if (!waterColor?.animated || !Array.isArray(waterColor.stops)) {
+    return [];
+  }
+
+  return waterColor.stops.map(hexToRgb).filter(Boolean);
+}
+
+function rgbAtCyclicStops(stops, amount) {
+  if (stops.length <= 1) {
+    return stops[0] || null;
+  }
+
+  const progress = wrap01(amount);
+  const scaled = progress * stops.length;
+  const index = Math.floor(scaled) % stops.length;
+  const nextIndex = (index + 1) % stops.length;
+
+  return mixRgb(stops[index], stops[nextIndex], smootherStep(scaled - index));
+}
+
+function pickAnimatedRgb(stops, time, offset = 0) {
+  return rgbAtCyclicStops(stops, time * ANIMATED_WATER_DRIFT_SPEED + offset);
+}
+
+function buildAnimatedGradientStops(stops, time) {
+  if (stops.length <= 1) {
+    return [];
+  }
+
+  const drift = time * ANIMATED_WATER_DRIFT_SPEED;
+  const breath = Math.sin(time * 0.24) * 0.018;
+
+  return Array.from({ length: ANIMATED_WATER_STOP_COUNT }, (_, index) => {
+    const position = index / (ANIMATED_WATER_STOP_COUNT - 1);
+    const main = rgbAtCyclicStops(stops, position + drift + breath);
+    const broad = rgbAtCyclicStops(stops, position * 0.74 + drift * 0.72 + 0.18);
+    const shimmer = rgbAtCyclicStops(
+      stops,
+      position + drift * 1.28 + Math.sin(position * Math.PI * 2 + time * 0.3) * 0.012,
+    );
+
+    return mixRgb(mixRgb(main, broad, 0.18), shimmer, 0.08);
+  }).filter(Boolean);
+}
+
+function makeWaterPalette(waterColor, time = 0) {
   if (waterColor?.id === "colorblind") {
     return {
       colorblindLine: true,
@@ -141,22 +219,34 @@ function makeWaterPalette(waterColor) {
     };
   }
 
-  const base = hexToRgb(waterColor?.value) ?? { b: 232, g: 186, r: 125 };
+  const stops = getWaterColorStops(waterColor);
+  const animatedStops = buildAnimatedGradientStops(stops, time);
+  const base =
+    (stops.length > 1 ? pickAnimatedRgb(stops, time, 0) : null) ??
+    hexToRgb(waterColor?.value) ??
+    { b: 232, g: 186, r: 125 };
+  const nextBase =
+    (stops.length > 1 ? pickAnimatedRgb(stops, time, 0.08) : null) ?? base;
+  const softBase =
+    (stops.length > 1 ? pickAnimatedRgb(stops, time, 0.16) : null) ?? base;
 
   return {
-    particle: rgba(mixRgb(base, WHITE_RGB, 0.45), 0.8),
-    splash: rgba(mixRgb(base, WHITE_RGB, 0.72), 0.76),
-    stream: rgba(mixRgb(base, WHITE_RGB, 0.14), 0.58),
-    streamCore: rgba(mixRgb(base, WHITE_RGB, 0.34), 0.5),
-    streamHighlight: rgba(mixRgb(base, WHITE_RGB, 0.78), 0.52),
-    impactFoam: rgba(mixRgb(base, WHITE_RGB, 0.9), 0.52),
+    animated: stops.length > 1,
+    gradientRgbStops: animatedStops,
+    waterGradientStops: animatedStops.map((color) => rgba(color, 0.94)),
+    particle: rgba(nextBase, 0.82),
+    splash: rgba(nextBase, 0.78),
+    stream: rgba(base, 0.58),
+    streamCore: rgba(base, 0.72),
+    streamHighlight: rgba(nextBase, 0.62),
+    impactFoam: rgba(nextBase, 0.48),
     colorblindLine: false,
-    surfaceFoam: rgba(mixRgb(base, WHITE_RGB, 0.82), 0.3),
-    surfaceHighlight: WATER_RENDER_COLORS.surfaceHighlight,
+    surfaceFoam: rgba(nextBase, 0.24),
+    surfaceHighlight: rgba(nextBase, 0.5),
     surfaceOnly: false,
-    waterDeep: rgba(mixRgb(base, DEEP_RGB, 0.28), 0.95),
-    waterMid: rgba(base, 0.88),
-    waterTop: rgba(mixRgb(base, WHITE_RGB, 0.18), 0.92),
+    waterDeep: rgba(softBase, 0.94),
+    waterMid: rgba(base, 0.92),
+    waterTop: rgba(nextBase, 0.94),
   };
 }
 
@@ -228,11 +318,24 @@ function drawWaterBody(ctx, surfaceY, dimensions, palette) {
     }
   }
 
-  const gradient = ctx.createLinearGradient(0, minSurfaceY, 0, dimensions.height);
+  const gradient = palette.animated
+    ? ctx.createLinearGradient(
+        -dimensions.width * 0.16,
+        minSurfaceY,
+        dimensions.width * 1.16,
+        dimensions.height,
+      )
+    : ctx.createLinearGradient(0, minSurfaceY, 0, dimensions.height);
 
-  gradient.addColorStop(0, palette.waterTop);
-  gradient.addColorStop(0.3, palette.waterMid);
-  gradient.addColorStop(1, palette.waterDeep);
+  if (palette.waterGradientStops?.length > 1) {
+    palette.waterGradientStops.forEach((color, index) => {
+      gradient.addColorStop(index / (palette.waterGradientStops.length - 1), color);
+    });
+  } else {
+    gradient.addColorStop(0, palette.waterTop);
+    gradient.addColorStop(0.42, palette.waterMid);
+    gradient.addColorStop(1, palette.waterDeep);
+  }
 
   buildClosedWaterPath(ctx, surfaceY, dimensions);
   ctx.fillStyle = gradient;
@@ -241,8 +344,18 @@ function drawWaterBody(ctx, surfaceY, dimensions, palette) {
 
 function drawSurfaceHighlight(ctx, surfaceY, dimensions, palette) {
   buildSurfaceCurvePath(ctx, surfaceY, dimensions);
-  ctx.strokeStyle = palette.surfaceHighlight;
-  ctx.lineWidth = palette.surfaceOnly ? 1.35 : 1.5;
+  if (palette.gradientRgbStops?.length > 1) {
+    const gradient = ctx.createLinearGradient(0, 0, dimensions.width, 0);
+
+    palette.gradientRgbStops.forEach((color, index) => {
+      gradient.addColorStop(index / (palette.gradientRgbStops.length - 1), rgba(color, 0.32));
+    });
+
+    ctx.strokeStyle = gradient;
+  } else {
+    ctx.strokeStyle = palette.surfaceHighlight;
+  }
+  ctx.lineWidth = palette.surfaceOnly ? 1.35 : 1.05;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.stroke();
@@ -304,8 +417,6 @@ function drawSurfaceDetails(ctx, state, surfaceY, dimensions, time, palette, int
   const step = Math.max(6, Math.round(6 * columnScale));
   const columnWidth = dimensions.width / (WATER_COLUMN_COUNT - 1);
 
-  ctx.fillStyle = palette.surfaceFoam;
-
   for (let i = 2; i < WATER_COLUMN_COUNT - 2; i += step) {
     const localEnergy =
       (Math.abs(state.h[i]) * 0.09 + Math.abs(state.vel[i]) * 0.18) *
@@ -325,8 +436,10 @@ function drawSurfaceDetails(ctx, state, surfaceY, dimensions, time, palette, int
     const y = surfaceY[i] + 4 + Math.sin(time * 2.8 + i) * 1.5;
     const width = clamp(5 + localEnergy * 10, 5, 18) * intensity * detailScale;
     const height = clamp(1.2 + localEnergy * 1.8, 1.2, 4.2);
+    const detailRgb = rgbAtStops(palette.gradientRgbStops, x / dimensions.width);
 
     ctx.globalAlpha = visibility;
+    ctx.fillStyle = detailRgb ? rgba(detailRgb, 0.16) : palette.surfaceFoam;
     ctx.beginPath();
     ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -337,7 +450,7 @@ function drawSurfaceDetails(ctx, state, surfaceY, dimensions, time, palette, int
         5 + Math.sin(time * 3.4 + i * 0.53) * 3 + localEnergy * 2.6;
 
       ctx.globalAlpha = chipAlpha;
-      ctx.fillStyle = palette.impactFoam;
+      ctx.fillStyle = detailRgb ? rgba(detailRgb, 0.28) : palette.impactFoam;
       ctx.beginPath();
       ctx.ellipse(
         x + Math.sin(time * 4.2 + i) * 6,
@@ -349,7 +462,6 @@ function drawSurfaceDetails(ctx, state, surfaceY, dimensions, time, palette, int
         Math.PI * 2,
       );
       ctx.fill();
-      ctx.fillStyle = palette.surfaceFoam;
     }
   }
 
@@ -727,18 +839,28 @@ function drawPourStream(
     return;
   }
 
-  strokeStream(0, streamWidth * 1.55, palette.stream, 0.2);
-  strokeStream(0, streamWidth, palette.stream);
+  const localStreamRgb =
+    rgbAtStops(palette.gradientRgbStops, endX / dimensions.width) || null;
+  const streamColor = localStreamRgb ? rgba(localStreamRgb, 0.5) : palette.stream;
+  const streamCoreColor = localStreamRgb
+    ? rgba(localStreamRgb, 0.72)
+    : palette.streamCore;
+  const streamHighlightColor = localStreamRgb
+    ? rgba(localStreamRgb, 0.42)
+    : palette.streamHighlight;
+
+  strokeStream(0, streamWidth * 1.55, streamColor, 0.2);
+  strokeStream(0, streamWidth, streamColor);
   strokeStream(
     streamWidth * 0.14,
     Math.max(4, streamWidth * 0.38),
-    palette.streamCore,
+    streamCoreColor,
     0.04,
   );
   strokeStream(
     -streamWidth * 0.18,
     Math.max(2, streamWidth * 0.16),
-    palette.streamHighlight,
+    streamHighlightColor,
     0.1,
   );
 
@@ -758,7 +880,7 @@ function drawPourStream(
       Math.sin(time * 4.1 + i * 2.7 + safeTailX * 3) * streamWidth * 0.14;
 
     ctx.globalAlpha = clamp((progress * 0.42 - i * 0.035) * chunkPulse, 0, 0.48);
-    ctx.fillStyle = i % 2 === 0 ? palette.streamCore : palette.streamHighlight;
+    ctx.fillStyle = i % 2 === 0 ? streamCoreColor : streamHighlightColor;
     ctx.beginPath();
     ctx.ellipse(
       point.x + side,
@@ -801,8 +923,8 @@ function drawImpactFoam(
   const massScale = streamState.massScale ?? 1;
   const baseWidth = Math.max(18, config.STREAM_WIDTH * 3.4) * massScale;
   const pulse = 0.78 + Math.sin(time * 8.2 + safeTailX * 5) * 0.22;
-
-  ctx.fillStyle = palette.impactFoam;
+  const impactRgb = rgbAtStops(palette.gradientRgbStops, safeTailX);
+  const impactColor = impactRgb ? rgba(impactRgb, 0.3) : palette.impactFoam;
 
   for (let i = 0; i < 5; i += 1) {
     const side = i - 2;
@@ -815,6 +937,7 @@ function drawImpactFoam(
     const height = 2.6 + (2 - Math.abs(side)) * 0.7;
 
     ctx.globalAlpha = clamp(0.18 + (2 - Math.abs(side)) * 0.075, 0.16, 0.34);
+    ctx.fillStyle = impactColor;
     ctx.beginPath();
     ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -823,7 +946,7 @@ function drawImpactFoam(
   ctx.globalAlpha = 1;
 }
 
-function drawParticles(ctx, state, palette) {
+function drawParticles(ctx, state, dimensions, palette) {
   const particles = state.particles;
 
   for (let i = 0; i < state.activeCount; i += 1) {
@@ -832,8 +955,16 @@ function drawParticles(ctx, state, palette) {
     const elongation = isSplash
       ? 1.12
       : clamp(1 + (particles.vy[i] / 800) * 2, 1.2, 4);
+    const particleRgb = rgbAtStops(
+      palette.gradientRgbStops,
+      particles.x[i] / dimensions.width,
+    );
 
-    ctx.fillStyle = isSplash ? palette.splash : palette.particle;
+    ctx.fillStyle = particleRgb
+      ? rgba(particleRgb, isSplash ? 0.62 : 0.52)
+      : isSplash
+        ? palette.splash
+        : palette.particle;
     ctx.beginPath();
     ctx.ellipse(
       particles.x[i],
@@ -944,7 +1075,7 @@ function renderWater(
       palette,
       surfaceIntensity,
     );
-    drawParticles(ctx, state, palette);
+    drawParticles(ctx, state, dimensions, palette);
   }
 
   if (isInvertedWater) {
@@ -988,6 +1119,7 @@ export default function WaterPhysicsCanvas({
   const difficultyRef = useRef(difficulty);
   const lastTimeRef = useRef(null);
   const paletteRef = useRef(makeWaterPalette(waterColor));
+  const waterColorRef = useRef(waterColor);
   const previousStatusRef = useRef(status);
   const burstStartedAtRef = useRef(0);
   const surfaceLevelTargetRef = useRef(surfaceLevelRef);
@@ -1029,6 +1161,7 @@ export default function WaterPhysicsCanvas({
   }, [isPourActive]);
 
   useEffect(() => {
+    waterColorRef.current = waterColor;
     paletteRef.current = makeWaterPalette(waterColor);
   }, [waterColor]);
 
@@ -1115,6 +1248,9 @@ export default function WaterPhysicsCanvas({
         (time - lastTimeRef.current) / 1000,
         MAX_FRAME_SECONDS,
       );
+      const renderTime = time / 1000;
+      const currentPalette = makeWaterPalette(waterColorRef.current, renderTime);
+      paletteRef.current = currentPalette;
       const state = stateRef.current;
       const currentStatus = statusRef.current;
       const currentPourActive = isPourActiveRef.current;
@@ -1245,9 +1381,9 @@ export default function WaterPhysicsCanvas({
           dimensionsRef.current,
           config,
           streamImpactReady,
-          time / 1000,
+          renderTime,
           stream,
-          paletteRef.current,
+          currentPalette,
         );
         animationRef.current = requestAnimationFrame(tick);
         return;
@@ -1296,10 +1432,10 @@ export default function WaterPhysicsCanvas({
         config,
         isPourLikeStatus && currentPourActive && !isReversePour,
         currentStatus === "leaking",
-        time / 1000,
+        renderTime,
         stream,
         currentTilt,
-        paletteRef.current,
+        currentPalette,
         currentStatus === "result"
           ? 0
           : currentStatus === "settling"

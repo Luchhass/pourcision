@@ -681,6 +681,7 @@ export function playGameModeSelect(gameModeId = "classic", index = 0) {
     "burst-click": { brightness: 1.42, root: 510, rise: 1.5 },
     "charge-pour": { brightness: 1.05, root: 390, rise: 1.9 },
     colorblind: { brightness: 0.82, root: 280, rise: 1.15 },
+    "auto-rise": { brightness: 1.18, root: 450, rise: 1.6 },
     tilt: { brightness: 1.1, root: 520, rise: 1.08 },
   }[gameModeId] || { brightness: 0.95, root: 360, rise: 1.35 };
   const pan = (index - 2) * 0.04;

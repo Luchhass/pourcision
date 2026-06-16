@@ -469,6 +469,23 @@ button {
   display: none;
 }
 
+[data-premium-water="true"] {
+  animation: pc-premium-water-flow 8s linear infinite;
+  background-size: 420% 420% !important;
+}
+
+[data-static-premium-water="true"] {
+  animation: none !important;
+  background-position: 50% 50% !important;
+  background-size: 100% 100% !important;
+}
+
+.pc-water-color-wipe[data-premium-water="true"] {
+  animation:
+    pc-water-color-enter-v2 720ms cubic-bezier(0.76, 0, 0.24, 1) forwards,
+    pc-premium-water-flow 8s linear infinite;
+}
+
 @keyframes pc-water-color-enter-v2 {
   0% {
     clip-path: inset(0 100% 0 0);
@@ -476,6 +493,28 @@ button {
 
   100% {
     clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes pc-premium-water-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  25% {
+    background-position: 52% 22%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  75% {
+    background-position: 52% 78%;
+  }
+
+  100% {
+    background-position: 0% 50%;
   }
 }
 
@@ -487,6 +526,10 @@ button {
   .pc-water-color-wipe {
     animation: none;
     display: none;
+  }
+
+  [data-premium-water="true"] {
+    animation: none;
   }
 }
 

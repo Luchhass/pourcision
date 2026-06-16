@@ -13,7 +13,7 @@ function prefersReducedMotion() {
   );
 }
 
-export default function WaterColorWipe({ color, property }) {
+export default function WaterColorWipe({ animated = false, color, property }) {
   const layerRef = useRef(null);
   const displayedColorRef = useRef(color);
   const timerRef = useRef(null);
@@ -35,14 +35,14 @@ export default function WaterColorWipe({ color, property }) {
       window.clearTimeout(timerRef.current);
       displayedColorRef.current = color;
       panel.style.setProperty(property, color);
-      panel.style.backgroundColor = "";
+      panel.style.background = "";
       setWipe(null);
       return undefined;
     }
 
     window.clearTimeout(timerRef.current);
     panel.style.setProperty(property, displayedColor);
-    panel.style.backgroundColor = displayedColor;
+    panel.style.background = displayedColor;
     setWipe({
       color,
       key: `${displayedColor}-${color}-${Date.now()}`,
@@ -51,7 +51,7 @@ export default function WaterColorWipe({ color, property }) {
     timerRef.current = window.setTimeout(() => {
       displayedColorRef.current = color;
       panel.style.setProperty(property, color);
-      panel.style.backgroundColor = "";
+      panel.style.background = "";
       setWipe(null);
     }, WIPE_DURATION_MS);
 
@@ -71,9 +71,10 @@ export default function WaterColorWipe({ color, property }) {
       aria-hidden="true"
       className="pc-water-color-wipe"
       data-active={wipe ? "true" : "false"}
+      data-premium-water={animated && wipe ? "true" : undefined}
       key={wipe?.key ?? "idle"}
       ref={layerRef}
-      style={{ backgroundColor: wipe?.color ?? "transparent" }}
+      style={{ background: wipe?.color ?? "transparent" }}
     />
   );
 }

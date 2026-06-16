@@ -53,6 +53,12 @@ export const WATER_COLOR_ID_LIST = [
   "lilac",
   "orchid",
   "bubblegum",
+  "rgb",
+  "dream-pop",
+  "pink-violet",
+  "peach-glow",
+  "mermaid",
+  "candy-luxe",
 ];
 
 export const WATER_COLOR_IDS = new Set(WATER_COLOR_ID_LIST);

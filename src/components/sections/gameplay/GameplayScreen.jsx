@@ -416,6 +416,7 @@ export default function GameplayScreen({
   const isChargePourMode = activeRuleMode === GAME_RULE_MODES.CHARGE_POUR;
   const isBurstClickMode = activeRuleMode === GAME_RULE_MODES.BURST_CLICK;
   const isBlackoutBlindMode = activeRuleMode === GAME_RULE_MODES.COLORBLIND;
+  const isAutoRiseMode = activeRuleMode === GAME_RULE_MODES.AUTO_RISE;
   const waterColor = selectedWaterColor;
   const canvasStatus =
     isChargePourMode && status === "filling" ? "idle" : status;
@@ -451,6 +452,8 @@ export default function GameplayScreen({
           ? t(`modes.${GAME_RULE_MODES.BURST_CLICK}.briefing`)
         : activeRuleMode === GAME_RULE_MODES.COLORBLIND
           ? t(`modes.${GAME_RULE_MODES.COLORBLIND}.briefing`)
+        : activeRuleMode === GAME_RULE_MODES.AUTO_RISE
+          ? t(`modes.${GAME_RULE_MODES.AUTO_RISE}.briefing`)
         : activeRuleMode === GAME_RULE_MODES.FLASH
           ? t(`modes.${GAME_RULE_MODES.FLASH}.briefing`)
         : activeRuleMode === GAME_RULE_MODES.BLIND
@@ -955,6 +958,12 @@ export default function GameplayScreen({
   }, [activeSplitIndex]);
 
   useEffect(() => {
+    if (isAutoRiseMode && status === "filling") {
+      pourXRef.current = 0.5;
+    }
+  }, [isAutoRiseMode, roundIndex, status]);
+
+  useEffect(() => {
     return () => {
       pourSoundRef.current?.stop({ level: waterLevelRef.current });
       pourSoundRef.current = null;
@@ -1327,6 +1336,14 @@ export default function GameplayScreen({
       return;
     }
 
+    if (isAutoRiseMode) {
+      pourXRef.current = 0.5;
+      if (status === "filling") {
+        stopFilling();
+      }
+      return;
+    }
+
     updatePourX(event);
     event.currentTarget.setPointerCapture?.(event.pointerId);
 
@@ -1338,11 +1355,20 @@ export default function GameplayScreen({
       return;
     }
 
+    if (isAutoRiseMode) {
+      pourXRef.current = 0.5;
+      return;
+    }
+
     updatePourX(event);
   };
 
   const handlePointerUp = (event) => {
     if (isGameControlEvent(event)) {
+      return;
+    }
+
+    if (isAutoRiseMode) {
       return;
     }
 

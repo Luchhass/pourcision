@@ -120,6 +120,8 @@ export default function RoomCardShell({
       style={{
         "--room-split-x": "50vw",
         "--room-water-color": selectedWaterColor.value,
+        "--room-water-background":
+          selectedWaterColor.background || selectedWaterColor.value,
       }}
     >
       <PageUtilitySwitches placement="rail" />
@@ -149,15 +151,17 @@ export default function RoomCardShell({
 
           <section
             className={[
-              "relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 bg-[var(--room-water-color)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:bg-[#161616]",
+              "relative mx-auto grid w-full max-w-[44rem] min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-8 [background:var(--room-water-background)] px-6 pb-8 pt-8 md:grid-cols-[auto_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:gap-10 md:px-8 md:pb-10 md:pt-10 lg:mx-0 lg:max-w-none lg:gap-8 lg:p-10 dark:[background:#161616]",
               "max-lg:content-stretch",
             ].join(" ")}
             data-room-water="true"
+            data-premium-water={selectedWaterColor.animated ? "true" : undefined}
             data-screen-reveal="water-bg"
           >
             <WaterColorWipe
-              color={selectedWaterColor.value}
-              property="--room-water-color"
+              animated={selectedWaterColor.animated}
+              color={selectedWaterColor.background || selectedWaterColor.value}
+              property="--room-water-background"
             />
             <SectionWord
               primary={title.toUpperCase()}

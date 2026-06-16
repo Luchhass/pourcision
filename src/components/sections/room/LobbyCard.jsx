@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
+  ArrowUp,
   BatteryCharging,
   CircleDot,
   Clipboard,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import AnimatedSettingsModal from "@/components/ui/AnimatedSettingsModal";
+import { useRedeemCodes } from "@/hooks/useRedeemCodes";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
 import {
@@ -54,6 +56,7 @@ const modeIcons = {
   [GAME_RULE_MODES.CHARGE_POUR]: BatteryCharging,
   [GAME_RULE_MODES.BURST_CLICK]: MousePointerClick,
   [GAME_RULE_MODES.COLORBLIND]: EyeOff,
+  [GAME_RULE_MODES.AUTO_RISE]: ArrowUp,
   [GAME_RULE_MODES.REVERSE_POUR]: RotateCcw,
   [GAME_RULE_MODES.SPLIT_FILL]: Columns2,
   [GAME_RULE_MODES.TILT]: Gauge,
@@ -341,6 +344,7 @@ function getWaterColorWheelStep(slider) {
 }
 
 export function LobbyWaterColorPanel({
+  colors = WATER_COLORS,
   disabled = false,
   label,
   onChange,
@@ -349,6 +353,8 @@ export function LobbyWaterColorPanel({
   value,
 }) {
   const { t } = useTranslation();
+  const safeColors = colors.length ? colors : WATER_COLORS;
+  const colorCount = safeColors.length;
   const {
     handleClickCapture,
     handlePointerCancel,
@@ -358,16 +364,19 @@ export function LobbyWaterColorPanel({
     handleScroll,
     handleWheel,
     sliderRef,
-  } = useLoopingSlider(WATER_COLORS.length, {
+  } = useLoopingSlider(colorCount, {
     disabled,
     getWheelStep: getWaterColorWheelStep,
     loop: "always",
     wheelDuration: 0.78,
   });
   const selectedColor =
-    WATER_COLORS.find((color) => color.id === value) ?? WATER_COLORS[0];
+    safeColors.find((color) => color.id === value) ??
+    WATER_COLORS.find((color) => color.id === value) ??
+    safeColors[0] ??
+    WATER_COLORS[0];
   const takenColorSet = new Set(takenColorIds);
-  const visibleColors = [...WATER_COLORS, ...WATER_COLORS, ...WATER_COLORS];
+  const visibleColors = [...safeColors, ...safeColors, ...safeColors];
 
   const handleColorSelect = (event, colorId, colorIndex) => {
     const isTaken = takenColorSet.has(colorId) && colorId !== value;
@@ -384,7 +393,10 @@ export function LobbyWaterColorPanel({
       {showLabel ? (
         <p className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58">
           {label}{" "}
-          <span data-water-color-name="true" style={{ color: selectedColor.value }}>
+          <span
+            data-water-color-name="true"
+            style={{ color: selectedColor.labelColor || selectedColor.value }}
+          >
             {t(`colors.${selectedColor.id}`)}
           </span>
         </p>
@@ -422,6 +434,7 @@ export function LobbyWaterColorPanel({
           {visibleColors.map((color, index) => {
             const selected = value === color.id;
             const isTaken = takenColorSet.has(color.id) && !selected;
+            const RandomIcon = color.isRandom ? Shuffle : null;
 
             return (
               <button
@@ -439,22 +452,32 @@ export function LobbyWaterColorPanel({
                   isTaken ? "cursor-not-allowed" : "",
                 ].join(" ")}
                 data-color-id={color.id}
+                data-static-premium-water={
+                  color.animated && !isTaken ? "true" : undefined
+                }
                 key={`${color.id}-${index}`}
                 onClick={(event) =>
                   handleColorSelect(
                     event,
                     color.id,
-                    index % WATER_COLORS.length,
+                    index % colorCount,
                   )
                 }
                 style={{
-                  backgroundColor: color.value,
+                  background: color.background || color.value,
                   boxShadow: selected
                     ? "inset 0 -8px 0 #0d0d0c, 0 14px 28px rgba(13,13,12,0.14)"
                     : "none",
                 }}
                 type="button"
               >
+                {RandomIcon ? (
+                  <RandomIcon
+                    aria-hidden="true"
+                    className="pc-icon relative z-10 text-[#0d0d0c]"
+                    strokeWidth={3}
+                  />
+                ) : null}
                 {isTaken ? (
                   <>
                     <span
@@ -539,6 +562,7 @@ export default function LobbyCard({
   takenColorIds = [],
 }) {
   const { t } = useTranslation();
+  const { visibleWaterColors } = useRedeemCodes();
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [mobileSettingsModal, setMobileSettingsModal] = useState(null);
   const isHost = Boolean(currentPlayer?.isHost);
@@ -746,6 +770,7 @@ export default function LobbyCard({
           title={t("setup.waterColor")}
         >
           <LobbyWaterColorPanel
+            colors={visibleWaterColors}
             disabled={isUpdatingPlayerColor || settingsDisabled}
             label={t("setup.waterColor")}
             onChange={onWaterColorChange}
