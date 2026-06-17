@@ -64,6 +64,9 @@ export function useLoopingSlider(
     x: 0,
     y: 0,
   });
+  const dragFrameRef = useRef(null);
+  const pendingDragLeftRef = useRef(null);
+  const savedTouchActionRef = useRef("");
   const suppressClickRef = useRef(false);
 
   const normalizeCurrentPosition = (targetLeft = null) => {
@@ -132,6 +135,46 @@ export function useLoopingSlider(
     tweenRef.current = null;
   };
 
+  const clearDragFrame = () => {
+    if (!dragFrameRef.current) return;
+
+    window.cancelAnimationFrame(dragFrameRef.current);
+    dragFrameRef.current = null;
+  };
+
+  const applyPendingDragScroll = () => {
+    dragFrameRef.current = null;
+
+    const slider = sliderRef.current;
+    const pendingLeft = pendingDragLeftRef.current;
+    pendingDragLeftRef.current = null;
+    if (!slider || pendingLeft === null) return;
+
+    const drag = dragRef.current;
+    slider.scrollLeft = clampScrollLeft(slider, pendingLeft, loop);
+    targetLeftRef.current = slider.scrollLeft;
+
+    const { shift } = normalizeCurrentPosition();
+    if (shift) {
+      if (drag.active) {
+        drag.scrollLeft += shift;
+      }
+      targetLeftRef.current += shift;
+    }
+  };
+
+  const flushPendingDragScroll = () => {
+    clearDragFrame();
+    applyPendingDragScroll();
+  };
+
+  const scheduleDragScroll = (targetLeft) => {
+    pendingDragLeftRef.current = targetLeft;
+    if (dragFrameRef.current) return;
+
+    dragFrameRef.current = window.requestAnimationFrame(applyPendingDragScroll);
+  };
+
   const animateScrollTo = (targetLeft, duration = 0.72) => {
     const slider = sliderRef.current;
     if (!slider || itemCount <= 0 || disabled) return;
@@ -186,6 +229,8 @@ export function useLoopingSlider(
     return () => {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", centerSlider);
+      clearDragFrame();
+      pendingDragLeftRef.current = null;
       stopTween();
     };
   }, [itemCount, loop]);
@@ -203,6 +248,8 @@ export function useLoopingSlider(
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     stopTween();
+    clearDragFrame();
+    pendingDragLeftRef.current = null;
     velocityRef.current = {
       lastTime: window.performance.now(),
       lastX: event.clientX,
@@ -232,8 +279,17 @@ export function useLoopingSlider(
 
     const deltaX = event.clientX - drag.x;
     const deltaY = event.clientY - drag.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
     if (!drag.moved && Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX) {
+      if (event.pointerType !== "mouse" && absY > absX * 1.12) {
+        drag.active = false;
+        return;
+      }
+
       drag.moved = true;
+      savedTouchActionRef.current = slider.style.touchAction;
+      slider.style.touchAction = "none";
       slider.setPointerCapture?.(event.pointerId);
     }
 
@@ -243,14 +299,7 @@ export function useLoopingSlider(
       event.preventDefault();
     }
 
-    slider.scrollLeft = clampScrollLeft(slider, drag.scrollLeft - deltaX, loop);
-    targetLeftRef.current = slider.scrollLeft;
-
-    const { shift } = normalizeCurrentPosition();
-    if (shift) {
-      drag.scrollLeft += shift;
-      targetLeftRef.current += shift;
-    }
+    scheduleDragScroll(drag.scrollLeft - deltaX);
 
     const now = window.performance.now();
     const elapsed = Math.max(12, now - velocityRef.current.lastTime);
@@ -269,6 +318,13 @@ export function useLoopingSlider(
 
     if (slider?.hasPointerCapture?.(event.pointerId)) {
       slider.releasePointerCapture(event.pointerId);
+    }
+
+    flushPendingDragScroll();
+
+    if (slider) {
+      slider.style.touchAction = savedTouchActionRef.current;
+      savedTouchActionRef.current = "";
     }
 
     if (drag.moved) {

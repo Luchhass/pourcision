@@ -428,6 +428,7 @@ export function LobbyWaterColorPanel({
             "linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%)",
           msOverflowStyle: "none",
           scrollbarWidth: "none",
+          touchAction: "pan-y",
         }}
       >
         <div className="flex w-max flex-nowrap gap-2.5">
