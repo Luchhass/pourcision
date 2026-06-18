@@ -538,6 +538,7 @@ function WaterColorSelect({
     sliderRef,
   } = useLoopingSlider(colorCount, {
     getWheelStep: (slider) => getWaterColorWheelStep(slider, compact),
+    lockTouchDrag: true,
     loop: "always",
     wheelDuration: 0.78,
   });
@@ -594,7 +595,7 @@ function WaterColorSelect({
             "linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%)",
           msOverflowStyle: "none",
           scrollbarWidth: "none",
-          touchAction: "pan-y",
+          touchAction: "none",
         }}
       >
         <div

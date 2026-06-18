@@ -45,6 +45,7 @@ export function useLoopingSlider(
     disabled = false,
     getWheelStep = null,
     loop = "responsive",
+    lockTouchDrag = false,
     wheelDuration = 0.76,
   } = {},
 ) {
@@ -60,6 +61,7 @@ export function useLoopingSlider(
     active: false,
     moved: false,
     pointerId: null,
+    touchLocked: false,
     scrollLeft: 0,
     x: 0,
     y: 0,
@@ -259,10 +261,17 @@ export function useLoopingSlider(
       active: true,
       moved: false,
       pointerId: event.pointerId,
+      touchLocked: lockTouchDrag && event.pointerType !== "mouse",
       scrollLeft: slider.scrollLeft,
       x: event.clientX,
       y: event.clientY,
     };
+
+    if (lockTouchDrag && event.pointerType !== "mouse") {
+      savedTouchActionRef.current = slider.style.touchAction;
+      slider.style.touchAction = "none";
+      slider.setPointerCapture?.(event.pointerId);
+    }
   };
 
   const handlePointerMove = (event) => {
@@ -281,16 +290,23 @@ export function useLoopingSlider(
     const deltaY = event.clientY - drag.y;
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    if (!drag.moved && Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX) {
-      if (event.pointerType !== "mouse" && absY > absX * 1.12) {
+    const dragThreshold = drag.touchLocked ? 2 : DRAG_THRESHOLD_PX;
+    if (!drag.moved && Math.hypot(deltaX, deltaY) > dragThreshold) {
+      if (
+        !drag.touchLocked &&
+        event.pointerType !== "mouse" &&
+        absY > absX * 1.12
+      ) {
         drag.active = false;
         return;
       }
 
       drag.moved = true;
-      savedTouchActionRef.current = slider.style.touchAction;
-      slider.style.touchAction = "none";
-      slider.setPointerCapture?.(event.pointerId);
+      if (!drag.touchLocked) {
+        savedTouchActionRef.current = slider.style.touchAction;
+        slider.style.touchAction = "none";
+        slider.setPointerCapture?.(event.pointerId);
+      }
     }
 
     if (!drag.moved) return;
@@ -338,6 +354,7 @@ export function useLoopingSlider(
       active: false,
       moved: false,
       pointerId: null,
+      touchLocked: false,
       scrollLeft: 0,
       x: 0,
       y: 0,

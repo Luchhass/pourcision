@@ -1,10 +1,11 @@
 "use client";
 
 import { Globe2, Lock, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { useLobbyList } from "@/hooks/useLobbyList";
 import { useTranslation } from "@/hooks/useLanguage";
+import { useModalMotion } from "@/hooks/useModalMotion";
 
 function LobbyPasswordModal({
   isJoining,
@@ -14,24 +15,48 @@ function LobbyPasswordModal({
   setPassword,
 }) {
   const { t } = useTranslation();
+  const { closeWithAnimation, isClosing, overlayRef, panelRef } =
+    useModalMotion({ onClose });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeWithAnimation();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeWithAnimation]);
 
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 backdrop-blur-[2px] md:place-items-center">
+    <div
+      className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 opacity-0 backdrop-blur-[2px] md:place-items-center"
+      ref={overlayRef}
+    >
       <button
         aria-label={t("room.closeSettings")}
         className="absolute inset-0 cursor-default"
-        onClick={onClose}
+        disabled={isClosing}
+        onClick={closeWithAnimation}
         type="button"
       />
-      <section className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]">
-        <div className="flex items-start justify-between gap-5">
+      <section
+        className="relative z-10 grid w-full max-w-[26rem] gap-6 bg-[#f7f7f2] p-5 text-[#0d0d0c] shadow-[0_28px_80px_rgba(13,13,12,0.34)] dark:bg-[#161616] dark:text-[#f7f7f2]"
+        ref={panelRef}
+      >
+        <div className="flex items-start justify-between gap-5" data-modal-reveal-row="true">
           <h2 className="pc-label text-[#0d0d0c]/70 dark:text-[#f7f7f2]/70">
-            {t("setup.lobbyPassword")}
+            <span className="block" data-modal-reveal-item="true">
+              {t("setup.lobbyPassword")}
+            </span>
           </h2>
           <button
             aria-label={t("room.closeSettings")}
             className="grid size-10 shrink-0 place-items-center bg-[#0d0d0c] text-[#f7f7f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
-            onClick={onClose}
+            data-modal-reveal-item="true"
+            disabled={isClosing}
+            onClick={closeWithAnimation}
             type="button"
           >
             <svg
@@ -49,11 +74,12 @@ function LobbyPasswordModal({
             </svg>
           </button>
         </div>
-        <div className="grid gap-4">
+        <div className="grid gap-4" data-modal-reveal-row="true">
           <input
             autoComplete="off"
             autoFocus
             className="pc-field w-full bg-[#0d0d0c]/8 px-4 text-[#0d0d0c] outline-none transition-colors duration-200 focus-visible:bg-[#0d0d0c]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/10 dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+            data-modal-reveal-item="true"
             onChange={(event) => setPassword(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") onJoin();
@@ -64,7 +90,8 @@ function LobbyPasswordModal({
           />
           <Button
             className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
-            disabled={isJoining}
+            data-modal-reveal-item="true"
+            disabled={isJoining || isClosing}
             onClick={onJoin}
           >
             {isJoining ? t("room.joining") : t("room.join")}

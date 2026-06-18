@@ -1,113 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import gsap from "gsap";
+import { useEffect } from "react";
 import { useTranslation } from "@/hooks/useLanguage";
-
-const STABLE_REVEAL_TRANSFORM = { force3D: false };
+import { useModalMotion } from "@/hooks/useModalMotion";
 
 export default function AnimatedSettingsModal({ children, onClose, title }) {
   const { t } = useTranslation();
-  const overlayRef = useRef(null);
-  const panelRef = useRef(null);
-  const timelineRef = useRef(null);
-  const [isClosing, setIsClosing] = useState(false);
-
-  const closeWithAnimation = useCallback(() => {
-    if (isClosing) return;
-
-    const overlay = overlayRef.current;
-    const panel = panelRef.current;
-    setIsClosing(true);
-    timelineRef.current?.kill();
-
-    timelineRef.current = gsap.timeline({
-      defaults: { ease: "power3.inOut" },
-      onComplete: onClose,
-    });
-
-    timelineRef.current
-      .to(panel, {
-        autoAlpha: 0,
-        duration: 0.16,
-        ...STABLE_REVEAL_TRANSFORM,
-        y: 8,
-      })
-      .to(
-        overlay,
-        {
-          autoAlpha: 0,
-          duration: 0.2,
-        },
-        "<",
-      );
-  }, [isClosing, onClose]);
-
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const panel = panelRef.current;
-    if (!overlay || !panel) return undefined;
-
-    const rows = panel.querySelectorAll("[data-modal-reveal-row]");
-    const rowItems = panel.querySelectorAll("[data-modal-reveal-item]");
-
-    timelineRef.current?.kill();
-    timelineRef.current = gsap.timeline({
-      defaults: { ease: "power4.out" },
-      onComplete: () => {
-        gsap.set(panel, { clearProps: "clipPath,willChange" });
-        gsap.set(rows, { clearProps: "overflow" });
-        gsap.set(rowItems, { clearProps: "autoAlpha,willChange" });
-      },
-    });
-
-    gsap.set(overlay, { autoAlpha: 0 });
-    gsap.set(panel, {
-      autoAlpha: 1,
-      clipPath: "inset(0 0 100% 0)",
-      ...STABLE_REVEAL_TRANSFORM,
-      willChange: "clip-path",
-      y: 14,
-    });
-    gsap.set(rows, { overflow: "hidden" });
-    gsap.set(rowItems, {
-      autoAlpha: 0,
-      ...STABLE_REVEAL_TRANSFORM,
-      yPercent: -112,
-    });
-
-    timelineRef.current
-      .to(overlay, {
-        autoAlpha: 1,
-        duration: 0.16,
-        ease: "power2.out",
-      })
-      .to(
-        panel,
-        {
-          clipPath: "inset(0 0 0% 0)",
-          duration: 0.34,
-          ...STABLE_REVEAL_TRANSFORM,
-          y: 0,
-        },
-        "<0.03",
-      )
-      .to(
-        rowItems,
-        {
-          autoAlpha: 1,
-          duration: 0.36,
-          ...STABLE_REVEAL_TRANSFORM,
-          stagger: 0.035,
-          yPercent: 0,
-        },
-        "-=0.16",
-      );
-
-    return () => {
-      timelineRef.current?.kill();
-    };
-  }, []);
+  const { closeWithAnimation, isClosing, overlayRef, panelRef } =
+    useModalMotion({ onClose });
 
   useEffect(() => {
     const handleKeyDown = (event) => {

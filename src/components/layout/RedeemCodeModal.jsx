@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import gsap from "gsap";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useRedeemCodes } from "@/hooks/useRedeemCodes";
-
-const STABLE_REVEAL_TRANSFORM = { force3D: false };
+import { useModalMotion } from "@/hooks/useModalMotion";
 
 export default function RedeemCodeModal({ onClose }) {
   const { t } = useTranslation();
@@ -16,111 +14,12 @@ export default function RedeemCodeModal({ onClose }) {
   const [message, setMessage] = useState(
     hasPremiumWaterColors ? t("redeem.success") : "",
   );
-  const [isClosing, setIsClosing] = useState(false);
-  const overlayRef = useRef(null);
-  const panelRef = useRef(null);
-  const timelineRef = useRef(null);
-
-  const closeWithAnimation = useCallback(() => {
-    if (isClosing) return;
-
-    const overlay = overlayRef.current;
-    const panel = panelRef.current;
-    setIsClosing(true);
-    timelineRef.current?.kill();
-
-    if (!overlay || !panel) {
-      onClose();
-      return;
-    }
-
-    timelineRef.current = gsap.timeline({
-      defaults: { ease: "power3.inOut" },
-      onComplete: onClose,
+  const { closeWithAnimation, isClosing, overlayRef, panelRef } =
+    useModalMotion({
+      itemSelector: "[data-redeem-reveal-item]",
+      onClose,
+      rowSelector: "[data-redeem-reveal-row]",
     });
-
-    timelineRef.current
-      .to(panel, {
-        autoAlpha: 0,
-        duration: 0.16,
-        y: 8,
-        ...STABLE_REVEAL_TRANSFORM,
-      })
-      .to(
-        overlay,
-        {
-          autoAlpha: 0,
-          duration: 0.2,
-        },
-        "<",
-      );
-  }, [isClosing, onClose]);
-
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const panel = panelRef.current;
-    if (!overlay || !panel) return undefined;
-
-    const rows = panel.querySelectorAll("[data-redeem-reveal-row]");
-    const rowItems = panel.querySelectorAll("[data-redeem-reveal-item]");
-
-    timelineRef.current?.kill();
-    timelineRef.current = gsap.timeline({
-      defaults: { ease: "power4.out" },
-      onComplete: () => {
-        gsap.set(panel, { clearProps: "clipPath,willChange" });
-        gsap.set(rows, { clearProps: "overflow" });
-        gsap.set(rowItems, { clearProps: "autoAlpha,willChange,yPercent" });
-      },
-    });
-
-    gsap.set(overlay, { autoAlpha: 0 });
-    gsap.set(panel, {
-      autoAlpha: 1,
-      clipPath: "inset(0 0 100% 0)",
-      y: 14,
-      willChange: "clip-path",
-      ...STABLE_REVEAL_TRANSFORM,
-    });
-    gsap.set(rows, { overflow: "hidden" });
-    gsap.set(rowItems, {
-      autoAlpha: 0,
-      yPercent: -112,
-      ...STABLE_REVEAL_TRANSFORM,
-    });
-
-    timelineRef.current
-      .to(overlay, {
-        autoAlpha: 1,
-        duration: 0.16,
-        ease: "power2.out",
-      })
-      .to(
-        panel,
-        {
-          clipPath: "inset(0 0 0% 0)",
-          duration: 0.34,
-          y: 0,
-          ...STABLE_REVEAL_TRANSFORM,
-        },
-        "<0.03",
-      )
-      .to(
-        rowItems,
-        {
-          autoAlpha: 1,
-          duration: 0.36,
-          stagger: 0.035,
-          yPercent: 0,
-          ...STABLE_REVEAL_TRANSFORM,
-        },
-        "-=0.16",
-      );
-
-    return () => {
-      timelineRef.current?.kill();
-    };
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {

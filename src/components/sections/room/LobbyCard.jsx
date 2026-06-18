@@ -367,6 +367,7 @@ export function LobbyWaterColorPanel({
   } = useLoopingSlider(colorCount, {
     disabled,
     getWheelStep: getWaterColorWheelStep,
+    lockTouchDrag: true,
     loop: "always",
     wheelDuration: 0.78,
   });
@@ -428,7 +429,7 @@ export function LobbyWaterColorPanel({
             "linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%)",
           msOverflowStyle: "none",
           scrollbarWidth: "none",
-          touchAction: "pan-y",
+          touchAction: "none",
         }}
       >
         <div className="flex w-max flex-nowrap gap-2.5">
