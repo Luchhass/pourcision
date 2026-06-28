@@ -12,9 +12,14 @@ import { useTranslation } from "@/hooks/useLanguage";
 import { createPlayerId, useRoomSession } from "@/hooks/useRoomSession";
 import { useMultiplayerRoom } from "@/hooks/useMultiplayerRoom";
 import { useRedeemCodes } from "@/hooks/useRedeemCodes";
-import { playActiveScreenExit } from "@/hooks/useScreenReveal";
+import {
+  playActiveScreenExit,
+  playGameStartScreenExit,
+  playScoreboardScreenExit,
+} from "@/hooks/useScreenReveal";
 import { trackEvent } from "@/lib/analytics";
 import { resolveWaterColorId, ROUTES } from "@/lib/constants";
+import { fadeOutMusic } from "@/lib/music";
 import {
   getFallbackWaterColorId,
   getWaterColorPreferenceSnapshot,
@@ -51,6 +56,10 @@ function findRoomPlayer(room, playerId) {
   return room?.players?.find((roomPlayer) => roomPlayer.id === playerId) || null;
 }
 
+function canJoinRoom(room) {
+  return room?.status === "lobby" || room?.status === "in_game";
+}
+
 async function copyInviteLink(roomCode) {
   if (!navigator.clipboard) {
     throw new Error("Clipboard unavailable");
@@ -60,7 +69,7 @@ async function copyInviteLink(roomCode) {
 }
 
 function roomViewFromState({ activeGame, leaderboard, room, sessionPlayer }) {
-  if (!sessionPlayer) return room?.status === "lobby" ? "join" : "not-found";
+  if (!sessionPlayer) return canJoinRoom(room) ? "join" : "not-found";
   if (room?.status === "lobby") return "lobby";
   if (room?.status === "completed" && sessionPlayer.returnedToLobby) {
     return "lobby";
@@ -101,7 +110,11 @@ export default function MultiplayerRoomClient({ roomCode }) {
     waterStates,
   } = useMultiplayerRoom(roomCode, session?.playerId);
   const bootstrappedRef = useRef(false);
+  const gameEntryTransitionPendingRef = useRef("");
+  const scoreboardEntryTransitionPendingRef = useRef("");
   const [error, setError] = useState("");
+  const [gameEntryReadyKey, setGameEntryReadyKey] = useState("");
+  const [scoreboardEntryReadyKey, setScoreboardEntryReadyKey] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [isReturningLobby, setIsReturningLobby] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -109,6 +122,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [isLobbySettingsOpen, setIsLobbySettingsOpen] = useState(false);
   const [player, setPlayer] = useState(null);
+  const [previousRoomStatus, setPreviousRoomStatus] = useState(null);
   const [view, setView] = useState("loading");
   const storedPreferredWaterColorId = useSyncExternalStore(
     subscribeToWaterColorPreference,
@@ -126,6 +140,23 @@ export default function MultiplayerRoomClient({ roomCode }) {
   const playerId = player?.playerId || "";
   const currentPlayer = findRoomPlayer(room, playerId);
   const activeGame = startedGame || room?.game;
+  const activeGameTransitionKey = activeGame
+    ? [roomCode, activeGame.seed || room?.game?.seed || "game"].join(":")
+    : "";
+  const leaderboardPlayers =
+    leaderboard?.players ||
+    leaderboard?.leaderboard?.players ||
+    (Array.isArray(leaderboard?.leaderboard) ? leaderboard.leaderboard : []);
+  const scoreboardEntryKey = leaderboard || room?.status === "completed"
+    ? [
+        roomCode,
+        activeGame?.seed || room?.game?.seed || "completed",
+        leaderboardPlayers.length,
+        leaderboardPlayers
+          .map((row) => `${row.id || row.playerId || row.name}:${row.score ?? row.totalScore ?? 0}`)
+          .join("|"),
+      ].join(":")
+    : "";
 
   useEffect(() => {
     if (!session || (!kickedMessage && !closedMessage)) return;
@@ -168,7 +199,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
         return;
       }
 
-      setView(data.room?.status === "lobby" ? "join" : "not-found");
+      setView(canJoinRoom(data.room) ? "join" : "not-found");
     };
 
     void bootstrap();
@@ -260,7 +291,6 @@ export default function MultiplayerRoomClient({ roomCode }) {
       game_type: "multiplayer",
       player_count: room?.players?.length || 0,
     });
-    await playActiveScreenExit();
     setIsLobbySettingsOpen(false);
     setView("game");
   };
@@ -343,19 +373,90 @@ export default function MultiplayerRoomClient({ roomCode }) {
     return response;
   };
 
-  let effectiveView = view;
+  let computedEffectiveView = view;
   if (kickedMessage) {
-    effectiveView = "kicked";
+    computedEffectiveView = "kicked";
   } else if (closedMessage) {
-    effectiveView = "closed";
+    computedEffectiveView = "closed";
   } else if (player && room && currentPlayer) {
-    effectiveView = roomViewFromState({
+    computedEffectiveView = roomViewFromState({
       activeGame,
       leaderboard,
       room,
       sessionPlayer: currentPlayer,
     });
   }
+  const shouldGateGameEntry =
+    previousRoomStatus === "lobby" &&
+    room?.status === "in_game" &&
+    Boolean(activeGameTransitionKey) &&
+    gameEntryReadyKey !== activeGameTransitionKey;
+  const shouldGateScoreboardEntry =
+    previousRoomStatus === "in_game" &&
+    computedEffectiveView === "leaderboard" &&
+    Boolean(scoreboardEntryKey) &&
+    scoreboardEntryReadyKey !== scoreboardEntryKey;
+  const effectiveView = shouldGateGameEntry || shouldGateScoreboardEntry
+    ? shouldGateGameEntry
+      ? "lobby"
+      : "game"
+    : computedEffectiveView;
+
+  useEffect(() => {
+    if (!shouldGateGameEntry || !activeGameTransitionKey) return undefined;
+    if (gameEntryTransitionPendingRef.current === activeGameTransitionKey) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    gameEntryTransitionPendingRef.current = activeGameTransitionKey;
+
+    fadeOutMusic();
+    playGameStartScreenExit().then(() => {
+      if (cancelled) return;
+
+      gameEntryTransitionPendingRef.current = "";
+      setGameEntryReadyKey(activeGameTransitionKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeGameTransitionKey, shouldGateGameEntry]);
+
+  useEffect(() => {
+    if (!shouldGateScoreboardEntry || !scoreboardEntryKey) return undefined;
+    if (scoreboardEntryTransitionPendingRef.current === scoreboardEntryKey) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    scoreboardEntryTransitionPendingRef.current = scoreboardEntryKey;
+
+    playScoreboardScreenExit().then(() => {
+      if (cancelled) return;
+
+      scoreboardEntryTransitionPendingRef.current = "";
+      setScoreboardEntryReadyKey(scoreboardEntryKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scoreboardEntryKey, shouldGateScoreboardEntry]);
+
+  useEffect(() => {
+    if (shouldGateGameEntry || shouldGateScoreboardEntry) return undefined;
+
+    const nextStatus = room?.status || null;
+    const timerId = window.setTimeout(() => {
+      setPreviousRoomStatus((currentStatus) =>
+        currentStatus === nextStatus ? currentStatus : nextStatus,
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timerId);
+  }, [room?.status, shouldGateGameEntry, shouldGateScoreboardEntry]);
 
   const shellTitle =
     effectiveView === "leaderboard"
@@ -447,7 +548,7 @@ export default function MultiplayerRoomClient({ roomCode }) {
         error={error || connectionError}
         gamePayload={activeGame}
         isReturningLobby={isReturningLobby}
-        leaderboard={leaderboard}
+        leaderboard={shouldGateScoreboardEntry ? null : leaderboard}
         onBackLobby={handleReturnToLobby}
         onLeave={handleBackHome}
         playerId={playerId}

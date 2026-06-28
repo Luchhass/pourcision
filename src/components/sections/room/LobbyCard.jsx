@@ -3,24 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
-  ArrowUp,
   BatteryCharging,
   CircleDot,
   Clipboard,
-  Columns2,
-  Droplet,
-  Eye,
-  EyeOff,
-  Flag,
+  CircleOff,
+  Droplets,
+  FlagTriangleRight,
   Gauge,
   Lock,
-  MousePointerClick,
+  Moon,
   Palette,
   Pencil,
   RotateCcw,
+  ScanLine,
   Shuffle,
+  SplitSquareVertical,
+  Target,
   Timer,
   UserMinus,
+  WavesArrowUp,
   Zap,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -44,21 +45,20 @@ import {
 } from "@/lib/sound";
 
 const modeIcons = {
-  [GAME_RULE_MODES.BLIND]: Eye,
+  [GAME_RULE_MODES.BLIND]: CircleOff,
   [GAME_RULE_MODES.FLASH]: Zap,
   [GAME_RULE_MODES.CLASSIC]: CircleDot,
   [GAME_RULE_MODES.CHAOS_QUEUE]: Shuffle,
-  [GAME_RULE_MODES.FAKE_TARGET]: Flag,
+  [GAME_RULE_MODES.FAKE_TARGET]: FlagTriangleRight,
   [GAME_RULE_MODES.INVERT]: ArrowUpDown,
-  [GAME_RULE_MODES.LEAKY]: Droplet,
-  [GAME_RULE_MODES.PERFECT_OR_NOTHING]: CircleDot,
-  [GAME_RULE_MODES.BAND_RUN]: CircleDot,
+  [GAME_RULE_MODES.LEAKY]: Droplets,
+  [GAME_RULE_MODES.PERFECT_OR_NOTHING]: Target,
+  [GAME_RULE_MODES.BAND_RUN]: ScanLine,
   [GAME_RULE_MODES.CHARGE_POUR]: BatteryCharging,
-  [GAME_RULE_MODES.BURST_CLICK]: MousePointerClick,
-  [GAME_RULE_MODES.COLORBLIND]: EyeOff,
-  [GAME_RULE_MODES.AUTO_RISE]: ArrowUp,
+  [GAME_RULE_MODES.COLORBLIND]: Moon,
+  [GAME_RULE_MODES.AUTO_RISE]: WavesArrowUp,
   [GAME_RULE_MODES.REVERSE_POUR]: RotateCcw,
-  [GAME_RULE_MODES.SPLIT_FILL]: Columns2,
+  [GAME_RULE_MODES.SPLIT_FILL]: SplitSquareVertical,
   [GAME_RULE_MODES.TILT]: Gauge,
 };
 
@@ -450,7 +450,7 @@ export function LobbyWaterColorPanel({
                 }
                 aria-pressed={selected}
                 className={[
-                  "pc-swatch relative grid shrink-0 place-items-center overflow-hidden transition-[box-shadow,filter] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
+                  "pc-swatch relative grid shrink-0 place-items-center overflow-hidden transition-[filter] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]",
                   isTaken ? "cursor-not-allowed" : "",
                 ].join(" ")}
                 data-color-id={color.id}
@@ -467,9 +467,6 @@ export function LobbyWaterColorPanel({
                 }
                 style={{
                   background: color.background || color.value,
-                  boxShadow: selected
-                    ? "inset 0 -8px 0 #0d0d0c, 0 14px 28px rgba(13,13,12,0.14)"
-                    : "none",
                 }}
                 type="button"
               >
@@ -493,6 +490,12 @@ export function LobbyWaterColorPanel({
                     />
                   </>
                 ) : null}
+                {selected ? (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-2 bg-[#0d0d0c]"
+                  />
+                ) : null}
               </button>
             );
           })}
@@ -510,7 +513,15 @@ function LobbySettingsModal({ children, onClose, title }) {
   );
 }
 
-function LobbySettingsButton({ icon: Icon, label, onClick, wide = false }) {
+function LobbySettingsButton({
+  icon: Icon,
+  label,
+  onClick,
+  value = "",
+  wide = false,
+}) {
+  const buttonLabel = value ? `${label}: ${value}` : label;
+
   return (
     <div
       className={[
@@ -523,7 +534,7 @@ function LobbySettingsButton({ icon: Icon, label, onClick, wide = false }) {
         {label}
       </p>
       <button
-        aria-label={label}
+        aria-label={buttonLabel}
         className={[
           "grid h-[var(--pc-choice-height)] min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
           wide ? "px-3" : "",
@@ -538,7 +549,11 @@ function LobbySettingsButton({ icon: Icon, label, onClick, wide = false }) {
           ].join(" ")}
         >
           <Icon aria-hidden="true" className="pc-icon shrink-0" strokeWidth={2.7} />
-          {wide ? <span className="pc-choice-text truncate">{label}</span> : null}
+          {wide ? (
+            <span className="pc-choice-text min-w-0 truncate">
+              {value || label}
+            </span>
+          ) : null}
         </span>
       </button>
     </div>
@@ -573,6 +588,20 @@ export default function LobbyCard({
   const isSettingsOpen = canEditSettings && isEditingSettings;
   const settingsDisabled = isUpdatingSettings;
   const roomRoundCount = room.roundCount || GAME_ROUND_COUNT;
+  const selectedRuleModeOption =
+    GAME_MODE_OPTIONS.find((option) => option.id === room.ruleMode) ||
+    GAME_MODE_OPTIONS[0];
+  const SelectedRuleModeIcon =
+    modeIcons[selectedRuleModeOption?.id] ?? Shuffle;
+  const selectedRuleModeLabel = selectedRuleModeOption
+    ? t(`modes.${selectedRuleModeOption.id}.label`)
+    : t("setup.mode");
+  const selectedWaterColor =
+    visibleWaterColors.find((color) => color.id === currentPlayer?.waterColorId) ??
+    WATER_COLORS.find((color) => color.id === currentPlayer?.waterColorId) ??
+    visibleWaterColors[0] ??
+    WATER_COLORS[0];
+  const selectedWaterColorLabel = t(`colors.${selectedWaterColor.id}`);
 
   const handleEditToggle = () => {
     const next = !isEditingSettings;
@@ -624,14 +653,22 @@ export default function LobbyCard({
                 </div>
               </div>
               <div
-                className="mt-4 min-w-0"
+                className="mt-4 grid w-full min-w-0 grid-cols-2 items-start gap-3"
                 data-screen-reveal-row="true"
-                data-screen-reveal-target="self"
+                data-screen-reveal-target="children"
               >
                 <LobbySettingsButton
-                  icon={Shuffle}
+                  icon={SelectedRuleModeIcon}
                   label={t("setup.mode")}
                   onClick={() => setMobileSettingsModal("mode")}
+                  value={selectedRuleModeLabel}
+                  wide
+                />
+                <LobbySettingsButton
+                  icon={Palette}
+                  label={t("setup.waterColor")}
+                  onClick={() => setMobileSettingsModal("color")}
+                  value={selectedWaterColorLabel}
                   wide
                 />
               </div>
@@ -700,70 +737,76 @@ export default function LobbyCard({
             : "grid-cols-2",
         ].join(" ")}
       >
-        {canOpenColorSettings ? (
-          <button
-            aria-label={t("setup.waterColor")}
-            data-screen-reveal-row="true"
-            data-screen-reveal-target="self"
-            className="pc-action grid aspect-square place-items-center bg-[#f7f7f2]/96 p-0 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] lg:hidden dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
-            onClick={() => setMobileSettingsModal("color")}
-            type="button"
-          >
-            <Palette aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
-          </button>
-        ) : null}
+          {canOpenColorSettings ? (
+            <button
+              aria-label={t("setup.waterColor")}
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="self"
+              className="pc-action grid aspect-square place-items-center bg-[#f7f7f2]/96 p-0 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] lg:hidden dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]"
+              onClick={() => setMobileSettingsModal("color")}
+              type="button"
+            >
+              <Palette aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+            </button>
+          ) : null}
 
-        {canEditSettings ? (
+          {canEditSettings ? (
+            <button
+              aria-label={t("room.editSettings")}
+              aria-pressed={isSettingsOpen}
+              data-screen-reveal-row="true"
+              data-screen-reveal-target="self"
+              className={[
+                "pc-action grid aspect-square place-items-center p-0 shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:focus-visible:outline-[#f7f7f2]",
+                isSettingsOpen
+                  ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
+                  : "bg-[#f7f7f2]/96 text-[#0d0d0c] hover:bg-white dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14",
+              ].join(" ")}
+              onClick={handleEditToggle}
+              type="button"
+            >
+              <Pencil aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+            </button>
+          ) : null}
+
           <button
-            aria-label={t("room.editSettings")}
-            aria-pressed={isSettingsOpen}
+            aria-label={t("room.copyInvite")}
             data-screen-reveal-row="true"
             data-screen-reveal-target="self"
             className={[
-              "pc-action grid aspect-square place-items-center p-0 shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:focus-visible:outline-[#f7f7f2]",
-              isSettingsOpen
-                ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
-                : "bg-[#f7f7f2]/96 text-[#0d0d0c] hover:bg-white dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14",
+              "pc-action grid place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
+              canOpenColorSettings ? "aspect-square p-0" : "w-full",
             ].join(" ")}
-            onClick={handleEditToggle}
+            onClick={onCopyInvite}
             type="button"
           >
-            <Pencil aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+            <span className="inline-flex items-center gap-3">
+              <Clipboard aria-hidden="true" className="pc-icon" />
+              {canOpenColorSettings ? null : (
+                <span className="hidden sm:inline">{t("room.copyInvite")}</span>
+              )}
+            </span>
           </button>
-        ) : null}
 
-        <button
-          aria-label={t("room.copyInvite")}
-          data-screen-reveal-row="true"
-          data-screen-reveal-target="self"
-          className={[
-            "pc-action grid place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
-            canOpenColorSettings ? "aspect-square p-0" : "w-full",
-          ].join(" ")}
-          onClick={onCopyInvite}
-          type="button"
-        >
-          <span className="inline-flex items-center gap-3">
-            <Clipboard aria-hidden="true" className="pc-icon" />
-            {canOpenColorSettings ? null : (
-              <span className="hidden sm:inline">{t("room.copyInvite")}</span>
-            )}
-          </span>
-        </button>
-
-        <Button
-          className="rounded-none shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
-          data-screen-reveal-row="true"
-          data-screen-reveal-target="self"
-          disabled={!isHost || isStarting || !canStartGame}
-          onClick={onStart}
-        >
-          {isHost
-            ? isStarting
-              ? t("common.loading")
-              : t("room.startGame")
-            : t("room.waiting")}
-        </Button>
+          <Button
+            className={[
+              "rounded-none",
+              isHost
+                ? "shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
+                : "shadow-[0_14px_34px_rgba(13,13,12,0.05)]",
+            ].join(" ")}
+            data-screen-reveal-row="true"
+            data-screen-reveal-target="self"
+            disabled={!isHost || isStarting || !canStartGame}
+            onClick={onStart}
+            variant={isHost ? "primary" : "secondary"}
+          >
+            {isHost
+              ? isStarting
+                ? t("common.loading")
+                : t("room.startGame")
+              : t("room.waiting")}
+          </Button>
       </div>
 
       {mobileSettingsModal === "color" ? (

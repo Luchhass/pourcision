@@ -4,7 +4,12 @@ import { useEffect } from "react";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useModalMotion } from "@/hooks/useModalMotion";
 
-export default function AnimatedSettingsModal({ children, onClose, title }) {
+export default function AnimatedSettingsModal({
+  children,
+  mobileOnly = true,
+  onClose,
+  title,
+}) {
   const { t } = useTranslation();
   const { closeWithAnimation, isClosing, overlayRef, panelRef } =
     useModalMotion({ onClose });
@@ -22,7 +27,10 @@ export default function AnimatedSettingsModal({ children, onClose, title }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 opacity-0 backdrop-blur-[2px] md:hidden"
+      className={[
+        "fixed inset-0 z-[80] grid place-items-end bg-[#0d0d0c]/45 p-4 opacity-0 backdrop-blur-[2px]",
+        mobileOnly ? "lg:hidden" : "md:place-items-center md:p-6",
+      ].join(" ")}
       ref={overlayRef}
     >
       <button

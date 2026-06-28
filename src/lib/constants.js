@@ -47,7 +47,7 @@ export const FAKE_TARGET_MIN_DISTANCE = 12;
 export const TIMED_ROUND_MS = 5000;
 export const LEAKY_ROUND_MS = TIMED_ROUND_MS;
 export const PERFECT_ZONE_RADIUS = 2.2;
-export const CHAOS_BRIEFING_MS = 3000;
+export const CHAOS_BRIEFING_MS = 5000;
 export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CLASSIC,
   GAME_RULE_MODES.BLIND,
@@ -61,7 +61,6 @@ export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
   GAME_RULE_MODES.BAND_RUN,
   GAME_RULE_MODES.CHARGE_POUR,
-  GAME_RULE_MODES.BURST_CLICK,
   GAME_RULE_MODES.COLORBLIND,
   GAME_RULE_MODES.AUTO_RISE,
 ];
@@ -78,7 +77,6 @@ export const MODE_GRID_ORDER = [
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
   GAME_RULE_MODES.BAND_RUN,
   GAME_RULE_MODES.CHARGE_POUR,
-  GAME_RULE_MODES.BURST_CLICK,
   GAME_RULE_MODES.COLORBLIND,
   GAME_RULE_MODES.AUTO_RISE,
   GAME_RULE_MODES.TILT,
@@ -362,7 +360,7 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.BLIND,
-    label: "No Guide",
+    label: "No Line",
     description: "No target line. Trust the goal percentage.",
     oneHold: true,
   },
@@ -374,19 +372,19 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.FAKE_TARGET,
-    label: "Fake Target",
+    label: "Trap Line",
     description: "Two target lines. One is a trap.",
     oneHold: true,
   },
   {
     id: GAME_RULE_MODES.INVERT,
-    label: "Invert",
+    label: "Upside Down",
     description: "Classic timing with the water flipped upside down.",
     oneHold: true,
   },
   {
     id: GAME_RULE_MODES.REVERSE_POUR,
-    label: "Draining",
+    label: "Drain",
     description: "Start full. Hold to drain down.",
     oneHold: true,
   },
@@ -404,41 +402,35 @@ export const GAME_MODE_OPTIONS = [
   },
   {
     id: GAME_RULE_MODES.CHAOS_QUEUE,
-    label: "Chaos Queue",
+    label: "Rule Shuffle",
     description: "A random rule appears before every round.",
   },
   {
     id: GAME_RULE_MODES.SPLIT_FILL,
-    label: "Split Fill",
+    label: "Dual Tank",
     description: "Two tanks. Two targets. One release.",
     oneHold: true,
   },
   {
     id: GAME_RULE_MODES.PERFECT_OR_NOTHING,
-    label: "All or Nothing",
+    label: "Strike Zone",
     description: "Hit the narrow zone for everything, miss it for nothing.",
     oneHold: true,
   },
   {
     id: GAME_RULE_MODES.BAND_RUN,
-    label: "Band Run",
+    label: "Band Chase",
     description: "Two to five target bands. One touch for each.",
   },
   {
     id: GAME_RULE_MODES.CHARGE_POUR,
-    label: "Pressure Charge",
+    label: "Charged Pour",
     description: "Hold to charge. Release a stronger pour from above.",
     oneHold: true,
   },
   {
-    id: GAME_RULE_MODES.BURST_CLICK,
-    label: "Burst Click",
-    description: "Spam quick taps to build a steady timed flow.",
-    roundDurationMs: TIMED_ROUND_MS,
-  },
-  {
     id: GAME_RULE_MODES.COLORBLIND,
-    label: "Blind",
+    label: "Blackout",
     description: "The screen fades to black one second after the round starts.",
     oneHold: true,
   },
@@ -455,5 +447,6 @@ export const DEFAULT_GAME_MODE_ID = GAME_RULE_MODES.CLASSIC;
 export const WATER_COLOR_STORAGE_KEY = "pourcision-water-color";
 export const THEME_STORAGE_KEY = "pourcision-theme";
 export const SOUND_STORAGE_KEY = "pourcision-sound";
+export const MUSIC_STORAGE_KEY = "pourcision-music";
 export const FULLSCREEN_STORAGE_KEY = "pourcision-fullscreen-mode";
 export { LANGUAGE_STORAGE_KEY } from "@/lib/i18n";

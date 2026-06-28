@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { KeyRound } from "lucide-react";
+import MusicToggle from "@/components/layout/MusicToggle";
 import RedeemCodeModal from "@/components/layout/RedeemCodeModal";
 import SoundToggle from "@/components/layout/SoundToggle";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import { useTranslation } from "@/hooks/useLanguage";
 import { playActiveScreenExit } from "@/hooks/useScreenReveal";
+
+const SHOW_REDEEM_BUTTON = false;
 
 export default function PageUtilitySwitches({ placement = "inline", tone = "dark" }) {
   const { locale, nextLocale, setLanguage, t } = useTranslation();
@@ -55,15 +58,18 @@ export default function PageUtilitySwitches({ placement = "inline", tone = "dark
             <span className="pc-choice-text">{locale.toUpperCase()}</span>
           </button>
           <SoundToggle className={buttonClass} />
+          <MusicToggle className={buttonClass} />
           <ThemeToggle className={buttonClass} />
-          <button
-            aria-label={t("utility.redeem")}
-            className={buttonClass}
-            onClick={() => setIsRedeemOpen(true)}
-            type="button"
-          >
-            <KeyRound aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
-          </button>
+          {SHOW_REDEEM_BUTTON ? (
+            <button
+              aria-label={t("utility.redeem")}
+              className={buttonClass}
+              onClick={() => setIsRedeemOpen(true)}
+              type="button"
+            >
+              <KeyRound aria-hidden="true" className="pc-icon" strokeWidth={2.5} />
+            </button>
+          ) : null}
         </div>
       </section>
       {isRedeemOpen ? (

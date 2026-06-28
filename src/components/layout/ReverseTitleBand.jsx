@@ -89,7 +89,7 @@ export default function ReverseTitleBand({
         </h1>
         <h1
           aria-hidden="true"
-          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 overflow-hidden text-[#f7f7f2] [clip-path:inset(0_calc(100%_-_(var(--reverse-width)_-_var(--home-pad)))_0_0)]"
+          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 text-[#f7f7f2] [clip-path:inset(-0.72em_calc(100%_-_(var(--reverse-width)_-_var(--home-pad)))_-0.92em_0)]"
         >
           {titleText}
         </h1>

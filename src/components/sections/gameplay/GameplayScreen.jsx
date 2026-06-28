@@ -25,8 +25,44 @@ import {
   startChargeLoop,
   startPourLoop,
 } from "@/lib/sound";
+import { formatScore, normalizeRoundScore } from "@/lib/scoring";
+import {
+  releaseRevealRowMasks,
+  setRevealRowMasks,
+} from "@/lib/revealMasks";
+import {
+  releaseGameStartTransitionOverlay,
+  requestNextFullScreenReveal,
+} from "@/hooks/useScreenReveal";
+import {
+  clearGameResumeSnapshot,
+  createGameResumeKey,
+  readGameResumeSnapshot,
+  writeGameResumeSnapshot,
+} from "@/lib/gameResume";
+import {
+  fadeOutMusic,
+  MUSIC_SCENES,
+  startMusicScene,
+  transitionMusicToScene,
+} from "@/lib/music";
 
 const STABLE_REVEAL_TRANSFORM = { force3D: false };
+const ROUND_INTRO_MUSIC_FADE_SECONDS = 0.86;
+
+function getRevealMaskRows(targets) {
+  return Array.from(
+    new Set(
+      targets
+        .map((target) => target?.parentElement)
+        .filter((row) => row instanceof HTMLElement),
+    ),
+  );
+}
+
+function releaseOverflowMasks(rows) {
+  releaseRevealRowMasks(gsap, rows);
+}
 
 function formatPercent(value) {
   return `${clamp(Number(value) || 0, 0, 100).toFixed(1)}%`;
@@ -40,28 +76,75 @@ function formatDiff(value) {
   return value.toFixed(2);
 }
 
-function formatScore(value) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-
-  return Number(value).toFixed(2);
+function formatTimerClock(value) {
+  return (Math.max(0, value) / 1000).toFixed(2);
 }
 
-function formatResultScore(value) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-
-  return Number(value).toFixed(2);
+function formatChaosBriefingTime(value) {
+  return String(clamp(Math.ceil(Math.max(0, value) / 1000), 0, 9));
 }
 
-function formatSeconds(value) {
-  return `${(value / 1000).toFixed(1)}s`;
+function ChaosCountdownWheel({ value }) {
+  const displayValue = formatChaosBriefingTime(value);
+
+  return (
+    <div
+      aria-label={displayValue}
+      className="pc-chaos-countdown-wheel"
+      role="timer"
+    >
+      {displayValue}
+    </div>
+  );
 }
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function clampPercent(value, fallback = 0) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return clamp(parsed, 0, 100);
+}
+
+function clampUnit(value, fallback = 0.5) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return clamp(parsed, 0, 1);
+}
+
+function clampTiltValue(value) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) return 0;
+
+  return clamp(parsed, -1, 1);
+}
+
+function createGameplayResumeKey({ isMultiplayer, playerId, settings }) {
+  if (settings?.resumeKey) return settings.resumeKey;
+
+  return createGameResumeKey([
+    isMultiplayer ? "multiplayer" : settings?.mode,
+    settings?.route,
+    playerId,
+    settings?.difficulty,
+    settings?.ruleMode,
+    settings?.roundCount,
+    settings?.waterColorId,
+    settings?.targetSeed,
+  ]);
+}
+
+function getSnapshotRoundIndex(snapshot) {
+  const roundIndex = Number(snapshot?.game?.roundIndex);
+
+  return Number.isInteger(roundIndex) ? roundIndex : null;
 }
 
 function getRuleModeOption(ruleMode) {
@@ -72,10 +155,30 @@ function getRuleModeOption(ruleMode) {
 }
 
 function ChaosRoundBriefing({ onComplete, ruleMode }) {
-  const [secondsLeft, setSecondsLeft] = useState(3);
+  const [timeLeftMs, setTimeLeftMs] = useState(CHAOS_BRIEFING_MS);
   const briefingRef = useRef(null);
+  const completedRef = useRef(false);
   const option = getRuleModeOption(ruleMode);
   const { t } = useTranslation();
+
+  const finishBriefing = useCallback(() => {
+    if (completedRef.current) {
+      return;
+    }
+
+    completedRef.current = true;
+    setTimeLeftMs(0);
+    onComplete();
+  }, [onComplete]);
+
+  const handleSkipBriefing = useCallback(
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      finishBriefing();
+    },
+    [finishBriefing],
+  );
 
   useLayoutEffect(() => {
     const root = briefingRef.current;
@@ -98,17 +201,14 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
         ease: "expo.out",
         overwrite: "auto",
       },
-      onComplete: () => {
-        gsap.set(rows, { clearProps: "overflow" });
-        gsap.set(items, { clearProps: "opacity,visibility,willChange" });
-      },
+      onComplete: () => releaseOverflowMasks(rows),
     });
 
-    gsap.set(rows, { overflow: "hidden" });
+    setRevealRowMasks(gsap, rows);
     gsap.set(items, {
       autoAlpha: 0,
       ...STABLE_REVEAL_TRANSFORM,
-      yPercent: -120,
+      yPercent: -190,
     });
 
     timeline.to(items, {
@@ -120,27 +220,35 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
 
     return () => {
       timeline.kill();
+      releaseOverflowMasks(rows);
     };
   }, [ruleMode]);
 
   useEffect(() => {
-    const startedAt = Date.now();
-    const intervalId = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const nextSeconds = Math.max(
-        1,
-        Math.ceil((CHAOS_BRIEFING_MS - elapsed) / 1000),
-      );
+    completedRef.current = false;
 
-      setSecondsLeft(nextSeconds);
-    }, 120);
-    const timerId = window.setTimeout(onComplete, CHAOS_BRIEFING_MS);
+    let animationFrameId;
+    const startedAt = performance.now();
+
+    const tick = (now) => {
+      const nextTimeLeft = Math.max(0, CHAOS_BRIEFING_MS - (now - startedAt));
+
+      setTimeLeftMs(nextTimeLeft);
+
+      if (nextTimeLeft <= 0) {
+        finishBriefing();
+        return;
+      }
+
+      animationFrameId = window.requestAnimationFrame(tick);
+    };
+
+    animationFrameId = window.requestAnimationFrame(tick);
 
     return () => {
-      window.clearInterval(intervalId);
-      window.clearTimeout(timerId);
+      window.cancelAnimationFrame(animationFrameId);
     };
-  }, [onComplete]);
+  }, [finishBriefing, ruleMode]);
 
   return (
     <section
@@ -165,11 +273,18 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
           </p>
         </div>
         <div data-chaos-briefing-row="true">
-          <p className="pc-result-score-compact text-[#0d0d0c] sm:text-[var(--pc-result-score)]">
-            {secondsLeft}
-          </p>
+          <ChaosCountdownWheel value={timeLeftMs} />
         </div>
       </div>
+      <button
+        className="pc-chaos-skip pc-label absolute bottom-6 right-6 text-[#0d0d0c]/35 transition-colors duration-200 hover:text-[#0d0d0c]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] md:bottom-8 md:right-8"
+        data-game-control="true"
+        onClick={handleSkipBriefing}
+        onPointerDown={(event) => event.stopPropagation()}
+        type="button"
+      >
+        {t("game.skipBriefing")}
+      </button>
     </section>
   );
 }
@@ -286,6 +401,7 @@ function getResultLabel(label, t) {
 }
 
 export default function GameplayScreen({
+  animateCompleteExit = false,
   gameTargets = null,
   isMultiplayer = false,
   onComplete,
@@ -297,38 +413,91 @@ export default function GameplayScreen({
   settings,
 }) {
   const { t } = useTranslation();
-  const pourXRef = useRef(0.5);
+  useLayoutEffect(() => {
+    releaseGameStartTransitionOverlay();
+  }, []);
+  const resumeKey = createGameplayResumeKey({
+    isMultiplayer,
+    playerId,
+    settings,
+  });
+  const [initialResumeSnapshot] = useState(() =>
+    readGameResumeSnapshot(resumeKey),
+  );
+  const initialWaterSnapshot = initialResumeSnapshot?.water || null;
+  const initialActiveSplitIndex =
+    initialWaterSnapshot?.activeSplitIndex === 1 ? 1 : 0;
+  const resumeWaterLevel = clampPercent(initialWaterSnapshot?.level, 0);
+  const resumeWaterSurfaceLevel = clampPercent(
+    initialWaterSnapshot?.surfaceLevel,
+    resumeWaterLevel,
+  );
+  const resumeSplitLeftLevel = clampPercent(
+    initialWaterSnapshot?.splitLeftLevel,
+    0,
+  );
+  const resumeSplitLeftSurfaceLevel = clampPercent(
+    initialWaterSnapshot?.splitLeftSurfaceLevel,
+    resumeSplitLeftLevel,
+  );
+  const resumeSplitRightLevel = clampPercent(
+    initialWaterSnapshot?.splitRightLevel,
+    0,
+  );
+  const resumeSplitRightSurfaceLevel = clampPercent(
+    initialWaterSnapshot?.splitRightSurfaceLevel,
+    resumeSplitRightLevel,
+  );
+  const pourXRef = useRef(clampUnit(initialWaterSnapshot?.pourX, 0.5));
   const pourSoundRef = useRef(null);
   const chargeSoundStartedAtRef = useRef(0);
+  const completeExitTimelineRef = useRef(null);
+  const gameMusicStartedRef = useRef(false);
   const gameplayRevealKeyRef = useRef("");
   const gameplayRevealTimelineRef = useRef(null);
   const gameplayRootRef = useRef(null);
   const gameplayRootRectRef = useRef({ left: 0, width: 1 });
   const gameplayTiltLayerRef = useRef(null);
+  const resumeClearedRef = useRef(false);
   const resultSoundKeyRef = useRef("");
   const soundStatusRef = useRef("");
-  const splitLeftLevelRef = useRef(0);
-  const splitLeftPourXRef = useRef(0.5);
-  const splitLeftSettledRef = useRef(true);
-  const splitLeftSurfaceLevelRef = useRef(0);
-  const splitRightLevelRef = useRef(0);
-  const splitRightPourXRef = useRef(0.5);
-  const splitRightSettledRef = useRef(true);
-  const splitRightSurfaceLevelRef = useRef(0);
-  const splitStreamLevelRef = useRef(0);
+  const splitLeftLevelRef = useRef(resumeSplitLeftLevel);
+  const splitLeftPourXRef = useRef(
+    clampUnit(initialWaterSnapshot?.splitPourX?.[0], 0.5),
+  );
+  const splitLeftSettledRef = useRef(
+    initialWaterSnapshot?.splitLeftSettled !== false,
+  );
+  const splitLeftSurfaceLevelRef = useRef(resumeSplitLeftSurfaceLevel);
+  const splitRightLevelRef = useRef(resumeSplitRightLevel);
+  const splitRightPourXRef = useRef(
+    clampUnit(initialWaterSnapshot?.splitPourX?.[1], 0.5),
+  );
+  const splitRightSettledRef = useRef(
+    initialWaterSnapshot?.splitRightSettled !== false,
+  );
+  const splitRightSurfaceLevelRef = useRef(resumeSplitRightSurfaceLevel);
+  const splitStreamLevelRef = useRef(
+    initialActiveSplitIndex === 0
+      ? resumeSplitLeftSurfaceLevel
+      : resumeSplitRightSurfaceLevel,
+  );
   const submittedRoundsRef = useRef(new Set());
   const targetGuideLineRef = useRef(null);
   const targetGuideLabelRef = useRef(null);
-  const tiltRef = useRef(0);
-  const waterLevelRef = useRef(0);
-  const waterSettledRef = useRef(true);
-  const waterSurfaceLevelRef = useRef(0);
+  const tiltRef = useRef(clampTiltValue(initialWaterSnapshot?.tilt));
+  const waterLevelRef = useRef(resumeWaterLevel);
+  const waterSettledRef = useRef(initialWaterSnapshot?.settled !== false);
+  const waterSurfaceLevelRef = useRef(resumeWaterSurfaceLevel);
   const isSplitFillModeRef = useRef(false);
-  const [activeSplitIndex, setActiveSplitIndex] = useState(0);
-  const activeSplitIndexRef = useRef(0);
+  const [activeSplitIndex, setActiveSplitIndex] = useState(
+    initialActiveSplitIndex,
+  );
+  const activeSplitIndexRef = useRef(initialActiveSplitIndex);
   const [chaosBriefingRound, setChaosBriefingRound] = useState(-1);
   const [blackoutVisible, setBlackoutVisible] = useState(false);
   const [flashTargetVisible, setFlashTargetVisible] = useState(false);
+  const [isCompletingExit, setIsCompletingExit] = useState(false);
   const [visibleResultKey, setVisibleResultKey] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const diffValueRef = useRef(null);
@@ -368,10 +537,12 @@ export default function GameplayScreen({
     splitRightLevelRef.current = 0;
     splitRightSettledRef.current = true;
     splitRightSurfaceLevelRef.current = 0;
+    splitStreamLevelRef.current = 0;
   }, [getInitialLevelForMode, ruleMode]);
   const {
     advanceRound,
     bandAttemptIndex,
+    bandLevels,
     bandTargets,
     completeIntro,
     chargePowerRef,
@@ -383,6 +554,9 @@ export default function GameplayScreen({
     isFinalRound,
     lastResult,
     modeAllowsDone,
+    phase,
+    pourStatus,
+    results,
     roundCount,
     roundIndex,
     showTargetGuide,
@@ -397,6 +571,7 @@ export default function GameplayScreen({
     getSplitLevels,
     getTilt,
     getLevel: getWaterLevel,
+    initialSnapshot: initialResumeSnapshot?.game,
     modeQueue: settings?.modeQueue,
     onRoundReset: resetWaterLevel,
     roundCount: settings?.roundCount,
@@ -422,11 +597,37 @@ export default function GameplayScreen({
     isChargePourMode && status === "filling" ? "idle" : status;
   const isPulsePourMode = isChargePourMode || isBurstClickMode;
   const isTiltMode = activeRuleMode === GAME_RULE_MODES.TILT;
-  const initialWaterLevel = getInitialLevelForMode(activeRuleMode);
+  const resumeRoundIndex = getSnapshotRoundIndex(initialResumeSnapshot);
+  const shouldUseResumeWater = resumeRoundIndex === roundIndex;
+  const initialWaterLevel = shouldUseResumeWater
+    ? resumeWaterLevel
+    : getInitialLevelForMode(activeRuleMode);
+  const initialSplitLeftWaterLevel = shouldUseResumeWater
+    ? resumeSplitLeftLevel
+    : 0;
+  const initialSplitRightWaterLevel = shouldUseResumeWater
+    ? resumeSplitRightLevel
+    : 0;
   const isIntroPhase = status === "intro";
   const isResultPhase = status === "result";
   const shouldShowChaosBriefing =
     isChaosQueue && isIntroPhase && chaosBriefingRound !== roundIndex;
+  const startGameplayMusic = useCallback(() => {
+    if (gameMusicStartedRef.current) return;
+
+    gameMusicStartedRef.current = true;
+    startMusicScene(MUSIC_SCENES.GAME, {
+      duration: 1.05,
+      fromZero: true,
+      reset: true,
+    });
+  }, []);
+  const handleIntroComplete = useCallback(() => {
+    completeIntro();
+    window.requestAnimationFrame(() => {
+      startGameplayMusic();
+    });
+  }, [completeIntro, startGameplayMusic]);
   const shouldShowTargetGuide =
     !isSplitFillMode &&
     !isBandRunMode &&
@@ -489,6 +690,23 @@ export default function GameplayScreen({
     isResultPhase && Boolean(currentResultKey) && visibleResultKey === currentResultKey;
 
   useEffect(() => {
+    if (isIntroPhase) {
+      gameMusicStartedRef.current = false;
+    }
+  }, [isIntroPhase, roundIndex]);
+
+  useEffect(() => {
+    if (isIntroPhase || isResultPhase || shouldShowChaosBriefing) return;
+
+    startGameplayMusic();
+  }, [
+    isIntroPhase,
+    isResultPhase,
+    shouldShowChaosBriefing,
+    startGameplayMusic,
+  ]);
+
+  useEffect(() => {
     if (
       isIntroPhase ||
       isResultPhase ||
@@ -515,22 +733,27 @@ export default function GameplayScreen({
   }, [isFlashMode, isIntroPhase, isResultPhase, roundIndex, shouldShowChaosBriefing]);
 
   useEffect(() => {
+    const resetTimerId = window.setTimeout(() => {
+      setBlackoutVisible(false);
+    }, 0);
+
     if (
       !isBlackoutBlindMode ||
       isIntroPhase ||
       isResultPhase ||
       shouldShowChaosBriefing
     ) {
-      setBlackoutVisible(false);
-      return undefined;
+      return () => window.clearTimeout(resetTimerId);
     }
 
-    setBlackoutVisible(false);
-    const timerId = window.setTimeout(() => {
+    const showTimerId = window.setTimeout(() => {
       setBlackoutVisible(true);
     }, 1000);
 
-    return () => window.clearTimeout(timerId);
+    return () => {
+      window.clearTimeout(resetTimerId);
+      window.clearTimeout(showTimerId);
+    };
   }, [
     isBlackoutBlindMode,
     isIntroPhase,
@@ -600,25 +823,23 @@ export default function GameplayScreen({
     );
     const primary = [title, subtitle].filter(Boolean);
     const hud = [round, goal, diff].filter(Boolean);
+    const maskRows = getRevealMaskRows([...primary, ...hud]);
 
     const timeline = gsap.timeline({
       defaults: { overwrite: "auto" },
-      onComplete: () => {
-        gsap.set([...primary, ...hud, ...lines, ...badges], {
-          clearProps: "opacity,visibility,willChange",
-        });
-      },
+      onComplete: () => releaseOverflowMasks(maskRows),
     });
 
+    setRevealRowMasks(gsap, maskRows);
     gsap.set(primary, {
       autoAlpha: 0,
       ...STABLE_REVEAL_TRANSFORM,
-      yPercent: -115,
+      yPercent: -190,
     });
     gsap.set(hud, {
       autoAlpha: 0,
       ...STABLE_REVEAL_TRANSFORM,
-      yPercent: -85,
+      yPercent: -150,
     });
     gsap.set(lines, {
       autoAlpha: 0,
@@ -697,6 +918,7 @@ export default function GameplayScreen({
 
     return () => {
       timeline.kill();
+      releaseOverflowMasks(maskRows);
     };
   }, [
     activeRuleMode,
@@ -800,12 +1022,14 @@ export default function GameplayScreen({
     const copy = root.querySelector("[data-gameplay-result-reveal='copy']");
     const action = root.querySelector("[data-gameplay-result-reveal='action']");
     const targets = [score, title, copy, action].filter(Boolean);
+    const maskRows = getRevealMaskRows(targets);
     const resultKey = currentResultKey;
+    const displayScore = normalizeRoundScore(lastResult.score);
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       if (resultSoundKeyRef.current !== resultKey) {
         resultSoundKeyRef.current = resultKey;
-        playRoundResult(lastResult.score, lastResult.diff);
+        playRoundResult(displayScore, lastResult.diff);
       }
       return undefined;
     }
@@ -815,6 +1039,7 @@ export default function GameplayScreen({
       ...STABLE_REVEAL_TRANSFORM,
       y: 18,
     });
+    setRevealRowMasks(gsap, maskRows);
     gsap.set(score, {
       ...STABLE_REVEAL_TRANSFORM,
       yPercent: 90,
@@ -826,21 +1051,17 @@ export default function GameplayScreen({
       transformOrigin: "center center",
     });
     if (score) {
-      score.textContent = formatResultScore(0);
+      score.textContent = formatScore(0);
     }
 
     let scoreSound = null;
     let scoreTween = null;
-    const scoreQuality = clamp((lastResult?.score ?? 0) / 10, 0, 1);
+    const scoreQuality = clamp(displayScore / 10, 0, 1);
     const scoreCountDuration =
-      (lastResult?.score ?? 0) <= 0.05 ? 0.28 : 0.46 + scoreQuality * 0.62;
+      displayScore <= 0.05 ? 0.28 : 0.46 + scoreQuality * 0.62;
     const timeline = gsap.timeline({
       defaults: { overwrite: "auto" },
-      onComplete: () => {
-        gsap.set(targets, {
-          clearProps: "opacity,visibility,willChange",
-        });
-      },
+      onComplete: () => releaseOverflowMasks(maskRows),
     });
 
     timeline
@@ -861,25 +1082,29 @@ export default function GameplayScreen({
           if (!score) return;
 
           const state = { value: 0 };
-          score.textContent = formatResultScore(0);
+          score.textContent = formatScore(0);
           scoreSound = startRoundScoreCountSound({
             duration: scoreCountDuration,
-            score: lastResult.score,
+            score: displayScore,
           });
 
           scoreTween = gsap.to(state, {
-            value: lastResult.score,
+            value: displayScore,
             duration: scoreCountDuration,
             ease: "power2.out",
             onUpdate: () => {
-              score.textContent = formatResultScore(state.value);
+              const nextScore =
+                Math.abs(displayScore - state.value) < 0.005
+                  ? displayScore
+                  : state.value;
+              score.textContent = formatScore(nextScore);
             },
             onComplete: () => {
-              score.textContent = formatResultScore(lastResult.score);
+              score.textContent = formatScore(displayScore);
               scoreSound?.finish();
               if (resultSoundKeyRef.current !== resultKey) {
                 resultSoundKeyRef.current = resultKey;
-                playRoundResult(lastResult.score, lastResult.diff);
+                playRoundResult(displayScore, lastResult.diff);
               }
             },
           });
@@ -946,6 +1171,7 @@ export default function GameplayScreen({
       timeline.kill();
       scoreTween?.kill();
       scoreSound?.stop?.();
+      releaseOverflowMasks(maskRows);
     };
   }, [currentResultKey, lastResult, shouldShowResultContent]);
 
@@ -1087,6 +1313,11 @@ export default function GameplayScreen({
           ? splitLeftLevelRef.current
           : splitRightLevelRef.current
         : waterLevelRef.current;
+      const activeSurfaceLevel = isSplitFillMode
+        ? activeSplitIndexRef.current === 0
+          ? splitLeftSurfaceLevelRef.current
+          : splitRightSurfaceLevelRef.current
+        : waterSurfaceLevelRef.current;
       const soundLevel =
         isChargePourMode && status === "filling"
           ? clamp((Date.now() - chargeSoundStartedAtRef.current) / 1600, 0, 1)
@@ -1095,7 +1326,7 @@ export default function GameplayScreen({
           : activeLevel / 100;
 
       if (isSplitFillMode) {
-        splitStreamLevelRef.current = activeLevel;
+        splitStreamLevelRef.current = activeSurfaceLevel;
       }
 
       pourSoundRef.current?.update(soundLevel);
@@ -1171,13 +1402,182 @@ export default function GameplayScreen({
     status,
   ]);
 
-  const handleAdvance = () => {
+  const createResumeSnapshot = useCallback(
+    () => ({
+      game: {
+        bandAttemptIndex,
+        bandLevels,
+        bandTargets,
+        fakeTarget,
+        lastResult,
+        phase,
+        pourStatus,
+        results,
+        roundIndex,
+        splitTargets,
+        target,
+        timeLeftMs,
+      },
+      water: {
+        activeSplitIndex: activeSplitIndexRef.current,
+        level: waterLevelRef.current,
+        pourX: pourXRef.current,
+        settled: waterSettledRef.current,
+        splitLeftLevel: splitLeftLevelRef.current,
+        splitLeftSettled: splitLeftSettledRef.current,
+        splitLeftSurfaceLevel: splitLeftSurfaceLevelRef.current,
+        splitPourX: [splitLeftPourXRef.current, splitRightPourXRef.current],
+        splitRightLevel: splitRightLevelRef.current,
+        splitRightSettled: splitRightSettledRef.current,
+        splitRightSurfaceLevel: splitRightSurfaceLevelRef.current,
+        surfaceLevel: waterSurfaceLevelRef.current,
+        tilt: tiltRef.current,
+      },
+    }),
+    [
+      bandAttemptIndex,
+      bandLevels,
+      bandTargets,
+      fakeTarget,
+      lastResult,
+      phase,
+      pourStatus,
+      results,
+      roundIndex,
+      splitTargets,
+      target,
+      timeLeftMs,
+    ],
+  );
+
+  const clearResumeSnapshot = useCallback(() => {
+    resumeClearedRef.current = true;
+    clearGameResumeSnapshot(resumeKey);
+  }, [resumeKey]);
+
+  useEffect(() => {
+    resumeClearedRef.current = false;
+  }, [resumeKey]);
+
+  useEffect(() => {
+    if (!resumeKey) return undefined;
+
+    if (status === "complete") {
+      clearResumeSnapshot();
+      return undefined;
+    }
+
+    const persistResumeSnapshot = () => {
+      if (resumeClearedRef.current) return;
+
+      writeGameResumeSnapshot(resumeKey, createResumeSnapshot());
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistResumeSnapshot();
+      }
+    };
+
+    persistResumeSnapshot();
+
+    const intervalId = window.setInterval(persistResumeSnapshot, 350);
+
+    window.addEventListener("beforeunload", persistResumeSnapshot);
+    window.addEventListener("pagehide", persistResumeSnapshot);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      persistResumeSnapshot();
+      window.clearInterval(intervalId);
+      window.removeEventListener("beforeunload", persistResumeSnapshot);
+      window.removeEventListener("pagehide", persistResumeSnapshot);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [clearResumeSnapshot, createResumeSnapshot, resumeKey, status]);
+
+  const playCompleteExit = useCallback(
+    () =>
+      new Promise((resolve) => {
+        completeExitTimelineRef.current?.kill();
+
+        if (
+          !animateCompleteExit ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          resolve();
+          return;
+        }
+
+        const root = gameplayRootRef.current;
+        if (!root) {
+          resolve();
+          return;
+        }
+
+        const exitTargets = Array.from(
+          root.querySelectorAll(
+            "[data-gameplay-water-layer='true'], [data-gameplay-content='true']",
+          ),
+        );
+
+        if (!exitTargets.length) {
+          resolve();
+          return;
+        }
+
+        const timeline = gsap.timeline({
+          defaults: { overwrite: "auto" },
+          onComplete: resolve,
+        });
+
+        timeline.to(exitTargets, {
+          autoAlpha: 0,
+          duration: 0.42,
+          ease: "power2.inOut",
+          ...STABLE_REVEAL_TRANSFORM,
+          y: -8,
+          stagger: 0.045,
+        });
+
+        completeExitTimelineRef.current = timeline;
+      }),
+    [animateCompleteExit],
+  );
+
+  const handleAdvance = async () => {
+    if (isCompletingExit) return;
+
+    if (!isFinalRound) {
+      gameMusicStartedRef.current = false;
+      fadeOutMusic({
+        curve: "linear",
+        duration: ROUND_INTRO_MUSIC_FADE_SECONDS,
+        keepSchedulerDuringFade: true,
+      });
+    }
+
     playRoundAdvance();
     const finalResults = advanceRound();
 
     if (finalResults) {
-      onComplete(finalResults);
+      clearResumeSnapshot();
+      if (animateCompleteExit) {
+        setIsCompletingExit(true);
+        await playCompleteExit();
+      }
+      await onComplete?.(finalResults);
     }
+  };
+
+  const handleExit = () => {
+    transitionMusicToScene(MUSIC_SCENES.MENU, {
+      fadeIn: 1.05,
+      fadeOut: 0.55,
+      reset: true,
+    });
+    requestNextFullScreenReveal();
+    clearResumeSnapshot();
+    onExit?.();
   };
 
   const handleManualDone = () => {
@@ -1317,10 +1717,10 @@ export default function GameplayScreen({
 
       if (nextSplitIndex === 0) {
         splitLeftPourXRef.current = localPourX;
-        splitStreamLevelRef.current = splitLeftLevelRef.current;
+        splitStreamLevelRef.current = splitLeftSurfaceLevelRef.current;
       } else {
         splitRightPourXRef.current = localPourX;
-        splitStreamLevelRef.current = splitRightLevelRef.current;
+        splitStreamLevelRef.current = splitRightSurfaceLevelRef.current;
       }
       return;
     }
@@ -1391,12 +1791,13 @@ export default function GameplayScreen({
           ruleMode={activeRuleMode}
         />
       ) : isIntroPhase ? (
-        <PourIntroPhase key={roundIndex} onComplete={completeIntro} />
+        <PourIntroPhase key={roundIndex} onComplete={handleIntroComplete} />
       ) : null}
 
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-20"
+        data-gameplay-water-layer="true"
         ref={gameplayTiltLayerRef}
       >
         {shouldShowTargetGuide ? (
@@ -1429,7 +1830,11 @@ export default function GameplayScreen({
             <WaterPhysicsCanvas
               className="pointer-events-none absolute inset-0 z-20 h-full w-full will-change-transform"
               difficulty={difficulty}
-              initialLevel={0}
+              initialLevel={
+                activeSplitIndex === 0
+                  ? initialSplitLeftWaterLevel
+                  : initialSplitRightWaterLevel
+              }
               isPourActive={status === "filling"}
               levelRef={splitStreamLevelRef}
               pourXRef={pourXRef}
@@ -1444,7 +1849,7 @@ export default function GameplayScreen({
             <WaterPhysicsCanvas
               className="pointer-events-none absolute left-0 top-0 z-10 h-full w-1/2 border-r border-[#0d0d0c]/10 will-change-transform dark:border-[#f7f7f2]/12"
               difficulty={difficulty}
-              initialLevel={0}
+              initialLevel={initialSplitLeftWaterLevel}
               isPourActive={activeSplitIndex === 0}
               levelRef={splitLeftLevelRef}
               pourXRef={splitLeftPourXRef}
@@ -1465,7 +1870,7 @@ export default function GameplayScreen({
             <WaterPhysicsCanvas
               className="pointer-events-none absolute right-0 top-0 z-10 h-full w-1/2 will-change-transform"
               difficulty={difficulty}
-              initialLevel={0}
+              initialLevel={initialSplitRightWaterLevel}
               isPourActive={activeSplitIndex === 1}
               levelRef={splitRightLevelRef}
               pourXRef={splitRightPourXRef}
@@ -1518,19 +1923,34 @@ export default function GameplayScreen({
         ) : null}
       </div>
 
-      <section className="relative z-30 grid h-full grid-rows-[auto_1fr_auto]">
+      <section
+        className="relative z-30 grid h-full grid-rows-[auto_1fr_auto]"
+        data-gameplay-content="true"
+      >
+        {timeLeftMs !== null ? (
+          <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
+            <div
+              aria-label={`${t("game.time")} ${formatTimerClock(timeLeftMs)}`}
+              className="grid min-w-[4.75rem] place-items-center text-center text-[#0d0d0c] dark:text-[#f7f7f2]"
+              role="timer"
+            >
+              <span className="font-heading text-[clamp(1.55rem,2.6vw,2.25rem)] font-black leading-none tabular-nums">
+                {formatTimerClock(timeLeftMs)}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
           <div>
-            <p className="pc-label overflow-hidden text-[#0d0d0c]/48 dark:text-[#f7f7f2]/50">
+            <p
+              className="pc-label overflow-hidden text-[#0d0d0c]/48 dark:text-[#f7f7f2]/50"
+              data-gameplay-reveal-row="true"
+            >
               <span className="inline-block" data-gameplay-reveal="round">
                 {displayedRound}
               </span>
             </p>
-            {timeLeftMs !== null ? (
-              <p className="pc-label mt-2 text-[#0d0d0c]/48 dark:text-[#f7f7f2]/50">
-                {t("game.time")} {formatSeconds(timeLeftMs)}
-              </p>
-            ) : null}
           </div>
           <button
             aria-label={t("common.mainMenu")}
@@ -1559,17 +1979,23 @@ export default function GameplayScreen({
         <div className="self-center justify-self-center text-center">
           {shouldShowResultContent ? (
             <div className="space-y-4">
-              <div className="overflow-hidden">
+              <div
+                className="overflow-hidden"
+                data-gameplay-result-reveal-row="true"
+              >
                 <p
                   className="pc-result-score text-[#0d0d0c] dark:text-[#f7f7f2]"
                   data-gameplay-result-reveal="score"
                   ref={resultScoreRef}
                 >
-                  {formatResultScore(lastResult?.score)}
+                  {formatScore(lastResult?.score)}
                 </p>
               </div>
               <div>
-                <div className="overflow-hidden">
+                <div
+                  className="overflow-hidden"
+                  data-gameplay-result-reveal-row="true"
+                >
                   <h1
                     className="pc-card-title text-[#0d0d0c] dark:text-[#f7f7f2]"
                     data-gameplay-result-reveal="title"
@@ -1577,7 +2003,10 @@ export default function GameplayScreen({
                     {resultLabel}
                   </h1>
                 </div>
-                <div className="mt-3 overflow-hidden">
+                <div
+                  className="mt-3 overflow-hidden"
+                  data-gameplay-result-reveal-row="true"
+                >
                   <p
                     className="pc-copy text-[#0d0d0c]/58 dark:text-[#f7f7f2]/64"
                     data-gameplay-result-reveal="copy"
@@ -1589,12 +2018,18 @@ export default function GameplayScreen({
             </div>
           ) : (
             <div className="space-y-5">
-              <h1 className="pc-result-score overflow-hidden uppercase text-[#0d0d0c] dark:text-[#f7f7f2]">
+              <h1
+                className="pc-result-score overflow-hidden uppercase text-[#0d0d0c] dark:text-[#f7f7f2]"
+                data-gameplay-reveal-row="true"
+              >
                 <span className="inline-block" data-gameplay-reveal="hold-title">
                   {t("game.actionHold")}
                 </span>
               </h1>
-              <p className="pc-copy overflow-hidden text-[#0d0d0c]/58 dark:text-[#f7f7f2]/64">
+              <p
+                className="pc-copy overflow-hidden text-[#0d0d0c]/58 dark:text-[#f7f7f2]/64"
+                data-gameplay-reveal-row="true"
+              >
                 <span className="block" data-gameplay-reveal="hold-copy">
                   {approachGuidance}
                 </span>
@@ -1607,18 +2042,22 @@ export default function GameplayScreen({
           data-water-hud="true"
           className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-4 text-[#0d0d0c]/78 dark:text-[#f7f7f2]/82"
         >
-          <div className="overflow-hidden">
+          <div className="overflow-hidden" data-gameplay-reveal-row="true">
             <div data-gameplay-reveal="goal">
               <p className="pc-label">{t("game.goal")}</p>
               <p className="pc-round-value mt-2">{displayedGoal}</p>
             </div>
           </div>
           {shouldShowResultContent ? (
-            <div className="overflow-hidden">
+            <div
+              className="overflow-hidden"
+              data-gameplay-result-reveal-row="true"
+            >
               <button
                 className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
                 data-game-control="true"
                 data-gameplay-result-reveal="action"
+                disabled={isCompletingExit}
                 onClick={handleAdvance}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerUp={(event) => event.stopPropagation()}
@@ -1641,7 +2080,10 @@ export default function GameplayScreen({
           ) : (
             <div aria-hidden="true" className="min-h-12 min-w-36 sm:min-w-44" />
           )}
-          <div className="overflow-hidden text-right">
+          <div
+            className="overflow-hidden text-right"
+            data-gameplay-reveal-row="true"
+          >
             <div data-gameplay-reveal="diff">
               <p className="pc-label">{t("game.diff")}</p>
               <p className="pc-round-value mt-2" ref={diffValueRef}>
@@ -1662,7 +2104,7 @@ export default function GameplayScreen({
       {showExitConfirm ? (
         <PourExitDialog
           onCancel={() => setShowExitConfirm(false)}
-          onExit={onExit}
+          onExit={handleExit}
         />
       ) : null}
     </main>

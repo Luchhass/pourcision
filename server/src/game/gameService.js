@@ -6,7 +6,7 @@ import {
   MAX_ROUND_SCORE,
   ROOM_STATUSES,
 } from "../constants.js";
-import { calculateRoundResult } from "./scoring.js";
+import { calculateRoundResult, normalizeTotalScore } from "./scoring.js";
 import { createRoundTargets } from "./targets.js";
 import {
   fail,
@@ -21,7 +21,7 @@ import { createSeed } from "../utils/ids.js";
 import { now } from "../utils/time.js";
 
 function roundScore(value) {
-  return Math.round(value * 10) / 10;
+  return normalizeTotalScore(value);
 }
 
 const ENDLESS_RULE_MODE_ID = "endless";
@@ -54,11 +54,20 @@ function createSeededRandom(seed) {
 
 function createModeQueue(seed, roundCount) {
   const random = createSeededRandom(seed || "chaos-queue");
+  const modes = [];
 
-  return Array.from({ length: roundCount }, () => {
-    const index = Math.floor(random() * CHAOS_ELIGIBLE_MODE_POOL.length);
-    return CHAOS_ELIGIBLE_MODE_POOL[index] ?? GAME_RULE_MODES.CLASSIC;
-  });
+  while (modes.length < roundCount) {
+    const bag = [...CHAOS_ELIGIBLE_MODE_POOL];
+
+    for (let index = bag.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random() * (index + 1));
+      [bag[index], bag[swapIndex]] = [bag[swapIndex], bag[index]];
+    }
+
+    modes.push(...bag);
+  }
+
+  return modes.slice(0, roundCount);
 }
 
 function getRoundRuleMode(game, roundIndex) {
@@ -160,6 +169,7 @@ export function startGameForRoom(room) {
     player.scoreboardReady = false;
     player.submitted = false;
     player.totalScore = 0;
+    player.waitingForNextGame = false;
   }
 
   return buildGamePayload(room);

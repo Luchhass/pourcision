@@ -22,6 +22,7 @@ export const GAME_RULE_MODES = {
   CHARGE_POUR: "charge-pour",
   BURST_CLICK: "burst-click",
   COLORBLIND: "colorblind",
+  AUTO_RISE: "auto-rise",
 };
 
 export const GAME_MODES = GAME_RULE_MODES;
@@ -84,8 +85,8 @@ export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
   GAME_RULE_MODES.BAND_RUN,
   GAME_RULE_MODES.CHARGE_POUR,
-  GAME_RULE_MODES.BURST_CLICK,
   GAME_RULE_MODES.COLORBLIND,
+  GAME_RULE_MODES.AUTO_RISE,
 ];
 export const ROOM_CODE_LENGTH = 6;
 export const PLAYER_NAME_MIN_LENGTH = 2;
@@ -122,6 +123,7 @@ export const GAME_MODE_CONFIG = {
     roundDurationMs: 5000,
   },
   [GAME_RULE_MODES.COLORBLIND]: {},
+  [GAME_RULE_MODES.AUTO_RISE]: {},
 };
 
 export const DEFAULT_SETTINGS = {

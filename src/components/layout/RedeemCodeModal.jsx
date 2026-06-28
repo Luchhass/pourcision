@@ -11,9 +11,8 @@ export default function RedeemCodeModal({ onClose }) {
   const { t } = useTranslation();
   const { hasPremiumWaterColors, redeemCode } = useRedeemCodes();
   const [code, setCode] = useState("");
-  const [message, setMessage] = useState(
-    hasPremiumWaterColors ? t("redeem.success") : "",
-  );
+  const [message, setMessage] = useState("");
+  const displayedMessage = hasPremiumWaterColors ? t("redeem.success") : message;
   const { closeWithAnimation, isClosing, overlayRef, panelRef } =
     useModalMotion({
       itemSelector: "[data-redeem-reveal-item]",
@@ -31,12 +30,6 @@ export default function RedeemCodeModal({ onClose }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closeWithAnimation]);
-
-  useEffect(() => {
-    if (hasPremiumWaterColors) {
-      setMessage(t("redeem.success"));
-    }
-  }, [hasPremiumWaterColors, t]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -123,12 +116,12 @@ export default function RedeemCodeModal({ onClose }) {
             />
           </label>
 
-          {message ? (
+          {displayedMessage ? (
             <p
               className="pc-label text-[#0d0d0c]/62 dark:text-[#f7f7f2]/58"
               data-redeem-reveal-row="true"
             >
-              <span data-redeem-reveal-item="true">{message}</span>
+              <span data-redeem-reveal-item="true">{displayedMessage}</span>
             </p>
           ) : null}
 

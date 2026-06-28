@@ -3,22 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
-  ArrowUp,
   BatteryCharging,
   CircleDot,
-  Columns2,
-  Droplet,
+  CircleOff,
+  Droplets,
   Eye,
   EyeOff,
-  Flag,
+  FlagTriangleRight,
   Gauge,
   Globe2,
   Lock,
-  MousePointerClick,
+  Moon,
   Palette,
   RotateCcw,
+  ScanLine,
   Shuffle,
+  SplitSquareVertical,
+  Target,
   Timer,
+  WavesArrowUp,
   Zap,
 } from "lucide-react";
 import AppFooter from "@/components/layout/AppFooter";
@@ -30,8 +33,13 @@ import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import LobbyListPanel from "@/components/sections/setup/LobbyListPanel";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useLoopingSlider } from "@/hooks/useLoopingSlider";
+import { MUSIC_SCENES, useMusicScene } from "@/hooks/useMusicScene";
 import { useRedeemCodes } from "@/hooks/useRedeemCodes";
-import { useScreenReveal } from "@/hooks/useScreenReveal";
+import {
+  playGameStartScreenExit,
+  useScreenReveal,
+} from "@/hooks/useScreenReveal";
+import { fadeOutMusic } from "@/lib/music";
 import {
   DEFAULT_DIFFICULTY_ID,
   GAME_DIFFICULTIES,
@@ -140,8 +148,8 @@ const ruleModeOptions = [
   },
   {
     id: GAME_RULE_MODES.BLIND,
-    icon: Eye,
-    title: "No Guide",
+    icon: CircleOff,
+    title: "No Line",
     description: "No target line. Trust the goal percentage.",
   },
   {
@@ -152,14 +160,14 @@ const ruleModeOptions = [
   },
   {
     id: GAME_RULE_MODES.FAKE_TARGET,
-    icon: Flag,
-    title: "Fake Target",
+    icon: FlagTriangleRight,
+    title: "Trap Line",
     description: "Two target lines. One is a trap.",
   },
   {
     id: GAME_RULE_MODES.INVERT,
     icon: ArrowUpDown,
-    title: "Invert",
+    title: "Upside Down",
     description: "Classic timing with the water flipped upside down.",
   },
   {
@@ -170,7 +178,7 @@ const ruleModeOptions = [
   },
   {
     id: GAME_RULE_MODES.LEAKY,
-    icon: Droplet,
+    icon: Droplets,
     title: "Leaky",
     description: "Release leaks. Short clock, then lock.",
   },
@@ -183,48 +191,42 @@ const ruleModeOptions = [
   {
     id: GAME_RULE_MODES.CHAOS_QUEUE,
     icon: Shuffle,
-    title: "Chaos Queue",
+    title: "Rule Shuffle",
     description: "A random rule appears before every round.",
   },
   {
     id: GAME_RULE_MODES.SPLIT_FILL,
-    icon: Columns2,
-    title: "Split Fill",
+    icon: SplitSquareVertical,
+    title: "Dual Tank",
     description: "Two tanks. Two targets. One release.",
   },
   {
     id: GAME_RULE_MODES.PERFECT_OR_NOTHING,
-    icon: CircleDot,
-    title: "All or Nothing",
+    icon: Target,
+    title: "Strike Zone",
     description: "Hit the narrow zone for everything, miss it for nothing.",
   },
   {
     id: GAME_RULE_MODES.BAND_RUN,
-    icon: CircleDot,
-    title: "Band Run",
+    icon: ScanLine,
+    title: "Band Chase",
     description: "Two to five target bands. One touch for each.",
   },
   {
     id: GAME_RULE_MODES.CHARGE_POUR,
     icon: BatteryCharging,
-    title: "Pressure Charge",
+    title: "Charged Pour",
     description: "Hold to charge. Release a stronger pour from above.",
   },
   {
-    id: GAME_RULE_MODES.BURST_CLICK,
-    icon: MousePointerClick,
-    title: "Burst Click",
-    description: "Spam quick taps to build a steady timed flow.",
-  },
-  {
     id: GAME_RULE_MODES.COLORBLIND,
-    icon: EyeOff,
-    title: "Blind",
+    icon: Moon,
+    title: "Blackout",
     description: "The screen fades out after the round begins.",
   },
   {
     id: GAME_RULE_MODES.AUTO_RISE,
-    icon: ArrowUp,
+    icon: WavesArrowUp,
     title: "Auto Rise",
     description: "Water rises from center. Touch once to stop it.",
   },
@@ -279,7 +281,7 @@ function SetupTitleBand({ onBack, title }) {
         </h1>
         <h1
           aria-hidden="true"
-          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 overflow-hidden text-[#f7f7f2] [clip-path:inset(0_calc(100%_-_(var(--reverse-width)_-_var(--setup-pad)))_0_0)] dark:text-[#f7f7f2]"
+          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 text-[#f7f7f2] [clip-path:inset(-0.72em_calc(100%_-_(var(--reverse-width)_-_var(--setup-pad)))_-0.92em_0)] dark:text-[#f7f7f2]"
         >
           {titleText}
         </h1>
@@ -615,7 +617,7 @@ function WaterColorSelect({
                 className={[
                   "pc-swatch shrink-0",
                   "relative grid place-items-center overflow-hidden",
-                  "transition-[box-shadow] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c]",
+                  "transition-[filter] duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c]",
                 ].join(" ")}
                 data-color-id={color.id}
                 data-static-premium-water={color.animated ? "true" : undefined}
@@ -627,9 +629,6 @@ function WaterColorSelect({
                 }
                 style={{
                   background: color.background || color.value,
-                  boxShadow: selected
-                    ? "inset 0 -8px 0 #0d0d0c, 0 14px 28px rgba(13,13,12,0.14)"
-                    : "none",
                 }}
                 type="button"
               >
@@ -638,6 +637,12 @@ function WaterColorSelect({
                     aria-hidden="true"
                     className="pc-icon text-[#0d0d0c]"
                     strokeWidth={3}
+                  />
+                ) : null}
+                {selected ? (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-2 bg-[#0d0d0c]"
                   />
                 ) : null}
               </button>
@@ -667,6 +672,8 @@ function MobileSetupButton({
   wide = false,
   wrapperSizeClassName = "w-[var(--pc-choice-height)]",
 }) {
+  const buttonLabel = value ? `${label}: ${value}` : label;
+
   return (
     <div
       className={[
@@ -682,7 +689,7 @@ function MobileSetupButton({
         </p>
       ) : null}
       <button
-        aria-label={label}
+        aria-label={buttonLabel}
         className={[
           "grid min-w-0 place-items-center bg-[#f7f7f2]/96 text-[#0d0d0c] shadow-[0_18px_38px_rgba(13,13,12,0.08)] transition-colors duration-200 hover:bg-white focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2] dark:hover:bg-[#f7f7f2]/14 dark:focus-visible:outline-[#f7f7f2]",
           buttonSizeClassName,
@@ -750,6 +757,7 @@ function MultiplayerActionButtons({ onCreate, onJoin, tall = false }) {
 }
 
 function SetupTextField({
+  disabled = false,
   error = "",
   label,
   maxLength = 24,
@@ -778,12 +786,14 @@ function SetupTextField({
           aria-invalid={Boolean(error)}
           className={[
             "pc-field w-full px-4 text-[#0d0d0c] outline-none transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]",
+            "disabled:cursor-not-allowed disabled:opacity-60",
             trailingAction ? "pr-[var(--pc-choice-height)]" : "",
             prominent
               ? "bg-[#0d0d0c]/[0.12] placeholder:text-[#0d0d0c]/58 focus-visible:bg-[#0d0d0c]/[0.16] dark:bg-[#f7f7f2]/10 dark:placeholder:text-[#f7f7f2]/42 dark:focus-visible:bg-[#f7f7f2]/14"
               : "bg-[#0d0d0c]/[0.09] placeholder:text-[#0d0d0c]/50 focus-visible:bg-[#0d0d0c]/[0.12] dark:bg-[#f7f7f2]/10 dark:placeholder:text-[#f7f7f2]/42 dark:focus-visible:bg-[#f7f7f2]/14",
             error ? "shadow-[inset_0_-4px_0_#0d0d0c]" : "",
           ].join(" ")}
+          disabled={disabled}
           maxLength={maxLength}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
@@ -806,7 +816,7 @@ function SetupTextField({
   );
 }
 
-function LobbyVisibilityControl({ onChange, value }) {
+function LobbyVisibilityControl({ disabled = false, onChange, value }) {
   const { t } = useTranslation();
   const options = [
     {
@@ -837,7 +847,9 @@ function LobbyVisibilityControl({ onChange, value }) {
                 selected
                   ? "bg-[#0d0d0c] text-white dark:bg-[#f7f7f2] dark:text-[#0d0d0c]"
                   : "bg-[#f7f7f2]/96 text-[#0d0d0c]/72 hover:bg-[#f7f7f2] dark:bg-[#f7f7f2]/8 dark:text-[#f7f7f2]/70 dark:hover:bg-[#f7f7f2]/14",
+                disabled ? "cursor-not-allowed opacity-45" : "",
               ].join(" ")}
+              disabled={disabled}
               key={option.id}
               onClick={() => onChange(option.id)}
               type="button"
@@ -848,6 +860,23 @@ function LobbyVisibilityControl({ onChange, value }) {
         })}
       </div>
     </div>
+  );
+}
+
+function CreateLobbyButtonContent({ isCreating }) {
+  const { t } = useTranslation();
+
+  if (!isCreating) {
+    return t("setup.createLobby");
+  }
+
+  return (
+    <span className="inline-flex min-w-0 items-center justify-center gap-3">
+      <span aria-hidden="true" className="pc-button-loading-mark" />
+      <span className="min-w-0 whitespace-nowrap">
+        {t("setup.creatingLobby")}
+      </span>
+    </span>
   );
 }
 
@@ -869,7 +898,7 @@ function CreateLobbyDetailsStep({
   const PasswordIcon = showLobbyPassword ? EyeOff : Eye;
 
   return (
-    <div className="grid min-w-0 gap-5">
+    <div aria-busy={isCreating} className="grid min-w-0 gap-5">
       <div
         className={[
           "grid min-w-0 gap-5",
@@ -879,6 +908,7 @@ function CreateLobbyDetailsStep({
         data-screen-reveal-target="children"
       >
         <SetupTextField
+          disabled={isCreating}
           error={lobbyNameError}
           label={t("setup.lobbyName")}
           onChange={onLobbyNameChange}
@@ -888,6 +918,7 @@ function CreateLobbyDetailsStep({
 
         {isPrivateLobby ? (
           <SetupTextField
+            disabled={isCreating}
             error={lobbyPasswordError}
             label={t("setup.lobbyPassword")}
             maxLength={32}
@@ -901,6 +932,7 @@ function CreateLobbyDetailsStep({
                     : t("setup.showPassword")
                 }
                 className="grid h-full w-full place-items-center text-[#0d0d0c]/70 transition-colors duration-200 hover:text-[#0d0d0c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-6px] focus-visible:outline-[#0d0d0c] dark:text-[#f7f7f2]/70 dark:hover:text-[#f7f7f2] dark:focus-visible:outline-[#f7f7f2]"
+                disabled={isCreating}
                 onClick={() => setShowLobbyPassword((current) => !current)}
                 type="button"
               >
@@ -923,10 +955,11 @@ function CreateLobbyDetailsStep({
           disabled={isCreating}
           onClick={onCreate}
         >
-          {isCreating ? t("setup.creatingLobby") : t("setup.createLobby")}
+          <CreateLobbyButtonContent isCreating={isCreating} />
         </Button>
         <div data-screen-reveal-atomic="true">
           <LobbyVisibilityControl
+            disabled={isCreating}
             onChange={onLobbyVisibilityChange}
             value={lobbyVisibility}
           />
@@ -945,6 +978,7 @@ export default function GameSetupScreen({
   onWaterColorChange,
 }) {
   const { locale, t } = useTranslation();
+  useMusicScene(MUSIC_SCENES.MENU);
   const { visibleWaterColors } = useRedeemCodes();
   const fallbackCopy = setupCopy[mode] ?? setupCopy[MENU_MODES.SINGLEPLAYER];
   const copy =
@@ -975,6 +1009,7 @@ export default function GameSetupScreen({
   const [mobileSetupModal, setMobileSetupModal] = useState(null);
   const [playerName, setPlayerName] = useState(readSessionPlayerName);
   const [playerNameError, setPlayerNameError] = useState(false);
+  const [isCreateSubmitting, setIsCreateSubmitting] = useState(false);
   const [roundCount, setRoundCount] = useState(GAME_ROUND_COUNT);
   const [ruleMode, setRuleMode] = useState(GAME_RULE_MODES.CLASSIC);
   const setupRevealRef = useRef(null);
@@ -987,6 +1022,7 @@ export default function GameSetupScreen({
     multiplayerStep === MULTIPLAYER_SETUP_STEPS.CREATE_DETAILS;
   const isJoiningLobby =
     isMultiplayer && multiplayerStep === MULTIPLAYER_SETUP_STEPS.JOIN_LIST;
+  const isCreatePending = isStarting || isCreateSubmitting;
   const availableRuleModeOptions = orderModeOptions(
     ruleModeOptions.filter((option) => isRuleModeAvailable(option, isMultiplayer)),
   );
@@ -1000,16 +1036,11 @@ export default function GameSetupScreen({
   const selectedRuleModeLabel = selectedRuleModeOption
     ? t(`modes.${selectedRuleModeOption.id}.label`)
     : t("setup.mode");
+  const selectedWaterColorLabel = t(`colors.${selectedWaterColor.id}`);
   const setupDescription = !isMultiplayer
     ? [
-        t("setup.singleplayerModeDescription", {
-          mode: t(`modes.${ruleMode}.label`),
-          modeDescription: t(`modes.${ruleMode}.description`),
-        }),
-        t("setup.singleplayerDifficultyDescription", {
-          difficulty: t(`difficulties.${difficulty}.label`),
-          difficultyDescription: t(`difficulties.${difficulty}.description`),
-        }),
+        t(`modes.${ruleMode}.setupText`),
+        t(`difficulties.${difficulty}.setupText`),
       ]
     : copy.description;
   const sectionWords = getSetupSectionWords({
@@ -1061,7 +1092,11 @@ export default function GameSetupScreen({
   };
 
   const handleStart = async () => {
-    await playSetupExit();
+    if (!isMultiplayer) {
+      fadeOutMusic();
+    }
+
+    await playGameStartScreenExit();
 
     onStart({
       difficulty,
@@ -1101,6 +1136,8 @@ export default function GameSetupScreen({
   };
 
   const handleCreateLobby = async () => {
+    if (isCreatePending) return;
+
     if (!validatePlayerName()) {
       await playSetupExit();
       setMultiplayerStep(MULTIPLAYER_SETUP_STEPS.ACTION);
@@ -1119,23 +1156,43 @@ export default function GameSetupScreen({
     setLobbyPasswordError(!hasPassword);
     if (!hasLobbyName || !hasPassword) return;
 
-    await playSetupExit();
-    onStart({
-      action: MULTIPLAYER_ACTIONS.CREATE,
-      difficulty,
-      mode,
-      password:
-        lobbyVisibility === LOBBY_VISIBILITIES.PRIVATE
-          ? cleanLobbyPassword
-          : "",
-      playerName: cleanPlayerName,
-      roomName: cleanLobbyName,
-      route: copy.route,
-      ruleMode,
-      roundCount,
-      visibility: lobbyVisibility,
-      waterColorId,
-    });
+    setIsCreateSubmitting(true);
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
+    try {
+      const didStart = await onStart?.({
+        action: MULTIPLAYER_ACTIONS.CREATE,
+        deferNavigation: true,
+        difficulty,
+        mode,
+        password:
+          lobbyVisibility === LOBBY_VISIBILITIES.PRIVATE
+            ? cleanLobbyPassword
+            : "",
+        playerName: cleanPlayerName,
+        roomName: cleanLobbyName,
+        route: copy.route,
+        ruleMode,
+        roundCount,
+        visibility: lobbyVisibility,
+        waterColorId,
+      });
+
+      if (didStart === false) {
+        setIsCreateSubmitting(false);
+        return;
+      }
+
+      await playSetupExit();
+
+      if (typeof didStart?.navigate === "function") {
+        didStart.navigate();
+      } else {
+        setIsCreateSubmitting(false);
+      }
+    } catch {
+      setIsCreateSubmitting(false);
+    }
   };
 
   const handleJoinLobby = async ({ password, roomCode }) => {
@@ -1240,7 +1297,7 @@ export default function GameSetupScreen({
                 <LobbyListPanel isJoining={isStarting} onJoin={handleJoinLobby} />
               ) : isCreateDetailsStep ? (
                 <CreateLobbyDetailsStep
-                  isCreating={isStarting}
+                  isCreating={isCreatePending}
                   lobbyName={lobbyName}
                   lobbyNameError={
                     lobbyNameError ? t("setup.lobbyNameRequired") : ""
@@ -1358,7 +1415,7 @@ export default function GameSetupScreen({
                   <LobbyListPanel isJoining={isStarting} onJoin={handleJoinLobby} />
                 ) : isCreateDetailsStep ? (
                   <CreateLobbyDetailsStep
-                    isCreating={isStarting}
+                    isCreating={isCreatePending}
                     lobbyName={lobbyName}
                     lobbyNameError={
                       lobbyNameError ? t("setup.lobbyNameRequired") : ""
@@ -1402,7 +1459,7 @@ export default function GameSetupScreen({
                           </div>
                         </div>
                         <div
-                          className="min-w-0"
+                          className="grid w-full min-w-0 grid-cols-2 items-start gap-3"
                           data-screen-reveal-row="true"
                           data-screen-reveal-target="self"
                         >
@@ -1413,20 +1470,19 @@ export default function GameSetupScreen({
                             value={selectedRuleModeLabel}
                             wide
                           />
-                        </div>
-                        <div
-                          className="grid w-full min-w-0 grid-cols-[60px_minmax(0,1fr)] items-center gap-3"
-                          data-screen-reveal-row="true"
-                          data-screen-reveal-target="self"
-                        >
                           <MobileSetupButton
-                            buttonSizeClassName="h-[60px]"
                             icon={Palette}
                             label={t("setup.waterColor")}
                             onClick={() => setMobileSetupModal("color")}
-                            showLabel={false}
-                            wrapperSizeClassName="w-[60px]"
+                            value={selectedWaterColorLabel}
+                            wide
                           />
+                        </div>
+                        <div
+                          className="min-w-0"
+                          data-screen-reveal-row="true"
+                          data-screen-reveal-target="self"
+                        >
                           <Button
                             className="h-[var(--pc-choice-height)] rounded-none px-3 shadow-[0_18px_42px_rgba(13,13,12,0.12)]"
                             disabled={isStarting}

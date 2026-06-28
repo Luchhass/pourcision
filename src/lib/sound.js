@@ -165,7 +165,6 @@ function isSoundEnabled() {
 
 function getPlayableContext() {
   if (!isSoundEnabled()) return null;
-  if (!userActivated && audioContext?.state !== "running") return null;
 
   const context = ensureAudioContext();
   if (!context) return null;
@@ -173,8 +172,14 @@ function getPlayableContext() {
   if (context.state === "suspended") {
     context
       .resume()
-      .then(primeAudioGraph)
+      .then(() => {
+        userActivated = true;
+        primeAudioGraph();
+        persistEngineState();
+      })
       .catch(() => {});
+
+    return userActivated ? context : null;
   }
 
   return context;
@@ -399,16 +404,28 @@ function scheduleSplash(
 
 export function prepareAudio() {
   if (!isSoundEnabled()) return;
-  if (!userActivated && audioContext?.state !== "running") return;
 
   const context = ensureAudioContext();
   if (!context) return;
 
   getNoiseBuffer(context);
 
+  if (context.state === "suspended") {
+    context
+      .resume()
+      .then(() => {
+        userActivated = true;
+        primeAudioGraph();
+        persistEngineState();
+      })
+      .catch(() => {});
+    return;
+  }
+
   if (context.state === "running") {
     userActivated = true;
     primeAudioGraph();
+    persistEngineState();
   }
 }
 
@@ -431,8 +448,7 @@ export function unlockAudio() {
 }
 
 export function resumeAudioIfAllowed() {
-  if (!userActivated || !isSoundEnabled()) return;
-  if (!audioContext) return;
+  if (!isSoundEnabled()) return;
 
   const context = ensureAudioContext();
   if (!context) return;
@@ -440,12 +456,18 @@ export function resumeAudioIfAllowed() {
   if (context.state === "suspended") {
     context
       .resume()
-      .then(primeAudioGraph)
+      .then(() => {
+        userActivated = true;
+        primeAudioGraph();
+        persistEngineState();
+      })
       .catch(() => {});
     return;
   }
 
+  userActivated = true;
   applyMasterGain();
+  persistEngineState();
 }
 
 export function stopPourAudio({ level = 0, release = false } = {}) {
@@ -678,7 +700,6 @@ export function playGameModeSelect(gameModeId = "classic", index = 0) {
     invert: { brightness: 1.05, root: 330, rise: 0.82 },
     leaky: { brightness: 0.58, root: 250, rise: 0.82 },
     "reverse-pour": { brightness: 0.7, root: 300, rise: 0.7 },
-    "burst-click": { brightness: 1.42, root: 510, rise: 1.5 },
     "charge-pour": { brightness: 1.05, root: 390, rise: 1.9 },
     colorblind: { brightness: 0.82, root: 280, rise: 1.15 },
     "auto-rise": { brightness: 1.18, root: 450, rise: 1.6 },

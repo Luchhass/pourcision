@@ -6,6 +6,7 @@ import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
 import SectionWord from "@/components/layout/SectionWord";
 import WaterColorWipe from "@/components/ui/WaterColorWipe";
 import { useTranslation } from "@/hooks/useLanguage";
+import { MUSIC_SCENES, useMusicScene } from "@/hooks/useMusicScene";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
 import { WATER_COLORS } from "@/lib/constants";
 
@@ -36,7 +37,7 @@ function RoomTitleBand({ onBackHome, title }) {
         </h1>
         <h1
           aria-hidden="true"
-          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 overflow-hidden text-[#f7f7f2] [clip-path:inset(0_calc(100%_-_(var(--reverse-width)_-_var(--room-pad)))_0_0)] dark:text-[#f7f7f2]"
+          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 text-[#f7f7f2] [clip-path:inset(-0.72em_calc(100%_-_(var(--reverse-width)_-_var(--room-pad)))_-0.92em_0)] dark:text-[#f7f7f2]"
         >
           {titleText}
         </h1>
@@ -99,6 +100,7 @@ export default function RoomCardShell({
   waterColorId,
 }) {
   const { locale, t } = useTranslation();
+  useMusicScene(MUSIC_SCENES.MENU);
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === waterColorId) ?? WATER_COLORS[2];
   const startsAtTop = waterContentPlacement === "start";

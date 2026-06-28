@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import GameplayScreen from "@/components/sections/gameplay/GameplayScreen";
 import ScoreboardScreen from "@/components/sections/scoreboard/ScoreboardScreen";
 import { useTranslation } from "@/hooks/useLanguage";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
-import { playActiveScreenExit } from "@/hooks/useScreenReveal";
+import {
+  playActiveScreenExit,
+  playScoreboardScreenExit,
+  requestNextFullScreenReveal,
+} from "@/hooks/useScreenReveal";
 import { trackMatchEnd, trackMatchStart } from "@/lib/analytics";
+import { normalizeTotalScore } from "@/lib/scoring";
 import RoomCardShell from "./RoomCardShell";
 import WaitingCard from "./WaitingCard";
 
@@ -19,6 +24,24 @@ function getLeaderboardPlayers(leaderboard) {
   }
 
   return [];
+}
+
+function getLeaderboardRevealKey(leaderboard, trackedGameKey) {
+  if (!leaderboard) return "";
+
+  const players = getLeaderboardPlayers(leaderboard);
+
+  return [
+    trackedGameKey,
+    players.length,
+    players
+      .map((row) => `${row.id || row.playerId || row.name}:${row.score ?? row.totalScore ?? 0}`)
+      .join("|"),
+  ].join(":");
+}
+
+function responseData(response) {
+  return response?.data || response || {};
 }
 
 export default function MultiplayerGame({
@@ -35,7 +58,12 @@ export default function MultiplayerGame({
 }) {
   const { t } = useTranslation();
   const completionTrackedRef = useRef("");
+  const scoreboardTransitionPendingRef = useRef("");
   const startTrackedRef = useRef("");
+  const [isFinalFinisherScoreboardPending, setIsFinalFinisherScoreboardPending] =
+    useState(false);
+  const [revealedLeaderboardState, setRevealedLeaderboardState] =
+    useState(null);
   const game = useMultiplayerGame({
     gamePayload,
     incomingLeaderboard: leaderboard,
@@ -47,6 +75,12 @@ export default function MultiplayerGame({
     room?.players?.filter(
       (roomPlayer) => !roomPlayer.kicked && !roomPlayer.inactive,
     ) || [];
+  const currentPlayer =
+    room?.players?.find((roomPlayer) => roomPlayer.id === playerId) || null;
+  const isWaitingForNextGame =
+    Boolean(game.activeGame) &&
+    Boolean(currentPlayer) &&
+    (currentPlayer.waitingForNextGame || currentPlayer.inactive);
   const waitingPlayers = activeRoomPlayers.length
     ? activeRoomPlayers
     : room?.players || [];
@@ -60,6 +94,20 @@ export default function MultiplayerGame({
     game.gameSettings.difficulty,
     game.gameSettings.ruleMode,
   ].join(":");
+  const visibleLeaderboardKey = getLeaderboardRevealKey(
+    game.visibleLeaderboard,
+    trackedGameKey,
+  );
+  const revealedLeaderboard =
+    game.visibleLeaderboard &&
+    revealedLeaderboardState?.key === visibleLeaderboardKey
+      ? revealedLeaderboardState.data
+      : null;
+  const isFinalFinisherCandidate =
+    activeRoomPlayers.length > 0 &&
+    activeRoomPlayers
+      .filter((roomPlayer) => roomPlayer.id !== playerId)
+      .every((roomPlayer) => roomPlayer.submitted);
 
   useEffect(() => {
     if (!game.activeGame || !activeGameSeed) return;
@@ -93,7 +141,9 @@ export default function MultiplayerGame({
       game.visibleLeaderboard.roundCount ||
       currentPlayer?.results?.length ||
       0;
-    const totalScore = currentPlayer?.score ?? currentPlayer?.totalScore ?? 0;
+    const totalScore = normalizeTotalScore(
+      currentPlayer?.score ?? currentPlayer?.totalScore ?? 0,
+    );
 
     completionTrackedRef.current = trackedGameKey;
     trackMatchEnd({
@@ -112,6 +162,58 @@ export default function MultiplayerGame({
     trackedGameKey,
   ]);
 
+  useEffect(() => {
+    if (!game.visibleLeaderboard) {
+      scoreboardTransitionPendingRef.current = "";
+      return undefined;
+    }
+
+    if (revealedLeaderboardState?.key === visibleLeaderboardKey) {
+      return undefined;
+    }
+    if (scoreboardTransitionPendingRef.current === visibleLeaderboardKey) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    scoreboardTransitionPendingRef.current = visibleLeaderboardKey;
+
+    playScoreboardScreenExit().then(() => {
+      if (cancelled) return;
+
+      scoreboardTransitionPendingRef.current = "";
+      setRevealedLeaderboardState({
+        data: game.visibleLeaderboard,
+        key: visibleLeaderboardKey,
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [game.visibleLeaderboard, revealedLeaderboardState?.key, visibleLeaderboardKey]);
+
+  const handleGameComplete = async () => {
+    const shouldBypassWaiting = isFinalFinisherCandidate;
+
+    setIsFinalFinisherScoreboardPending(shouldBypassWaiting);
+    requestNextFullScreenReveal();
+    const response = await game.markComplete({
+      deferFinishedState: shouldBypassWaiting,
+    });
+
+    const data = responseData(response);
+    if (response.ok && shouldBypassWaiting && data.completed && data.leaderboard) {
+      setRevealedLeaderboardState({
+        data: data.leaderboard,
+        key: getLeaderboardRevealKey(data.leaderboard, trackedGameKey),
+      });
+    }
+
+    setIsFinalFinisherScoreboardPending(false);
+    return response;
+  };
+
   const handleBackLobby = async () => {
     const response = await onBackLobby?.();
     if (response?.ok !== false) {
@@ -123,12 +225,18 @@ export default function MultiplayerGame({
     onLeave?.();
   };
 
-  if (game.activeGame && !game.visibleLeaderboard && !game.hasFinishedGame) {
+  if (
+    game.activeGame &&
+    !game.visibleLeaderboard &&
+    !game.hasFinishedGame &&
+    !isWaitingForNextGame
+  ) {
     return (
       <GameplayScreen
+        animateCompleteExit
         gameTargets={game.activeGame.targets}
         isMultiplayer
-        onComplete={game.markComplete}
+        onComplete={handleGameComplete}
         onExit={onLeave}
         onRoundResult={game.submitRoundResult}
         onWaterState={game.publishWaterState}
@@ -139,18 +247,50 @@ export default function MultiplayerGame({
     );
   }
 
-  if (game.visibleLeaderboard) {
+  if (
+    game.activeGame &&
+    !revealedLeaderboard &&
+    !isFinalFinisherScoreboardPending
+  ) {
+    return (
+      <RoomCardShell
+        description={error || game.error || t("room.waitingPlayers")}
+        onBackHome={handleLeave}
+        revealKey="waiting-active-game"
+        title={t("setup.multiplayerTitle")}
+        waterColorId={game.gameSettings.waterColorId}
+        waterContentPlacement="start"
+      >
+        <WaitingCard
+          onLeave={handleLeave}
+          remainingCount={waitingPlayerRemainingCount}
+          totalCount={waitingPlayerTotalCount}
+        />
+      </RoomCardShell>
+    );
+  }
+
+  if (revealedLeaderboard) {
     return (
       <ScoreboardScreen
         currentPlayerId={playerId}
         error={error || game.error}
         isReturningLobby={isReturningLobby}
-        leaderboard={game.visibleLeaderboard}
+        leaderboard={revealedLeaderboard}
         onMenu={onLeave}
         onPlayAgain={handleBackLobby}
         playAgainLabel={t("room.returnLobby")}
         results={[]}
         settings={game.gameSettings}
+      />
+    );
+  }
+
+  if (isFinalFinisherScoreboardPending) {
+    return (
+      <main
+        aria-busy="true"
+        className="relative h-dvh min-h-dvh overflow-hidden bg-[#050504] text-[#f7f7f2]"
       />
     );
   }

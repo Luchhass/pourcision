@@ -4,6 +4,9 @@ import { useEffect, useRef } from "react";
 import { DEFAULT_DIFFICULTY_ID, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
 import WaterPhysicsCanvas from "@/components/sections/gameplay/WaterPhysicsCanvas";
 
+const OPPONENT_WATER_CLASS =
+  "pointer-events-none absolute opacity-[0.22] mix-blend-multiply will-change-transform dark:opacity-[0.18]";
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -43,7 +46,32 @@ function getAverageLevel(levels) {
   return (Number(levels[0]) + Number(levels[1])) / 2;
 }
 
-function OpponentWaterLayer({ roundIndex, settings, state }) {
+function formatOpponentLevel(value) {
+  return `${clamp(Number(value) || 0, 0, 100).toFixed(0)}%`;
+}
+
+function OpponentWaterMarker({ index, labelLevel, level, playerName }) {
+  const markerSide =
+    index % 2 === 0 ? "left-6 md:left-8" : "right-6 md:right-8";
+  const markerOffset = (index % 3) * 8 - 8;
+
+  return (
+    <div
+      className="absolute inset-x-0 z-[4] h-0"
+      style={{ top: `calc(${100 - labelLevel}% + 0.45rem)` }}
+    >
+      <span
+        className={`pc-label absolute top-0 flex h-7 max-w-[min(10.5rem,38vw)] items-center gap-2 overflow-hidden rounded-md border border-current bg-transparent px-2.5 text-[#0d0d0c]/82 dark:text-[#f7f7f2]/82 ${markerSide}`}
+        style={{ transform: `translateY(calc(-50% + ${markerOffset}px))` }}
+      >
+        <span className="min-w-0 truncate">{playerName || `P${index + 1}`}</span>
+        <span className="ml-auto tabular-nums">{formatOpponentLevel(level)}</span>
+      </span>
+    </div>
+  );
+}
+
+function OpponentWaterLayer({ index, roundIndex, settings, state }) {
   const activeRuleMode = getActiveRuleMode(settings, roundIndex);
   const isInvert = activeRuleMode === GAME_RULE_MODES.INVERT;
   const isSplitFill = activeRuleMode === GAME_RULE_MODES.SPLIT_FILL;
@@ -112,7 +140,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
     return (
       <>
         <WaterPhysicsCanvas
-          className="pointer-events-none absolute left-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+          className={`${OPPONENT_WATER_CLASS} left-0 top-0 h-full w-1/2`}
           difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
           externalLevelRef={splitLeftExternalLevelRef}
           initialLevel={0}
@@ -126,7 +154,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
           waterColor={waterColor}
         />
         <WaterPhysicsCanvas
-          className="pointer-events-none absolute right-0 top-0 h-full w-1/2 opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+          className={`${OPPONENT_WATER_CLASS} right-0 top-0 h-full w-1/2`}
           difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
           externalLevelRef={splitRightExternalLevelRef}
           initialLevel={0}
@@ -139,14 +167,12 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
           tiltRef={tiltRef}
           waterColor={waterColor}
         />
-        {playerName ? (
-          <span
-            className="pc-round-label absolute left-6 z-[1] text-[#0d0d0c]/28 md:left-8 dark:text-[#f7f7f2]/30"
-            style={{ top: `calc(${100 - labelLevel}% + 0.55rem)` }}
-          >
-            {playerName}
-          </span>
-        ) : null}
+        <OpponentWaterMarker
+          index={index}
+          labelLevel={labelLevel}
+          level={visibleLevel ?? 0}
+          playerName={playerName}
+        />
       </>
     );
   }
@@ -161,7 +187,7 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
               ? "mass"
               : "chunked"
         }
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.24] mix-blend-multiply will-change-transform dark:opacity-[0.18]"
+        className={`${OPPONENT_WATER_CLASS} inset-0 h-full w-full`}
         difficulty={settings?.difficulty || DEFAULT_DIFFICULTY_ID}
         externalLevelRef={externalLevelRef}
         initialLevel={getInitialLevel(activeRuleMode)}
@@ -176,14 +202,12 @@ function OpponentWaterLayer({ roundIndex, settings, state }) {
         tiltRef={tiltRef}
         waterColor={waterColor}
       />
-      {playerName ? (
-        <span
-          className="pc-round-label absolute left-6 z-[1] text-[#0d0d0c]/28 md:left-8 dark:text-[#f7f7f2]/30"
-          style={{ top: `calc(${100 - labelLevel}% + 0.55rem)` }}
-        >
-          {playerName}
-        </span>
-      ) : null}
+      <OpponentWaterMarker
+        index={index}
+        labelLevel={labelLevel}
+        level={visibleLevel ?? 0}
+        playerName={playerName}
+      />
     </>
   );
 }
@@ -205,9 +229,10 @@ export default function OpponentWaterLayers({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-      {currentRoundStates.map((state) => (
+      {currentRoundStates.map((state, index) => (
         <OpponentWaterLayer
           key={`${state.player.id}:${state.roundIndex}`}
+          index={index}
           roundIndex={roundIndex}
           settings={settings}
           state={state}

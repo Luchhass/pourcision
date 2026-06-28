@@ -1,16 +1,17 @@
 "use client";
 
-import { WATER_COLORS } from "@/lib/constants";
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function formatLevel(value) {
+  return `${clamp(Number(value) || 0, 0, 100).toFixed(0)}%`;
 }
 
 export default function PourOpponentLines({
   opponentSubmissions,
   playerId,
   roundIndex,
-  waterColor,
 }) {
   const currentOpponentSubmissions = opponentSubmissions.filter(
     (submission) =>
@@ -22,27 +23,26 @@ export default function PourOpponentLines({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      {currentOpponentSubmissions.map((submission) => {
+      {currentOpponentSubmissions.map((submission, index) => {
         const level = clamp(submission.result.level, 0, 100);
-        const opponentColor =
-          WATER_COLORS.find(
-            (color) => color.id === submission.player?.waterColorId,
-          ) || waterColor;
+        const markerSide =
+          index % 2 === 0 ? "left-6 md:left-8" : "right-6 md:right-8";
+        const markerOffset = (index % 3) * 8 - 8;
 
         return (
           <div
-            className="absolute inset-x-0 border-t-2 border-dashed border-[#0d0d0c]/18"
+            className="absolute inset-x-0 h-0"
             key={`${submission.player.id}-${submission.result.roundIndex}`}
             style={{ top: `${100 - level}%` }}
           >
-            <div
-              className="absolute inset-x-0 top-0 h-24 -translate-y-full"
-              style={{
-                background: `linear-gradient(to top, ${opponentColor.value}33, transparent)`,
-              }}
-            />
-            <span className="pc-round-label absolute left-6 top-1 text-[#0d0d0c]/28 md:left-8">
-              {submission.player.name}
+            <span
+              className={`pc-label absolute top-0 flex h-7 max-w-[min(10.5rem,38vw)] items-center gap-2 overflow-hidden rounded-md border border-current bg-transparent px-2.5 text-[#0d0d0c]/82 dark:text-[#f7f7f2]/82 ${markerSide}`}
+              style={{ transform: `translateY(calc(-50% + ${markerOffset}px))` }}
+            >
+              <span className="min-w-0 truncate">
+                {submission.player.name || `P${index + 1}`}
+              </span>
+              <span className="ml-auto tabular-nums">{formatLevel(level)}</span>
             </span>
           </div>
         );

@@ -2,6 +2,10 @@
 
 import { useCallback, useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
+import {
+  releaseRevealRowMasks,
+  setRevealRowMasks,
+} from "@/lib/revealMasks";
 
 const TITLE_SELECTOR = '[data-screen-reveal="title"]';
 const TITLE_FILL_SELECTOR =
@@ -11,19 +15,48 @@ const CREAM_SELECTOR = '[data-screen-reveal="cream"]';
 const WATER_CONTENT_SELECTOR = '[data-screen-reveal="water-content"]';
 const UTILITY_RAIL_SELECTOR = '[data-utility-placement="rail"]';
 const UTILITY_CONTENT_SELECTOR =
-  '[data-utility-placement="rail"] .pc-choice-text, [data-utility-placement="rail"] .pc-icon';
+  '[data-utility-placement="rail"] .pc-choice-text, [data-utility-placement="rail"] .pc-icon, [data-utility-placement="rail"] [data-utility-reveal-item]';
+const FIXED_SCREEN_CONTROL_SELECTOR =
+  ".pc-title-band > button, [data-results-screen='true'] > button";
+const RESULTS_SCREEN_SELECTOR = '[data-results-screen="true"]';
 const HOME_STATS_SELECTOR = "[data-home-stats]";
 const REVEAL_ROW_SELECTOR = "[data-screen-reveal-row]";
 const REVEAL_LINE_ROW_SELECTOR = "[data-screen-reveal-line-row]";
 const INTRO_COMPLETE_EVENT = "pourcision-page-intro-complete";
+const SCREEN_REVEAL_COMPLETE_EVENT = "pourcision-screen-reveal-complete";
+const SCREEN_REVEAL_MUSIC_READY_EVENT = "pourcision-screen-reveal-music-ready";
 const ACTIVE_SCREEN_EXIT_EVENT = "pourcision-active-screen-exit";
+const GAME_START_TRANSITION_OVERLAY_SELECTOR =
+  "[data-game-start-transition-overlay]";
+const RESULTS_EXIT_TRANSITION_LAYER_SELECTOR =
+  "[data-results-exit-transition-layer]";
 const INTRO_SETTLE_DELAY = 120;
 const INTRO_TIMEOUT = 6200;
 const INTRO_APPEAR_WAIT = 240;
 const WATER_BG_REVEALED_KEY = "__pourcisionWaterBgRevealedOnce";
+const FORCE_FULL_REVEAL_KEY = "__pourcisionForceFullRevealOnce";
+const PRESERVE_TITLE_BG_REVEAL_KEY = "__pourcisionPreserveTitleBgRevealOnce";
 const STABLE_REVEAL_TRANSFORM = { force3D: false };
-const STABLE_REVEAL_CLEAR_PROPS =
-  "clipPath,opacity,visibility,overflow,willChange";
+const REVEAL_FINAL_CLIP_PATH = "inset(-2rem -2rem -2rem -2rem)";
+const TITLE_FILL_FULL_CLIP_PATH = "inset(-0.72em 0% -0.92em 0)";
+const TITLE_FILL_REVEAL_START_CLIP_PATH = "inset(-0.72em 100% -0.92em 0)";
+const TITLE_FILL_EXIT_LEFT_CLIP_PATH = TITLE_FILL_REVEAL_START_CLIP_PATH;
+const WATER_BG_REVEAL_START_CLIP_PATH = "inset(0 100% 0 0)";
+const WATER_BG_EXIT_RIGHT_CLIP_PATH = "inset(0 0 0 100%)";
+const EXIT_CONTENT_FADE_DURATION = 0.32;
+const EXIT_CONTENT_FADE_EASE = "power2.inOut";
+const EXIT_RAIL_SLIDE_DURATION = 0.48;
+const EXIT_TITLE_BG_SLIDE_DURATION = 0.56;
+const EXIT_WATER_BG_SLIDE_DURATION = 0.6;
+const EXIT_SCOREBOARD_WATER_BG_SLIDE_DURATION = 0.64;
+const EXIT_RESULTS_OVERLAY_DURATION = 0.8;
+const EXIT_SCOREBOARD_OVERLAY_DURATION = 0.68;
+const GAME_START_DARKEN_DURATION = 0.52;
+const GAME_START_OVERLAY_RELEASE_DURATION = 0.34;
+const TITLE_REVEAL_START_Y_PERCENT = -285;
+const SCREEN_REVEAL_MUSIC_LEAD_SECONDS = 2;
+const CONTENT_ONLY_REVEAL_DISTANCE_RATIO = 0.72;
+const CONTENT_ONLY_TITLE_REVEAL_START_Y_PERCENT = -285;
 const REVEAL_ATOMIC_TAGS = new Set([
   "A",
   "BUTTON",
@@ -43,6 +76,44 @@ function prefersReducedMotion() {
 
 function markWaterBackgroundRevealed() {
   window[WATER_BG_REVEALED_KEY] = true;
+}
+
+function hasWaterBackgroundRevealed() {
+  return Boolean(window[WATER_BG_REVEALED_KEY]);
+}
+
+export function requestNextFullScreenReveal({ preserveTitleBg = false } = {}) {
+  if (typeof window === "undefined") return;
+
+  window[FORCE_FULL_REVEAL_KEY] = true;
+  if (preserveTitleBg) {
+    window[PRESERVE_TITLE_BG_REVEAL_KEY] = true;
+  } else {
+    delete window[PRESERVE_TITLE_BG_REVEAL_KEY];
+  }
+  delete window[WATER_BG_REVEALED_KEY];
+}
+
+function consumeNextFullScreenRevealRequest() {
+  if (typeof window === "undefined" || !window[FORCE_FULL_REVEAL_KEY]) {
+    return false;
+  }
+
+  delete window[FORCE_FULL_REVEAL_KEY];
+  delete window[WATER_BG_REVEALED_KEY];
+  return true;
+}
+
+function consumePreserveTitleBgRevealRequest() {
+  if (
+    typeof window === "undefined" ||
+    !window[PRESERVE_TITLE_BG_REVEAL_KEY]
+  ) {
+    return false;
+  }
+
+  delete window[PRESERVE_TITLE_BG_REVEAL_KEY];
+  return true;
 }
 
 function isPageIntroActiveOrPending() {
@@ -136,12 +207,68 @@ function waitForIntro(callback) {
   };
 }
 
+function notifyScreenRevealComplete() {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new CustomEvent(SCREEN_REVEAL_COMPLETE_EVENT));
+}
+
+function notifyScreenRevealMusicReady() {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new CustomEvent(SCREEN_REVEAL_MUSIC_READY_EVENT));
+}
+
+function addScreenRevealMusicCue(timeline) {
+  if (
+    !timeline ||
+    typeof timeline.call !== "function" ||
+    typeof timeline.duration !== "function"
+  ) {
+    return;
+  }
+
+  timeline.call(
+    notifyScreenRevealMusicReady,
+    [],
+    Math.max(0, timeline.duration() - SCREEN_REVEAL_MUSIC_LEAD_SECONDS),
+  );
+}
+
 function toArray(selector, scope) {
   return gsap.utils.toArray(selector, scope);
 }
 
 function hasGsapTargets(targets) {
   return Array.isArray(targets) ? targets.length > 0 : Boolean(targets);
+}
+
+function getLargestTextFontSize(element) {
+  if (!(element instanceof HTMLElement)) return 16;
+
+  const candidates = [element, ...Array.from(element.querySelectorAll("*"))]
+    .filter(
+      (candidate) =>
+        candidate instanceof HTMLElement &&
+        candidate.getClientRects().length > 0 &&
+        (candidate.textContent || "").trim().length > 0,
+    );
+
+  return candidates.reduce((largest, candidate) => {
+    const fontSize = Number.parseFloat(
+      window.getComputedStyle(candidate).fontSize,
+    );
+    return Number.isFinite(fontSize) ? Math.max(largest, fontSize) : largest;
+  }, 16);
+}
+
+function getTitleRevealClipPath(titleGroup) {
+  const fontSize = getLargestTextFontSize(titleGroup);
+  const top = Math.ceil(fontSize * 0.14);
+  const bottom = Math.ceil(fontSize * 0.78);
+  const side = Math.ceil(fontSize * 0.82);
+
+  return `inset(-${top}px -${side}px -${bottom}px -${side}px)`;
 }
 
 function safeSet(targets, vars, position) {
@@ -160,6 +287,232 @@ function safeTimelineTo(timeline, targets, vars, position) {
   if (!hasGsapTargets(targets)) return timeline;
 
   return timeline.to(targets, vars, position);
+}
+
+function readViewportBox() {
+  const visualViewport = window.visualViewport;
+  const width =
+    visualViewport?.width ||
+    document.documentElement.clientWidth ||
+    window.innerWidth;
+  const height =
+    visualViewport?.height ||
+    document.documentElement.clientHeight ||
+    window.innerHeight;
+
+  return {
+    height,
+    left: visualViewport?.offsetLeft || 0,
+    top: visualViewport?.offsetTop || 0,
+    width,
+  };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createFixedTransitionLayer({ backgroundColor, layer }) {
+  const element = document.createElement("div");
+
+  element.dataset.resultsExitTransitionLayer = layer;
+  element.setAttribute("aria-hidden", "true");
+  Object.assign(element.style, {
+    backgroundColor,
+    inset: "0",
+    opacity: "0",
+    pointerEvents: "auto",
+    position: "fixed",
+    zIndex: layer === "overlay" ? "9998" : "9997",
+  });
+
+  document.body.appendChild(element);
+  return element;
+}
+
+function getResultsExitTransitionLayers() {
+  if (typeof document === "undefined") {
+    return { overlay: null, underlay: null };
+  }
+
+  const existingLayers = document.querySelectorAll(
+    RESULTS_EXIT_TRANSITION_LAYER_SELECTOR,
+  );
+
+  existingLayers.forEach((layer) => layer.remove());
+
+  return {
+    overlay: createFixedTransitionLayer({
+      backgroundColor: "#020202",
+      layer: "overlay",
+    }),
+    underlay: createFixedTransitionLayer({
+      backgroundColor: "#f7f7f2",
+      layer: "underlay",
+    }),
+  };
+}
+
+function releaseResultsExitTransitionLayers({
+  immediate = false,
+  preserveTitlePaint = false,
+} = {}) {
+  if (typeof document === "undefined") return;
+
+  const layers = Array.from(
+    document.querySelectorAll(RESULTS_EXIT_TRANSITION_LAYER_SELECTOR),
+  );
+
+  if (!layers.length) return;
+
+  gsap.killTweensOf(layers);
+
+  if (immediate) {
+    layers.forEach((layer) => layer.remove());
+    return;
+  }
+
+  if (preserveTitlePaint) {
+    const overlay = layers.find(
+      (layer) => layer.dataset.resultsExitTransitionLayer === "overlay",
+    );
+    const underlays = layers.filter((layer) => layer !== overlay);
+
+    underlays.forEach((layer) => layer.remove());
+
+    if (!overlay) return;
+
+    overlay.style.pointerEvents = "none";
+    overlay.style.zIndex = "9998";
+
+    window.requestAnimationFrame(() => {
+      const viewport = readViewportBox();
+
+      gsap.set(overlay, {
+        autoAlpha: 1,
+        backgroundColor: "#020202",
+        clipPath: "inset(0px 0px 0px 0px)",
+        inset: "auto",
+        left: viewport.left,
+        position: "fixed",
+        top: viewport.top,
+        width: viewport.width,
+        height: viewport.height,
+        x: 0,
+        y: 0,
+      });
+
+      window.requestAnimationFrame(() => {
+        gsap.to(overlay, {
+          clipPath: getTitleFillClipPath(viewport),
+          duration: EXIT_RESULTS_OVERLAY_DURATION,
+          ease: "power3.inOut",
+          onComplete: () => {
+            gsap.to(overlay, {
+              autoAlpha: 0,
+              duration: 0.08,
+              ease: "power2.out",
+              onComplete: () => overlay.remove(),
+            });
+          },
+        });
+      });
+    });
+    return;
+  }
+
+  gsap.to(layers, {
+    autoAlpha: 0,
+    duration: 0.18,
+    ease: "power2.out",
+    onComplete: () => {
+      layers.forEach((layer) => layer.remove());
+    },
+  });
+}
+
+function getTitleFillClipPath(viewport) {
+  const titleFill = document.querySelector(TITLE_FILL_SELECTOR);
+  if (!titleFill) {
+    return "inset(0px 100% 100% 0px)";
+  }
+
+  const rect = titleFill.getBoundingClientRect();
+  const top = clamp(rect.top - viewport.top, 0, viewport.height);
+  const right = clamp(
+    viewport.left + viewport.width - rect.right,
+    0,
+    viewport.width,
+  );
+  const bottom = clamp(
+    viewport.top + viewport.height - rect.bottom,
+    0,
+    viewport.height,
+  );
+  const left = clamp(rect.left - viewport.left, 0, viewport.width);
+
+  return `inset(${top}px ${right}px ${bottom}px ${left}px)`;
+}
+
+function setFixedLayerToViewport(timeline, layer, viewport, position) {
+  safeTimelineSet(
+    timeline,
+    layer,
+    {
+      bottom: "auto",
+      height: viewport.height,
+      inset: "auto",
+      left: viewport.left,
+      position: "fixed",
+      right: "auto",
+      top: viewport.top,
+      width: viewport.width,
+      x: 0,
+      y: 0,
+    },
+    position,
+  );
+}
+
+function getGameStartTransitionOverlay() {
+  if (typeof document === "undefined") return null;
+
+  const existingOverlay = document.querySelector(
+    GAME_START_TRANSITION_OVERLAY_SELECTOR,
+  );
+
+  if (existingOverlay) return existingOverlay;
+
+  const overlay = document.createElement("div");
+
+  overlay.dataset.gameStartTransitionOverlay = "true";
+  overlay.setAttribute("aria-hidden", "true");
+  Object.assign(overlay.style, {
+    backgroundColor: "#f7f7f2",
+    inset: "0",
+    opacity: "0",
+    pointerEvents: "auto",
+    position: "fixed",
+    zIndex: "9998",
+  });
+
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+export function releaseGameStartTransitionOverlay() {
+  if (typeof document === "undefined") return;
+
+  const overlay = document.querySelector(GAME_START_TRANSITION_OVERLAY_SELECTOR);
+  if (!overlay) return;
+
+  gsap.killTweensOf(overlay);
+  gsap.to(overlay, {
+    autoAlpha: 0,
+    duration: GAME_START_OVERLAY_RELEASE_DURATION,
+    ease: "power2.inOut",
+    onComplete: () => overlay.remove(),
+  });
 }
 
 function getRevealChildren(element) {
@@ -321,26 +674,19 @@ function getRevealDirection(element, fallback = "down") {
   return fallback;
 }
 
-function hasShadowedRevealSurface() {
-  return false;
-}
-
 function shouldMask(element) {
+  if (!element) return false;
   if (element.dataset.screenRevealMask === "none") return false;
 
-  return !hasShadowedRevealSurface(element);
+  return true;
 }
 
 function getMaskRows(rows) {
   return rows.filter((row) => shouldMask(row));
 }
 
-function isSectionWordRevealItem(item) {
-  return !!item.closest("[data-screen-reveal-section-word]");
-}
-
 function getRevealY(element, fallback = "down") {
-  return getRevealDirection(element, fallback) === "up" ? 104 : -104;
+  return getRevealDirection(element, fallback) === "up" ? 190 : -190;
 }
 
 function shouldTranslateRevealItem(item) {
@@ -351,16 +697,30 @@ function shouldTranslateRevealItem(item) {
 
 function getRevealClipPath(element, fallback = "down") {
   return getRevealDirection(element, fallback) === "up"
-    ? "inset(100% 0% 0% 0%)"
-    : "inset(0% 0% 100% 0%)";
+    ? "inset(100% -1% -28% -1%)"
+    : "inset(-18% -1% 100% -1%)";
+}
+
+function getInitialItemClipPath(item) {
+  return shouldTranslateRevealItem(item)
+    ? REVEAL_FINAL_CLIP_PATH
+    : getRevealClipPath(getRevealOwner(item));
 }
 
 function getCreamRowDelay(row, index, meta) {
   if (row.dataset.screenRevealGroup === "stats") {
-    return 0.34 + meta.groupIndex * 0.085;
+    return 0.3 + meta.groupIndex * 0.072;
   }
 
-  return index * 0.075;
+  return index * 0.064;
+}
+
+function getContentOnlyRowDelay(row, index, meta) {
+  if (row.dataset.screenRevealGroup === "stats") {
+    return 0.27 + meta.groupIndex * 0.09;
+  }
+
+  return index * 0.086;
 }
 
 function getExplicitRevealDelay(row) {
@@ -377,7 +737,6 @@ function revealRows(timeline, rows, startAt, options = {}) {
     const groupName = row.dataset.screenRevealGroup || "default";
     const groupIndex = groupIndexes[groupName] ?? 0;
     const isStats = groupName === "stats";
-    const isSectionWord = items.some(isSectionWordRevealItem);
     const explicitDelay = getExplicitRevealDelay(row);
     const delay =
       explicitDelay ??
@@ -393,10 +752,7 @@ function revealRows(timeline, rows, startAt, options = {}) {
       timeline,
       items,
       {
-        clipPath: "inset(0% 0% 0% 0%)",
-        clearProps: isSectionWord
-          ? "opacity,visibility,willChange"
-          : "opacity,visibility",
+        clipPath: REVEAL_FINAL_CLIP_PATH,
         duration: isStats ? 0.74 : options.duration ?? 0.62,
         ease: isStats ? "expo.out" : options.ease ?? "power4.out",
         ...STABLE_REVEAL_TRANSFORM,
@@ -418,6 +774,8 @@ function getRevealParts(scope) {
   const waterBackgrounds = toArray(WATER_BG_SELECTOR, scope);
   const utilityRails = toArray(UTILITY_RAIL_SELECTOR, scope);
   const utilityContentItems = toArray(UTILITY_CONTENT_SELECTOR, scope);
+  const fixedScreenControls = toArray(FIXED_SCREEN_CONTROL_SELECTOR, scope);
+  const resultsScreens = toArray(RESULTS_SCREEN_SELECTOR, scope);
   const creamGroups = toArray(CREAM_SELECTOR, scope);
   const homeStatsGroups = toArray(HOME_STATS_SELECTOR, scope);
   const waterContentGroups = toArray(WATER_CONTENT_SELECTOR, scope);
@@ -441,10 +799,12 @@ function getRevealParts(scope) {
     creamItems,
     creamMaskRows,
     creamRows,
+    fixedScreenControls,
     homeStatsGroups,
     homeStatsItems,
     homeStatsMaskRows,
     homeStatsRows,
+    resultsScreens,
     titleFills,
     titleGroups,
     titleLetters,
@@ -458,15 +818,48 @@ function getRevealParts(scope) {
   };
 }
 
+function clearPersistentRevealMasks({
+  creamItems,
+  creamMaskRows,
+  homeStatsItems,
+  homeStatsMaskRows,
+  titleFills,
+  titleGroups,
+  utilityContentItems,
+  waterBackgrounds,
+  waterContentItems,
+  waterContentMaskRows,
+}) {
+  safeSet(
+    [
+      ...titleGroups,
+      ...titleFills,
+      ...utilityContentItems,
+      ...waterBackgrounds,
+      ...creamItems,
+      ...homeStatsItems,
+      ...waterContentItems,
+    ],
+    { clearProps: "clipPath,willChange" },
+  );
+  releaseRevealRowMasks(gsap, [
+    ...creamMaskRows,
+    ...homeStatsMaskRows,
+    ...waterContentMaskRows,
+  ]);
+  safeSet(titleGroups, { overflow: "visible" });
+}
+
 export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
   const timelineRef = useRef(null);
   const cancelIntroWaitRef = useRef(null);
   const cancelDelayRef = useRef(null);
   const forcedWaterRevealKeysRef = useRef(new Set());
   const hasPlayedInitialRevealRef = useRef(false);
+  const preserveTitleBgRevealRef = useRef(false);
   const shouldRevealWaterBgRef = useRef(false);
 
-  const playExit = useCallback(() => {
+  const playExit = useCallback((exitOptions = {}) => {
     const scope = scopeRef.current;
 
     if (!scope || prefersReducedMotion()) {
@@ -475,20 +868,37 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
 
     const {
       creamItems,
+      fixedScreenControls,
       homeStatsItems,
+      resultsScreens,
       titleFills,
       titleLetters,
-      utilityContentItems,
       utilityRails,
       waterBackgrounds,
       waterContentItems,
+      utilityContentItems,
     } = getRevealParts(scope);
+    const isGameStartExit = exitOptions.variant === "game-start";
+    const isResultsExit = exitOptions.variant === "results-exit";
+    const isScoreboardExit = exitOptions.variant === "scoreboard-exit";
     const fadeTargets = [
       ...titleLetters,
-      ...utilityContentItems,
       ...creamItems,
       ...homeStatsItems,
       ...waterContentItems,
+    ];
+    const gameStartFadeTargets = [
+      ...fadeTargets,
+      ...utilityContentItems,
+      ...fixedScreenControls,
+    ];
+    const resultsExitFadeTargets = [
+      ...gameStartFadeTargets,
+      ...utilityRails,
+    ];
+    const scoreboardExitFadeTargets = [
+      ...fadeTargets,
+      ...fixedScreenControls,
     ];
 
     timelineRef.current?.kill();
@@ -501,20 +911,310 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         onComplete: resolve,
       });
 
+      if (isGameStartExit) {
+        const overlay = getGameStartTransitionOverlay();
+
+        safeTimelineSet(
+          exitTimeline,
+          overlay,
+          {
+            autoAlpha: 0,
+            backgroundColor: "#f7f7f2",
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          [...titleFills, ...waterBackgrounds, ...utilityRails],
+          {
+            autoAlpha: 1,
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          titleFills,
+          {
+            clipPath: TITLE_FILL_FULL_CLIP_PATH,
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          waterBackgrounds,
+          {
+            clipPath: "inset(0 0% 0 0)",
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          utilityRails,
+          {
+            ...STABLE_REVEAL_TRANSFORM,
+            xPercent: 0,
+          },
+          0,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          gameStartFadeTargets,
+          {
+            autoAlpha: 0,
+            duration: EXIT_CONTENT_FADE_DURATION,
+            ease: EXIT_CONTENT_FADE_EASE,
+          },
+          0,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          utilityRails,
+          {
+            duration: EXIT_RAIL_SLIDE_DURATION,
+            ease: "expo.inOut",
+            ...STABLE_REVEAL_TRANSFORM,
+            xPercent: 115,
+          },
+          0.1,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          waterBackgrounds,
+          {
+            clipPath: WATER_BG_EXIT_RIGHT_CLIP_PATH,
+            duration: EXIT_WATER_BG_SLIDE_DURATION,
+            ease: "power3.inOut",
+          },
+          0.18,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          titleFills,
+          {
+            clipPath: TITLE_FILL_EXIT_LEFT_CLIP_PATH,
+            duration: EXIT_TITLE_BG_SLIDE_DURATION,
+            ease: "power3.inOut",
+          },
+          0.22,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          overlay,
+          {
+            autoAlpha: 1,
+          },
+          0.82,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          overlay,
+          {
+            backgroundColor: "#020202",
+            duration: GAME_START_DARKEN_DURATION,
+            ease: "power2.inOut",
+          },
+          0.86,
+        );
+
+        timelineRef.current = exitTimeline;
+        return;
+      }
+
+      if (isResultsExit) {
+        const { overlay, underlay } = getResultsExitTransitionLayers();
+        const viewport = readViewportBox();
+
+        requestNextFullScreenReveal({ preserveTitleBg: true });
+
+        safeTimelineSet(
+          exitTimeline,
+          [underlay, overlay],
+          {
+            autoAlpha: 0,
+          },
+          0,
+        );
+        setFixedLayerToViewport(exitTimeline, underlay, viewport, 0);
+        setFixedLayerToViewport(exitTimeline, overlay, viewport, 0);
+        safeTimelineSet(
+          exitTimeline,
+          overlay,
+          {
+            backgroundColor: "#020202",
+            borderRadius: 0,
+            clipPath: "inset(0% 0% 0% 0%)",
+            transformOrigin: "left top",
+            willChange: "clip-path,opacity",
+            x: 0,
+            y: 0,
+          },
+          0,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          resultsExitFadeTargets,
+          {
+            autoAlpha: 0,
+            duration: EXIT_CONTENT_FADE_DURATION,
+            ease: EXIT_CONTENT_FADE_EASE,
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          [underlay, overlay],
+          {
+            autoAlpha: 1,
+          },
+          0.24,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          resultsScreens,
+          {
+            autoAlpha: 0,
+          },
+          0.24,
+        );
+
+        timelineRef.current = exitTimeline;
+        return;
+      }
+
+      if (isScoreboardExit) {
+        const { overlay, underlay } = getResultsExitTransitionLayers();
+        const viewport = readViewportBox();
+        const startClipPath = getTitleFillClipPath(viewport);
+
+        safeTimelineSet(
+          exitTimeline,
+          [underlay, overlay],
+          {
+            autoAlpha: 0,
+          },
+          0,
+        );
+        setFixedLayerToViewport(exitTimeline, underlay, viewport, 0);
+        setFixedLayerToViewport(exitTimeline, overlay, viewport, 0);
+        safeTimelineSet(
+          exitTimeline,
+          [...titleFills, ...waterBackgrounds, ...utilityRails],
+          {
+            autoAlpha: 1,
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          titleFills,
+          {
+            clipPath: TITLE_FILL_FULL_CLIP_PATH,
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          waterBackgrounds,
+          {
+            clipPath: "inset(0 0% 0 0)",
+          },
+          0,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          utilityRails,
+          {
+            ...STABLE_REVEAL_TRANSFORM,
+            xPercent: 0,
+          },
+          0,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          scoreboardExitFadeTargets,
+          {
+            autoAlpha: 0,
+            duration: EXIT_CONTENT_FADE_DURATION,
+            ease: EXIT_CONTENT_FADE_EASE,
+          },
+          0,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          waterBackgrounds,
+          {
+            clipPath: WATER_BG_EXIT_RIGHT_CLIP_PATH,
+            duration: EXIT_SCOREBOARD_WATER_BG_SLIDE_DURATION,
+            ease: "power3.inOut",
+          },
+          0.14,
+        );
+        safeTimelineSet(
+          exitTimeline,
+          overlay,
+          {
+            autoAlpha: 1,
+            backgroundColor: "#020202",
+            borderRadius: 0,
+            clipPath: startClipPath,
+            transformOrigin: "left top",
+            willChange: "clip-path,opacity",
+            x: 0,
+            y: 0,
+          },
+          0.76,
+        );
+        safeTimelineTo(
+          exitTimeline,
+          overlay,
+          {
+            clipPath: "inset(0px 0px 0px 0px)",
+            duration: EXIT_SCOREBOARD_OVERLAY_DURATION,
+            ease: "power3.inOut",
+          },
+          0.78,
+        );
+        exitTimeline.call(() => {
+          window.setTimeout(
+            () => releaseResultsExitTransitionLayers(),
+            900,
+          );
+        });
+
+        timelineRef.current = exitTimeline;
+        return;
+      }
+
       safeTimelineSet(
         exitTimeline,
         [...titleFills, ...waterBackgrounds, ...utilityRails],
         {
           autoAlpha: 1,
-          willChange: "clip-path, transform",
         },
         0,
       );
       safeTimelineSet(
         exitTimeline,
-        [...titleFills, ...waterBackgrounds],
+        titleFills,
+        {
+          clipPath: TITLE_FILL_FULL_CLIP_PATH,
+        },
+        0,
+      );
+      safeTimelineSet(
+        exitTimeline,
+        waterBackgrounds,
         {
           clipPath: "inset(0 0% 0 0)",
+        },
+        0,
+      );
+      safeTimelineSet(
+        exitTimeline,
+        utilityRails,
+        {
+          ...STABLE_REVEAL_TRANSFORM,
+          xPercent: 0,
         },
         0,
       );
@@ -524,43 +1224,10 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         fadeTargets,
         {
           autoAlpha: 0,
-          duration: 0.24,
-          ease: "power2.out",
+          duration: EXIT_CONTENT_FADE_DURATION,
+          ease: EXIT_CONTENT_FADE_EASE,
         },
         0,
-      );
-
-      exitTimeline.add("layoutPause", ">+=0.3");
-      safeTimelineTo(
-        exitTimeline,
-        titleFills,
-        {
-          clipPath: "inset(0 0% 0 100%)",
-          duration: 0.54,
-          ease: "power3.inOut",
-        },
-        "layoutPause",
-      );
-      safeTimelineTo(
-        exitTimeline,
-        waterBackgrounds,
-        {
-          clipPath: "inset(0 0% 0 100%)",
-          duration: 0.56,
-          ease: "power3.inOut",
-        },
-        "layoutPause+=0.14",
-      );
-      safeTimelineTo(
-        exitTimeline,
-        utilityRails,
-        {
-          ...STABLE_REVEAL_TRANSFORM,
-          duration: 0.46,
-          ease: "expo.inOut",
-          xPercent: 115,
-        },
-        "layoutPause+=0.28",
       );
 
       timelineRef.current = exitTimeline;
@@ -572,7 +1239,9 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
     if (!scope || typeof document === "undefined") return undefined;
 
     const handleActiveScreenExit = (event) => {
-      const promise = playExit();
+      const promise = playExit({
+        variant: event.detail?.variant,
+      });
       event.detail?.register?.(promise);
     };
 
@@ -618,11 +1287,14 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       cancelDelayRef.current = null;
       timelineRef.current?.kill();
       timelineRef.current = null;
+      const clearTitleFills = preserveTitleBgRevealRef.current
+        ? []
+        : titleFills;
 
       safeSet(
         [
           ...titleGroups,
-          ...titleFills,
+          ...clearTitleFills,
           ...titleLetters,
           ...utilityRails,
           ...utilityContentItems,
@@ -654,32 +1326,61 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       const shouldForceWaterBg =
         Boolean(forceWaterRevealKey) &&
         !forcedWaterRevealKeysRef.current.has(forceWaterRevealKey);
+      const shouldForceFullReveal = consumeNextFullScreenRevealRequest();
+      const shouldPreserveTitleBgReveal =
+        shouldForceFullReveal && consumePreserveTitleBgRevealRequest();
       const introActiveAtPrepare = isPageIntroActiveOrPending();
-      const shouldAnimateLayoutBgs = true;
+      const shouldAnimateLayoutBgs =
+        shouldForceFullReveal || shouldForceWaterBg || !hasWaterBackgroundRevealed();
+      const revealDistanceRatio = shouldAnimateLayoutBgs
+        ? 1
+        : CONTENT_ONLY_REVEAL_DISTANCE_RATIO;
       shouldRevealWaterBgRef.current = shouldAnimateLayoutBgs;
+      preserveTitleBgRevealRef.current = shouldPreserveTitleBgReveal;
+      if (!shouldPreserveTitleBgReveal) {
+        releaseResultsExitTransitionLayers();
+      }
       if (shouldForceWaterBg) {
         forcedWaterRevealKeysRef.current.add(forceWaterRevealKey);
       }
-      if (shouldAnimateLayoutBgs) {
-        markWaterBackgroundRevealed();
-      }
 
       safeSet(scope, { autoAlpha: 1 });
+      if (shouldPreserveTitleBgReveal) {
+        gsap.killTweensOf(titleFills);
+      }
       safeSet(titleFills, {
-        clipPath: introActiveAtPrepare
-          ? "inset(0 0% 0 0)"
-          : "inset(0 100% 0 0)",
-        willChange: introActiveAtPrepare ? "auto" : "clip-path",
+        autoAlpha: 1,
+        clipPath:
+          shouldAnimateLayoutBgs &&
+          !introActiveAtPrepare &&
+          !shouldPreserveTitleBgReveal
+            ? TITLE_FILL_REVEAL_START_CLIP_PATH
+            : TITLE_FILL_FULL_CLIP_PATH,
+        willChange:
+          shouldAnimateLayoutBgs &&
+          !introActiveAtPrepare &&
+          !shouldPreserveTitleBgReveal
+            ? "clip-path"
+            : "auto",
       });
-      safeSet(titleGroups, { autoAlpha: 1, overflow: "hidden" });
+      if (shouldPreserveTitleBgReveal) {
+        releaseResultsExitTransitionLayers({ preserveTitlePaint: true });
+      }
+      safeSet(titleGroups, {
+        autoAlpha: 1,
+        clipPath: (index, titleGroup) => getTitleRevealClipPath(titleGroup),
+        overflow: "visible",
+      });
       safeSet(titleLetters, {
         autoAlpha: 1,
         ...STABLE_REVEAL_TRANSFORM,
-        yPercent: -115,
+        yPercent: shouldAnimateLayoutBgs
+          ? TITLE_REVEAL_START_Y_PERCENT
+          : CONTENT_ONLY_TITLE_REVEAL_START_Y_PERCENT,
       });
       safeSet(waterBackgrounds, {
         clipPath: shouldAnimateLayoutBgs
-          ? "inset(0 100% 0 0)"
+          ? WATER_BG_REVEAL_START_CLIP_PATH
           : "inset(0 0% 0 0)",
         willChange: shouldAnimateLayoutBgs ? "clip-path" : "auto",
       });
@@ -693,7 +1394,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         autoAlpha: shouldAnimateLayoutBgs ? 0 : 1,
         clipPath: shouldAnimateLayoutBgs
           ? "inset(0% 0% 100% 0%)"
-          : "inset(0% 0% 0% 0%)",
+          : REVEAL_FINAL_CLIP_PATH,
         ...STABLE_REVEAL_TRANSFORM,
         yPercent: shouldAnimateLayoutBgs ? -90 : 0,
         willChange: shouldAnimateLayoutBgs
@@ -704,51 +1405,49 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
       safeSet(creamRows, {
         autoAlpha: 1,
       });
-      safeSet(creamMaskRows, {
-        autoAlpha: 1,
-        overflow: "hidden",
-      });
+      safeSet(creamMaskRows, { autoAlpha: 1 });
+      setRevealRowMasks(gsap, creamMaskRows);
       safeSet(creamItems, {
         autoAlpha: 0,
-        clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
+        clipPath: (index, item) => getInitialItemClipPath(item),
         ...STABLE_REVEAL_TRANSFORM,
         y: 0,
         yPercent: (index, item) =>
-          shouldTranslateRevealItem(item) ? getRevealY(getRevealOwner(item)) : 0,
+          shouldTranslateRevealItem(item)
+            ? getRevealY(getRevealOwner(item)) * revealDistanceRatio
+            : 0,
         willChange: "clip-path, transform",
       });
       safeSet(homeStatsGroups, { autoAlpha: 1 });
       safeSet(homeStatsRows, {
         autoAlpha: 1,
       });
-      safeSet(homeStatsMaskRows, {
-        autoAlpha: 1,
-        overflow: "hidden",
-      });
+      safeSet(homeStatsMaskRows, { autoAlpha: 1 });
+      setRevealRowMasks(gsap, homeStatsMaskRows);
       safeSet(homeStatsItems, {
         autoAlpha: 0,
-        clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
+        clipPath: (index, item) => getInitialItemClipPath(item),
         ...STABLE_REVEAL_TRANSFORM,
         y: 0,
         yPercent: (index, item) =>
-          shouldTranslateRevealItem(item) ? getRevealY(getRevealOwner(item)) : 0,
+          shouldTranslateRevealItem(item)
+            ? getRevealY(getRevealOwner(item)) * revealDistanceRatio
+            : 0,
         willChange: "clip-path, transform",
       });
       safeSet(waterContentGroups, { autoAlpha: 1 });
       safeSet(waterContentRows, {
         autoAlpha: 1,
       });
-      safeSet(waterContentMaskRows, {
-        autoAlpha: 1,
-        overflow: "hidden",
-      });
+      safeSet(waterContentMaskRows, { autoAlpha: 1 });
+      setRevealRowMasks(gsap, waterContentMaskRows);
       safeSet(waterContentItems, {
         autoAlpha: 0,
-        clipPath: (index, item) => getRevealClipPath(getRevealOwner(item)),
+        clipPath: (index, item) => getInitialItemClipPath(item),
         ...STABLE_REVEAL_TRANSFORM,
         y: 0,
         yPercent: (index, item) =>
-          shouldTranslateRevealItem(item) ? -104 : 0,
+          shouldTranslateRevealItem(item) ? -104 * revealDistanceRatio : 0,
         willChange: "clip-path, transform",
       });
     };
@@ -786,53 +1485,51 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           },
         );
         restoreParagraphLineReveals(scope);
+        notifyScreenRevealComplete();
         return;
       }
 
       const start = () => {
         const shouldAnimateLayoutBgs = shouldRevealWaterBgRef.current;
+        const shouldPreserveTitleBgReveal =
+          preserveTitleBgRevealRef.current;
+        const revealTitleFills = shouldPreserveTitleBgReveal
+          ? []
+          : titleFills;
+        const isContentOnlyReveal = !shouldAnimateLayoutBgs;
         const shouldAnimateTitleBg =
-          shouldAnimateLayoutBgs && !waitedForPageIntro;
-        const sectionWordItems = waterContentItems.filter(isSectionWordRevealItem);
-        const regularWaterContentItems = waterContentItems.filter(
-          (item) => !isSectionWordRevealItem(item),
-        );
+          shouldAnimateLayoutBgs &&
+          !waitedForPageIntro &&
+          !shouldPreserveTitleBgReveal;
+        const rowDelay = isContentOnlyReveal
+          ? getContentOnlyRowDelay
+          : getCreamRowDelay;
+
+        if (shouldAnimateLayoutBgs) {
+          markWaterBackgroundRevealed();
+        }
 
         timelineRef.current = gsap.timeline({
           defaults: { overwrite: "auto" },
           onComplete: () => {
             hasPlayedInitialRevealRef.current = true;
             markWaterBackgroundRevealed();
-            safeSet(sectionWordItems, {
-              clearProps: "opacity,visibility,willChange",
-              y: 0,
+            clearPersistentRevealMasks({
+              creamItems,
+              creamMaskRows,
+              homeStatsItems,
+              homeStatsMaskRows,
+              titleFills: revealTitleFills,
+              titleGroups,
+              utilityContentItems,
+              waterBackgrounds,
+              waterContentItems,
+              waterContentMaskRows,
             });
-            safeSet(
-              [
-                ...titleGroups,
-                ...titleFills,
-                ...titleLetters,
-                ...utilityRails,
-                ...utilityContentItems,
-                ...waterBackgrounds,
-                ...creamGroups,
-                ...creamMaskRows,
-                ...creamRows,
-                ...creamItems,
-                ...homeStatsGroups,
-                ...homeStatsMaskRows,
-                ...homeStatsRows,
-                ...homeStatsItems,
-                ...waterContentGroups,
-                ...waterContentMaskRows,
-                ...waterContentRows,
-                ...regularWaterContentItems,
-              ],
-              {
-                clearProps: STABLE_REVEAL_CLEAR_PROPS,
-              },
-            );
-            restoreParagraphLineReveals(scope);
+            if (shouldPreserveTitleBgReveal) {
+              preserveTitleBgRevealRef.current = false;
+            }
+            notifyScreenRevealComplete();
           },
         });
 
@@ -847,9 +1544,9 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             timeline.add("titleBgIn", 0);
             safeTimelineTo(
               timeline,
-              titleFills,
+              revealTitleFills,
               {
-                clipPath: "inset(0 0% 0 0)",
+                clipPath: TITLE_FILL_FULL_CLIP_PATH,
                 duration: 0.54,
                 ease: "power3.inOut",
               },
@@ -859,8 +1556,8 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             timeline.add("titleBgIn", 0);
             safeTimelineSet(
               timeline,
-              titleFills,
-              { clipPath: "inset(0 0% 0 0)" },
+              revealTitleFills,
+              { clipPath: TITLE_FILL_FULL_CLIP_PATH },
               0,
             );
             bgStart = 0;
@@ -900,7 +1597,13 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
         } else {
           safeTimelineSet(
             timeline,
-            [...titleFills, ...waterBackgrounds],
+            revealTitleFills,
+            { clipPath: TITLE_FILL_FULL_CLIP_PATH },
+            0,
+          );
+          safeTimelineSet(
+            timeline,
+            waterBackgrounds,
             { clipPath: "inset(0 0% 0 0)" },
             0,
           );
@@ -913,7 +1616,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
             },
             0,
           );
-          titleStart = 0.16;
+          titleStart = 0.08;
         }
 
         timeline.add("titleIn", titleStart);
@@ -921,50 +1624,66 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
           timeline,
           titleLetters,
           {
-            duration: 0.74,
-            ease: "expo.out",
+            duration: isContentOnlyReveal ? 0.98 : 0.86,
+            ease: isContentOnlyReveal ? "power3.out" : "expo.out",
             ...STABLE_REVEAL_TRANSFORM,
             yPercent: 0,
           },
           "titleIn",
         );
 
-        timeline.add("creamIn", "titleIn+=0.24");
-        revealRows(timeline, creamRows, "creamIn", {
-          delayForRow: getCreamRowDelay,
-          duration: 0.58,
-          ease: "power4.out",
-        });
-
-        timeline.add("statsIn", "creamIn+=0.24");
-        revealRows(timeline, homeStatsRows, "statsIn", {
-          delayForRow: getCreamRowDelay,
-          duration: 0.66,
-          ease: "expo.out",
-        });
-
-        timeline.add("waterContentIn", "statsIn+=0.28");
-        revealRows(timeline, waterContentRows, "waterContentIn", {
-          duration: 0.62,
-          ease: "expo.out",
-          rowStagger: 0.065,
-        });
-
-        timeline.add("utilityContentIn", "waterContentIn+=0.18");
-        safeTimelineTo(
-          timeline,
-          utilityContentItems,
-          {
-            autoAlpha: 1,
-            clipPath: "inset(0% 0% 0% 0%)",
-            duration: 0.52,
-            ease: "power4.out",
-            ...STABLE_REVEAL_TRANSFORM,
-            yPercent: 0,
-            stagger: 0.055,
-          },
-          "utilityContentIn",
+        timeline.add(
+          "creamIn",
+          isContentOnlyReveal ? "titleIn+=0.26" : "titleIn+=0.2",
         );
+        revealRows(timeline, creamRows, "creamIn", {
+          delayForRow: rowDelay,
+          duration: isContentOnlyReveal ? 0.92 : 0.62,
+          ease: isContentOnlyReveal ? "power3.out" : "power4.out",
+          itemStagger: isContentOnlyReveal ? 0.038 : undefined,
+          rowStagger: isContentOnlyReveal ? 0.086 : undefined,
+        });
+
+        timeline.add(
+          "statsIn",
+          isContentOnlyReveal ? "creamIn+=0.26" : "creamIn+=0.19",
+        );
+        revealRows(timeline, homeStatsRows, "statsIn", {
+          delayForRow: rowDelay,
+          duration: isContentOnlyReveal ? 0.96 : 0.7,
+          ease: isContentOnlyReveal ? "power3.out" : "expo.out",
+        });
+
+        timeline.add(
+          "waterContentIn",
+          isContentOnlyReveal ? "statsIn+=0.28" : "statsIn+=0.22",
+        );
+        revealRows(timeline, waterContentRows, "waterContentIn", {
+          duration: isContentOnlyReveal ? 0.98 : 0.66,
+          ease: isContentOnlyReveal ? "power3.out" : "expo.out",
+          itemStagger: isContentOnlyReveal ? 0.038 : undefined,
+          rowStagger: isContentOnlyReveal ? 0.086 : 0.054,
+        });
+
+        if (shouldAnimateLayoutBgs) {
+          timeline.add("utilityContentIn", "waterContentIn+=0.14");
+          safeTimelineTo(
+            timeline,
+            utilityContentItems,
+            {
+              autoAlpha: 1,
+              clipPath: REVEAL_FINAL_CLIP_PATH,
+              duration: 0.56,
+              ease: "power4.out",
+              ...STABLE_REVEAL_TRANSFORM,
+              yPercent: 0,
+              stagger: 0.046,
+            },
+            "utilityContentIn",
+          );
+        }
+
+        addScreenRevealMusicCue(timeline);
       };
 
       cancelDelayRef.current = () => {};
@@ -984,7 +1703,7 @@ export function useScreenReveal(scopeRef, dependencies = [], options = {}) {
   return playExit;
 }
 
-export function playActiveScreenExit() {
+function playActiveScreenExitVariant(variant = "default") {
   if (typeof document === "undefined") {
     return Promise.resolve();
   }
@@ -995,6 +1714,7 @@ export function playActiveScreenExit() {
       register: (promise) => {
         exitPromises.push(Promise.resolve(promise));
       },
+      variant,
     },
   });
 
@@ -1005,4 +1725,16 @@ export function playActiveScreenExit() {
   }
 
   return Promise.all(exitPromises).then(() => undefined);
+}
+
+export function playActiveScreenExit() {
+  return playActiveScreenExitVariant();
+}
+
+export function playGameStartScreenExit() {
+  return playActiveScreenExitVariant("game-start");
+}
+
+export function playScoreboardScreenExit() {
+  return playActiveScreenExitVariant("scoreboard-exit");
 }

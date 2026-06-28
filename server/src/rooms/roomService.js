@@ -13,6 +13,7 @@ import {
   startGameForRoom,
   submitRoundGuess,
 } from "../game/gameService.js";
+import { normalizeTotalScore } from "../game/scoring.js";
 import { generateRoomCode } from "../utils/ids.js";
 import { logger } from "../utils/logger.js";
 import { now } from "../utils/time.js";
@@ -117,6 +118,19 @@ function getTakenWaterColorIds(room, ignoredPlayerId = null) {
   );
 }
 
+function getJoinablePlayerCount(room) {
+  return Array.from(room.players.values()).filter((player) => !player.kicked)
+    .length;
+}
+
+function isRoomJoinable(room) {
+  return (
+    (room.status === ROOM_STATUSES.LOBBY ||
+      room.status === ROOM_STATUSES.IN_GAME) &&
+    getJoinablePlayerCount(room) < room.maxPlayers
+  );
+}
+
 function pickAvailableWaterColorId(room, requestedColorId, ignoredPlayerId = null) {
   const takenColorIds = getTakenWaterColorIds(room, ignoredPlayerId);
 
@@ -210,10 +224,11 @@ function serializePlayer(player, room = null) {
     progress,
     results: player.results.filter(Boolean).map(serializeResult),
     returnedToLobby: Boolean(player.returnedToLobby),
-    score: Math.round((player.score || player.totalScore || 0) * 10) / 10,
+    score: normalizeTotalScore(player.score || player.totalScore || 0),
     submitted: Boolean(player.submitted),
     submittedRounds: player.results.filter(Boolean).length,
     totalRounds: progress.totalRounds,
+    waitingForNextGame: Boolean(player.waitingForNextGame),
     waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
   };
 }
@@ -264,9 +279,7 @@ export function getRoomSnapshot(room) {
     maxPlayers: room.maxPlayers,
     mode: room.ruleMode,
     name: room.name,
-    playerCount: Array.from(room.players.values()).filter(
-      (player) => !player.kicked,
-    ).length,
+    playerCount: getJoinablePlayerCount(room),
     players: Array.from(room.players.values())
       .filter((player) => !player.kicked)
       .sort((first, second) => first.joinedAt - second.joinedAt)
@@ -296,9 +309,7 @@ function getRoomListSnapshot(room) {
     lobbyName: room.name,
     maxPlayers: room.maxPlayers,
     name: room.name,
-    playerCount: Array.from(room.players.values()).filter(
-      (player) => !player.kicked,
-    ).length,
+    playerCount: getJoinablePlayerCount(room),
     roomCode: room.code,
     roundCount: room.roundCount || GAME_ROUND_COUNT,
     ruleMode: room.ruleMode,
@@ -316,7 +327,7 @@ export function listJoinableRooms(payload = {}) {
   const query = normalizeSearchQuery(payload.query);
   const currentTime = now();
   const rooms = listRooms()
-    .filter((room) => room.status === ROOM_STATUSES.LOBBY)
+    .filter((room) => isRoomJoinable(room))
     .filter((room) => room.expiresAt > currentTime)
     .map(getRoomListSnapshot)
     .filter((room) => {
@@ -479,6 +490,7 @@ export function createRoom(payload) {
     socketId: payload.socketId || null,
     submitted: false,
     totalScore: 0,
+    waitingForNextGame: false,
     waterColorId: validation.data.waterColorId,
   });
 
@@ -505,7 +517,10 @@ function reconnectPlayer(room, player, socketId) {
   }
 
   player.connected = true;
-  player.inactive = false;
+  player.inactive =
+    room.status === ROOM_STATUSES.IN_GAME && player.waitingForNextGame
+      ? true
+      : false;
   player.lastSeenAt = now();
   player.socketId = socketId;
   touchRoom(room);
@@ -585,17 +600,26 @@ export function joinRoom(payload) {
     }
   }
 
-  if (room.status !== ROOM_STATUSES.LOBBY) return fail("Game already started.");
-  if (room.players.size >= room.maxPlayers) return fail("Lobby is full.");
+  if (!isRoomJoinable(room)) {
+    if (
+      room.status !== ROOM_STATUSES.LOBBY &&
+      room.status !== ROOM_STATUSES.IN_GAME
+    ) {
+      return fail("Lobby is not accepting players right now.");
+    }
+
+    return fail("Lobby is full.");
+  }
 
   const waterColor = validateWaterColor(payload.waterColorId);
   if (!waterColor.ok) return waterColor;
 
   const joinedAt = now();
+  const joinsActiveGame = room.status === ROOM_STATUSES.IN_GAME;
   const player = {
     connected: true,
     id: playerId.data.playerId,
-    inactive: false,
+    inactive: joinsActiveGame,
     isHost: false,
     joinedAt,
     kicked: false,
@@ -608,6 +632,7 @@ export function joinRoom(payload) {
     socketId: payload.socketId || null,
     submitted: false,
     totalScore: 0,
+    waitingForNextGame: joinsActiveGame,
     waterColorId: pickAvailableWaterColorId(
       room,
       waterColor.data.waterColorId,
@@ -620,6 +645,7 @@ export function joinRoom(payload) {
   touchRoom(room);
 
   return ok({
+    game: buildGamePayload(room),
     player: serializePlayer(player, room),
     room: getRoomSnapshot(room),
   });
@@ -762,6 +788,7 @@ function resetCompletedRoomToLobby(room) {
     player.scoreboardReady = false;
     player.submitted = false;
     player.totalScore = 0;
+    player.waitingForNextGame = false;
     player.lastSeenAt = now();
   }
 

@@ -12,6 +12,8 @@
   --ink-strong: #0d0d0c;
   --ink-inverse: #f7f7f2;
   --accent-danger: #ef2f25;
+  --pc-field-selection-bg: #0d0d0c;
+  --pc-field-selection-ink: #f7f7f2;
   --pc-page-title: 3.1rem;
   --pc-section-word: 0.9rem;
   --pc-copy: 1rem;
@@ -59,6 +61,8 @@
   --dark-button: #f7f7f2;
   --dark-button-ink: #0d0d0c;
   --dark-danger: #f7f7f2;
+  --pc-field-selection-bg: #f7f7f2;
+  --pc-field-selection-ink: #0d0d0c;
 }
 
 @theme inline {
@@ -140,7 +144,11 @@
 }
 
 .pc-title-stack {
-  min-height: calc(var(--pc-title-fit-size, var(--pc-page-title)) * 0.82);
+  --pc-title-stack-fit-size: min(
+    var(--pc-page-title),
+    calc(var(--pc-title-safe-width) / var(--pc-title-length, 10) * 1.56)
+  );
+  min-height: calc(var(--pc-title-stack-fit-size) * 0.82);
 }
 
 .pc-page-title-fit {
@@ -154,6 +162,22 @@
   width: max-content;
 }
 
+.pc-title-stack .pc-page-title-fit {
+  font-size: var(--pc-title-stack-fit-size);
+}
+
+[data-screen-reveal="title"],
+[data-screen-reveal-row],
+[data-screen-reveal-line-row],
+[data-modal-reveal-row],
+[data-modal-reveal-item],
+[data-redeem-reveal-row],
+[data-chaos-briefing-row],
+[data-gameplay-reveal-row],
+[data-gameplay-result-reveal-row] {
+  overflow: visible !important;
+}
+
 @media (min-width: 768px) {
   .pc-title-band {
     --pc-title-pad-left: 2rem;
@@ -165,6 +189,15 @@
   .pc-title-band {
     --pc-title-pad-left: 2.5rem;
     --pc-title-pad-right: 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439.98px) {
+  [data-setup-title] .pc-page-title-fit {
+    font-size: min(
+      9.4rem,
+      calc((100dvw - 8.5rem) / var(--pc-title-length, 10) * 1.42)
+    );
   }
 }
 
@@ -306,6 +339,23 @@
   font-size: var(--pc-result-score-compact);
 }
 
+.pc-chaos-countdown-wheel {
+  align-items: center;
+  color: #0d0d0c;
+  display: inline-flex;
+  font-size: clamp(4.8rem, 12vw, 8.8rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  gap: 0.01em;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 0.9;
+}
+
+.pc-chaos-skip {
+  text-decoration: none;
+}
+
 @media (max-width: 1023.98px) {
   .pc-result-score-fit-mobile {
     font-size: clamp(3.8rem, 10vw, 4.75rem);
@@ -317,6 +367,57 @@
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1;
+}
+
+.pc-result-score-single {
+  font-size: clamp(3.6rem, 12vw, 5.45rem);
+  line-height: 0.95;
+}
+
+@media (min-width: 1024px) {
+  .pc-result-score-single {
+    font-size: clamp(4.7rem, 5.6vw, 5.85rem);
+  }
+}
+
+[data-results-single-main="true"],
+[data-results-leaderboard="true"] {
+  --results-card-gap: clamp(0.375rem, 0.8vw, 0.75rem);
+  --results-card-size: clamp(4.25rem, 18vw, 11.8rem);
+}
+
+[data-results-rounds-grid="true"] {
+  gap: var(--results-card-gap);
+  grid-template-columns: repeat(5, var(--results-card-size));
+}
+
+@media (max-width: 767.98px) {
+  [data-results-single-main="true"],
+  [data-results-leaderboard="true"] {
+    --results-card-gap: clamp(0.25rem, 1.6vw, 0.5rem);
+    --results-card-size: clamp(3.55rem, 18.4vw, 5.1rem);
+  }
+}
+
+@media (max-height: 900px) and (min-width: 768px) {
+  [data-results-single-main="true"],
+  [data-results-leaderboard="true"] {
+    --results-card-size: clamp(5.1rem, 16.4vh, 10.45rem);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 768px) {
+  [data-results-single-main="true"],
+  [data-results-leaderboard="true"] {
+    --results-card-size: clamp(4.6rem, 14.2vh, 8.75rem);
+  }
+}
+
+@media (max-height: 660px) and (min-width: 768px) {
+  [data-results-single-main="true"],
+  [data-results-leaderboard="true"] {
+    --results-card-size: clamp(4.15rem, 12vh, 7.45rem);
+  }
 }
 
 .pc-player-row {
@@ -348,6 +449,30 @@
   scrollbar-width: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  caret-color: currentColor;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+input::selection,
+textarea::selection,
+[contenteditable="true"]::selection {
+  background: var(--pc-field-selection-bg);
+  color: var(--pc-field-selection-ink);
+  text-shadow: none;
+}
+
+input::-moz-selection,
+textarea::-moz-selection,
+[contenteditable="true"]::-moz-selection {
+  background: var(--pc-field-selection-bg);
+  color: var(--pc-field-selection-ink);
+  text-shadow: none;
 }
 
 *::-webkit-scrollbar {
@@ -515,6 +640,127 @@ button {
 
   100% {
     background-position: 0% 50%;
+  }
+}
+
+.pc-lobby-loading-state {
+  animation: pc-lobby-loading-state-in 280ms cubic-bezier(0.2, 0.82, 0.18, 1) both;
+}
+
+.pc-button-loading-mark {
+  position: relative;
+  display: inline-block;
+  width: 1.05rem;
+  height: 1.05rem;
+  overflow: hidden;
+  color: currentColor;
+  border: 2px solid currentColor;
+  opacity: 0.92;
+}
+
+.pc-button-loading-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  clip-path: polygon(
+    0 68%,
+    18% 58%,
+    36% 66%,
+    54% 54%,
+    72% 62%,
+    100% 52%,
+    100% 100%,
+    0 100%
+  );
+  animation: pc-button-loading-wave 920ms ease-in-out infinite;
+}
+
+.pc-lobby-loading-mark {
+  position: relative;
+  width: 4rem;
+  height: 4rem;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  isolation: isolate;
+}
+
+.pc-lobby-loading-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  clip-path: polygon(
+    0 64%,
+    12% 58%,
+    24% 62%,
+    36% 54%,
+    48% 60%,
+    60% 53%,
+    72% 58%,
+    84% 52%,
+    100% 58%,
+    100% 100%,
+    0 100%
+  );
+  animation: pc-lobby-loading-wave 1.25s ease-in-out infinite;
+}
+
+.pc-lobby-loading-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0.68rem;
+  border: 2px solid currentColor;
+  opacity: 0.28;
+  animation: pc-lobby-loading-frame 1.25s ease-in-out infinite;
+}
+
+@keyframes pc-lobby-loading-state-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.45rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pc-button-loading-wave {
+  0%,
+  100% {
+    transform: translateY(12%);
+  }
+
+  50% {
+    transform: translateY(-12%);
+  }
+}
+
+@keyframes pc-lobby-loading-wave {
+  0%,
+  100% {
+    opacity: 0.78;
+    transform: translateY(8%);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-7%);
+  }
+}
+
+@keyframes pc-lobby-loading-frame {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.42;
+    transform: scale(1);
   }
 }
 

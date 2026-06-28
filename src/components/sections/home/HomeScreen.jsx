@@ -12,9 +12,11 @@ import GameplayScreen from "@/components/sections/gameplay/GameplayScreen";
 import ScoreboardScreen from "@/components/sections/scoreboard/ScoreboardScreen";
 import GameSetupScreen from "@/components/sections/setup/GameSetupScreen";
 import { useTranslation } from "@/hooks/useLanguage";
+import { MUSIC_SCENES, useMusicScene } from "@/hooks/useMusicScene";
 import { createPlayerId, saveRoomSession } from "@/hooks/useRoomSession";
 import { useScreenReveal } from "@/hooks/useScreenReveal";
 import { trackEvent, trackMatchEnd, trackMatchStart } from "@/lib/analytics";
+import { normalizeTotalScore } from "@/lib/scoring";
 import {
   APP_NAME,
   GAME_ROUND_COUNT,
@@ -23,6 +25,11 @@ import {
   ROUTES,
   WATER_COLORS,
 } from "@/lib/constants";
+import { createGameResumeKey } from "@/lib/gameResume";
+import {
+  buildSingleplayerPlayPath,
+  createShortPlaySeed,
+} from "@/lib/playRoutes";
 import { emitWithAck } from "@/lib/socket";
 import {
   getFallbackWaterColorId,
@@ -70,7 +77,7 @@ function HomeTitleBand({ title }) {
         </h1>
         <h1
           aria-hidden="true"
-          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 overflow-hidden text-[#f7f7f2] [clip-path:inset(0_calc(100%_-_(var(--reverse-width)_-_var(--home-pad)))_0_0)] dark:text-[#f7f7f2]"
+          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 text-[#f7f7f2] [clip-path:inset(-0.72em_calc(100%_-_(var(--reverse-width)_-_var(--home-pad)))_-0.92em_0)] dark:text-[#f7f7f2]"
         >
           {titleText}
         </h1>
@@ -185,24 +192,12 @@ function setBrowserPath(path) {
 }
 
 function getPlayPath(settings) {
-  const params = new URLSearchParams({
-    difficulty: settings.difficulty,
-    gameMode: settings.ruleMode,
-    roundCount: String(settings.roundCount || GAME_ROUND_COUNT),
-    waterColor: settings.waterColorId,
-  });
-
-  if (settings.targetSeed) {
-    params.set("seed", settings.targetSeed);
-  }
-
-  return `${settings.route}?${params.toString()}`;
+  return buildSingleplayerPlayPath(settings);
 }
 
 function getRunSummary(results = []) {
-  const totalScore = results.reduce(
-    (total, result) => total + Number(result.score || 0),
-    0,
+  const totalScore = normalizeTotalScore(
+    results.reduce((total, result) => total + Number(result.score || 0), 0),
   );
 
   return {
@@ -212,16 +207,20 @@ function getRunSummary(results = []) {
   };
 }
 
-function createTargetSeed(settings) {
-  return [
+function createTargetSeed() {
+  return createShortPlaySeed();
+}
+
+function createSingleplayerResumeKey(settings) {
+  return createGameResumeKey([
     settings.mode,
+    settings.route,
     settings.difficulty,
     settings.ruleMode,
     settings.roundCount || GAME_ROUND_COUNT,
     settings.waterColorId,
-    Date.now().toString(36),
-    Math.random().toString(36).slice(2, 10),
-  ].join(":");
+    settings.targetSeed,
+  ]);
 }
 
 function responseData(response) {
@@ -279,6 +278,7 @@ export default function HomeScreen({
   const selectedWaterColor =
     WATER_COLORS.find((color) => color.id === selectedWaterColorId) ??
     WATER_COLORS[0];
+  useMusicScene(step === "gameplay" ? null : MUSIC_SCENES.MENU);
 
   const playHomeExit = useScreenReveal(homeRevealRef, [step, locale], {
     delay: step === "menu" ? 120 : 0,
@@ -337,30 +337,40 @@ export default function HomeScreen({
         resolvedSettings.playerName?.trim() || t("room.defaultPlayer");
       const isJoiningLobby = resolvedSettings.action === "join";
       const lobbyVisibility = resolvedSettings.visibility || "public";
-      const response = isJoiningLobby
-        ? await emitWithAck("room:join", {
-            password: resolvedSettings.password || "",
-            playerId,
-            playerName,
-            roomCode: resolvedSettings.roomCode,
-            waterColorId: resolvedWaterColorId,
-          })
-        : await emitWithAck("room:create", {
-            difficulty: resolvedSettings.difficulty,
-            hostName: playerName,
-            hostPlayerId: playerId,
-            playerName,
-            playerId,
-            password:
-              lobbyVisibility === "private" ? resolvedSettings.password || "" : "",
-            roomName:
-              resolvedSettings.roomName?.trim() ||
-              t("setup.playerLobbyName", { name: playerName }),
-            roundCount: resolvedSettings.roundCount || GAME_ROUND_COUNT,
-            ruleMode: resolvedSettings.ruleMode,
-            visibility: lobbyVisibility,
-            waterColorId: resolvedWaterColorId,
-          });
+      let response;
+
+      try {
+        response = isJoiningLobby
+          ? await emitWithAck("room:join", {
+              password: resolvedSettings.password || "",
+              playerId,
+              playerName,
+              roomCode: resolvedSettings.roomCode,
+              waterColorId: resolvedWaterColorId,
+            })
+          : await emitWithAck("room:create", {
+              difficulty: resolvedSettings.difficulty,
+              hostName: playerName,
+              hostPlayerId: playerId,
+              playerName,
+              playerId,
+              password:
+                lobbyVisibility === "private" ? resolvedSettings.password || "" : "",
+              roomName:
+                resolvedSettings.roomName?.trim() ||
+                t("setup.playerLobbyName", { name: playerName }),
+              roundCount: resolvedSettings.roundCount || GAME_ROUND_COUNT,
+              ruleMode: resolvedSettings.ruleMode,
+              visibility: lobbyVisibility,
+              waterColorId: resolvedWaterColorId,
+            });
+      } catch {
+        setIsCreatingRoom(false);
+        setMenuError(
+          isJoiningLobby ? t("room.joinFailed") : t("room.createFailed"),
+        );
+        return false;
+      }
 
       setIsCreatingRoom(false);
 
@@ -369,7 +379,7 @@ export default function HomeScreen({
           response.error ||
             (isJoiningLobby ? t("room.joinFailed") : t("room.createFailed")),
         );
-        return;
+        return false;
       }
 
       const data = responseData(response);
@@ -388,20 +398,34 @@ export default function HomeScreen({
         roomCode: nextRoomCode,
         waterColorId: resolvedWaterColorId,
       });
-      router.push(`/${nextRoomCode}`);
-      return;
+
+      const navigateToRoom = () => router.push(`/${nextRoomCode}`);
+      if (resolvedSettings.deferNavigation) {
+        return {
+          navigate: navigateToRoom,
+          ok: true,
+          roomCode: nextRoomCode,
+        };
+      }
+
+      navigateToRoom();
+      return true;
     }
 
+    const targetSeed =
+      resolvedSettings.targetSeed || createTargetSeed(resolvedSettings);
     const nextSettings = {
       ...resolvedSettings,
-      targetSeed:
-        resolvedSettings.targetSeed || createTargetSeed(resolvedSettings),
+      targetSeed,
     };
+
+    nextSettings.resumeKey = createSingleplayerResumeKey(nextSettings);
 
     setGameSettings(nextSettings);
     setRoundResults([]);
     setStep("gameplay");
     setBrowserPath(getPlayPath(nextSettings));
+    return true;
   };
 
   const handleWaterColorChange = (nextWaterColorId) => {
@@ -463,6 +487,8 @@ export default function HomeScreen({
             ...gameSettings,
             targetSeed: createTargetSeed(gameSettings),
           };
+
+          nextSettings.resumeKey = createSingleplayerResumeKey(nextSettings);
 
           setRoundResults([]);
           setGameSettings(nextSettings);

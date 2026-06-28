@@ -4,26 +4,28 @@ import { useEffect, useRef } from "react";
 import PageUtilitySwitches from "@/components/layout/PageUtilitySwitches";
 import Button from "@/components/ui/Button";
 import { useTranslation } from "@/hooks/useLanguage";
-import { useScreenReveal } from "@/hooks/useScreenReveal";
+import { MUSIC_SCENES, useMusicScene } from "@/hooks/useMusicScene";
+import {
+  playGameStartScreenExit,
+  useScreenReveal,
+} from "@/hooks/useScreenReveal";
+import { fadeOutMusic } from "@/lib/music";
 import {
   GAME_MODE_OPTIONS,
   GAME_RULE_MODES,
   PERFECT_ZONE_RADIUS,
   WATER_COLORS,
 } from "@/lib/constants";
-import { getRoundScore } from "@/lib/scoring";
+import {
+  formatScore,
+  getRoundScore,
+  normalizeRoundScore,
+  normalizeTotalScore,
+} from "@/lib/scoring";
 import { playFinalScore } from "@/lib/sound";
 
 function formatRoundNumber(value) {
   return String(value).padStart(2, "0");
-}
-
-function formatScore(value) {
-  if (value === null || value === undefined) {
-    return "--";
-  }
-
-  return Number(value).toFixed(2);
 }
 
 function getRoundModeTag(ruleMode) {
@@ -32,15 +34,15 @@ function getRoundModeTag(ruleMode) {
     [GAME_RULE_MODES.LEAKY]: "LEAK",
     [GAME_RULE_MODES.INVERT]: "INV",
     [GAME_RULE_MODES.TILT]: "TILT",
-    [GAME_RULE_MODES.FAKE_TARGET]: "FAKE",
-    [GAME_RULE_MODES.SPLIT_FILL]: "SPLIT",
-    [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "ALL/0",
+    [GAME_RULE_MODES.FAKE_TARGET]: "TRAP",
+    [GAME_RULE_MODES.SPLIT_FILL]: "DUAL",
+    [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "HIT",
     [GAME_RULE_MODES.BAND_RUN]: "BAND",
-    [GAME_RULE_MODES.CHARGE_POUR]: "PRESS",
+    [GAME_RULE_MODES.CHARGE_POUR]: "CHRG",
     [GAME_RULE_MODES.BURST_CLICK]: "BURST",
-    [GAME_RULE_MODES.COLORBLIND]: "BLIND",
+    [GAME_RULE_MODES.COLORBLIND]: "DARK",
     [GAME_RULE_MODES.FLASH]: "FLASH",
-    [GAME_RULE_MODES.BLIND]: "BLIND",
+    [GAME_RULE_MODES.BLIND]: "LINE",
   };
 
   return tags[ruleMode] ?? "";
@@ -58,16 +60,20 @@ function getLeaderboardPlayers(leaderboard) {
 }
 
 function normalizeRounds(results = []) {
-  return results.map((result) => ({
-    ...result,
-    round:
-      result.round ??
-      (Number.isFinite(result.roundIndex) ? result.roundIndex + 1 : 1),
-    score:
-      result.score !== undefined && result.score <= 10
-        ? result.score
-        : getRoundScore(result.diff),
-  }));
+  return results.map((result) => {
+    const parsedScore = Number(result.score);
+
+    return {
+      ...result,
+      round:
+        result.round ??
+        (Number.isFinite(result.roundIndex) ? result.roundIndex + 1 : 1),
+      score:
+        Number.isFinite(parsedScore) && parsedScore <= 10
+          ? normalizeRoundScore(parsedScore)
+          : getRoundScore(result.diff),
+    };
+  });
 }
 
 function getWaterColorById(waterColorId, fallback) {
@@ -166,7 +172,7 @@ function ResultsTitleBand({ onMenu }) {
         </h1>
         <h1
           aria-hidden="true"
-          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 overflow-hidden text-[#f7f7f2] [clip-path:inset(0_calc(100%_-_(var(--reverse-width)_-_var(--results-pad)))_0_0)] dark:text-[#f7f7f2]"
+          className="pc-page-title pc-page-title-fit pointer-events-none absolute inset-x-0 top-0 text-[#f7f7f2] [clip-path:inset(-0.72em_calc(100%_-_(var(--reverse-width)_-_var(--results-pad)))_-0.92em_0)] dark:text-[#f7f7f2]"
         >
           {titleText}
         </h1>
@@ -196,18 +202,28 @@ function ResultsTitleBand({ onMenu }) {
 }
 
 function ScoreBlock({
+  className = "",
   compact = false,
   dark = false,
   fitMobile = false,
   score,
+  singleResult = false,
 }) {
   return (
-    <div className={dark ? "min-w-0 text-[#f7f7f2]" : "min-w-0 text-[#0d0d0c] dark:text-[#f7f7f2]"}>
+    <div
+      className={[
+        dark
+          ? "min-w-0 text-[#f7f7f2]"
+          : "min-w-0 text-[#0d0d0c] dark:text-[#f7f7f2]",
+        className,
+      ].join(" ")}
+    >
       <p
         className={[
           "pc-result-score",
           compact ? "pc-result-score-compact" : "",
           fitMobile ? "pc-result-score-fit-mobile" : "",
+          singleResult ? "pc-result-score-single" : "",
         ].join(" ")}
       >
         {formatScore(score)}
@@ -236,7 +252,6 @@ function PlayerResultHeader({
     <div
       className={[
         "pc-player-row grid h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4",
-        "transition-transform duration-200",
       ].join(" ")}
       data-screen-reveal-atomic="true"
       data-premium-water={waterColor?.animated ? "true" : undefined}
@@ -258,6 +273,7 @@ function RoundCard({
   compact = false,
   leaderboardDense = false,
   mobileShort = false,
+  resultTile = false,
   ruleMode = GAME_RULE_MODES.CLASSIC,
   result,
   waterColor,
@@ -330,10 +346,10 @@ function RoundCard({
     <div
       className={[
         "relative overflow-hidden bg-[#f7f7f2]/96 shadow-[0_18px_38px_rgba(0,0,0,0.18)] dark:bg-[#f7f7f2]/10 dark:shadow-[0_20px_46px_rgba(0,0,0,0.3)]",
-        leaderboardDense
-          ? "h-[4.5rem] min-h-0 sm:h-[4.8rem] md:h-[5.15rem] lg:h-[5.35rem]"
+        resultTile || leaderboardDense
+          ? "h-[var(--results-card-size)] min-h-0 w-[var(--results-card-size)]"
           : mobileShort
-            ? "h-[4.6rem] min-h-0 sm:h-[4.9rem] md:aspect-square md:h-auto md:min-h-[5.5rem]"
+            ? "aspect-square min-h-[4.6rem] sm:min-h-[4.9rem] md:min-h-[5.5rem]"
             : [
                 "aspect-square",
                 compact ? "min-h-[4.4rem]" : "min-h-[5.5rem]",
@@ -466,7 +482,8 @@ function LeaderboardResultsList({
 
   return (
     <div
-      className="grid h-full min-h-0 min-w-0 content-start gap-4 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-5 [&::-webkit-scrollbar]:hidden"
+      className="grid h-full min-h-0 min-w-0 content-start gap-5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] md:gap-6 [&::-webkit-scrollbar]:hidden"
+      data-results-leaderboard="true"
     >
       {players.map((player, index) => {
         const playerRounds = normalizeRounds(player.results || player.roundResults);
@@ -475,7 +492,7 @@ function LeaderboardResultsList({
 
         return (
           <section
-            className="grid min-w-0 gap-[3px]"
+            className="grid w-full min-w-0 max-w-full justify-self-start gap-[var(--results-card-gap)] md:max-w-[46rem] lg:max-w-[54rem]"
             key={player.id || `${player.name}-${index}`}
           >
             <div
@@ -491,7 +508,8 @@ function LeaderboardResultsList({
             </div>
             {playerRounds.length ? (
               <div
-                className="grid min-w-0 grid-cols-5 gap-[3px]"
+                className="grid min-w-0"
+                data-results-rounds-grid="true"
                 data-screen-reveal-delay={(revealBaseDelay + 0.34).toFixed(2)}
                 data-screen-reveal-row="true"
               >
@@ -543,12 +561,14 @@ function ResultsPanel({
           ? "gap-5 max-lg:h-full max-lg:min-h-0 max-lg:grid-rows-[auto_minmax(0,1fr)_auto]"
           : "gap-5 max-lg:h-full max-lg:min-h-0 max-lg:content-end max-lg:gap-3 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       ].join(" ")}
+      data-results-single-main={isSingleResult ? "true" : undefined}
     >
       <ScoreBlock
         compact={hasLeaderboard}
         dark={dark}
         fitMobile={isSingleResult}
         score={totalScore}
+        singleResult={isSingleResult}
       />
       <div className="pc-label -mt-2 text-[#f7f7f2]/48">
         {t(`modes.${modeOption.id}.label`)}
@@ -563,11 +583,15 @@ function ResultsPanel({
         />
       ) : (
         <div className="min-h-0 min-w-0 overflow-hidden">
-          <div className="grid min-h-0 grid-cols-5 gap-1.5 pb-0 sm:gap-2 lg:gap-3">
+          <div
+            className="grid min-h-0 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            data-results-rounds-grid="true"
+          >
             {rounds.map((result) => (
               <RoundCard
                 key={result.round}
                 mobileShort
+                resultTile
                 result={result}
                 ruleMode={ruleMode}
                 waterColor={displayWaterColor}
@@ -634,6 +658,7 @@ function UniversalResultsScreen({
   const { t } = useTranslation();
   const hasLeaderboard = leaderboardPlayers.length > 0;
   const displayWaterColor = waterColor;
+  const titleText = t("results.title");
 
   return (
     <div
@@ -662,14 +687,26 @@ function UniversalResultsScreen({
         </svg>
       </button>
 
-      <main className="flex h-full min-h-0 w-full flex-col px-6 pb-6 pt-8 md:px-8 md:pb-8 md:pt-10 lg:px-10 lg:pb-10 lg:pt-10">
+      <main
+        className={[
+          "h-full min-h-0 w-full px-6 pb-6 pt-8 md:px-8 md:pb-8 md:pt-10 lg:px-10 lg:pb-10 lg:pt-10",
+          hasLeaderboard
+            ? "flex flex-col"
+            : "grid grid-rows-[auto_minmax(0,1fr)_auto] gap-5 md:gap-6",
+        ].join(" ")}
+        data-results-single-main={!hasLeaderboard ? "true" : undefined}
+      >
         <div className="grid min-w-0 content-start gap-6 md:max-w-[46rem] md:gap-7 lg:max-w-[54rem]">
           <div
-            className="min-w-0 overflow-hidden"
+            className="pc-title-stack relative z-10 min-w-0"
             data-screen-reveal="title"
+            style={{
+              "--pc-title-length": titleText.length,
+              "--pc-title-safe-width": "min(54rem, calc(100dvw - 7rem))",
+            }}
           >
-            <h1 className="pc-page-title text-[#f7f7f2]">
-              {t("results.title")}
+            <h1 className="pc-page-title pc-page-title-fit text-[#f7f7f2]">
+              {titleText}
             </h1>
           </div>
 
@@ -683,22 +720,25 @@ function UniversalResultsScreen({
             >
               <span className="block">{scoreMessage}</span>
             </p>
-            <div
-              data-screen-reveal-row="true"
-              data-screen-reveal-target="self"
-            >
-              <ScoreBlock dark score={totalScore} />
-            </div>
+            {hasLeaderboard ? (
+              <div
+                data-screen-reveal-row="true"
+                data-screen-reveal-target="self"
+              >
+                <ScoreBlock dark score={totalScore} />
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div
           className={[
-            "mt-3 min-h-0 min-w-0 md:mt-4",
+            "min-h-0 min-w-0",
             hasLeaderboard
-              ? "flex-1 overflow-hidden md:max-w-[60rem] lg:max-w-[68rem]"
-              : "overflow-visible md:max-w-[46rem] lg:max-w-[54rem]",
+              ? "mt-4 flex-1 overflow-hidden md:mt-5 md:max-w-[46rem] lg:max-w-[54rem]"
+              : "grid content-end overflow-hidden md:max-w-[46rem] lg:max-w-[54rem]",
           ].join(" ")}
+          data-results-rounds={!hasLeaderboard ? "true" : undefined}
           data-screen-reveal="cream"
         >
           {hasLeaderboard ? (
@@ -710,30 +750,43 @@ function UniversalResultsScreen({
             />
           ) : (
             <div
-              className="grid min-h-0 min-w-0 grid-cols-5 gap-1.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] sm:gap-2 [&::-webkit-scrollbar]:hidden"
-              data-screen-reveal-row="true"
-              data-screen-reveal-target="children"
+              className="grid max-h-full min-h-0 min-w-0 content-end gap-4 overflow-y-auto overscroll-contain pr-1 md:gap-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {rounds.map((result) => (
-                <RoundCard
-                  key={result.round}
-                  mobileShort
-                  result={result}
-                  ruleMode={ruleMode}
-                  waterColor={displayWaterColor}
-                />
-              ))}
+              <div
+                data-screen-reveal-row="true"
+                data-screen-reveal-target="self"
+              >
+                <ScoreBlock dark score={totalScore} singleResult />
+              </div>
+              <div
+                className="grid min-h-0 min-w-0"
+                data-results-rounds-grid="true"
+                data-screen-reveal-row="true"
+                data-screen-reveal-target="children"
+              >
+                {rounds.map((result) => (
+                  <RoundCard
+                    key={result.round}
+                    mobileShort
+                    resultTile
+                    result={result}
+                    ruleMode={ruleMode}
+                    waterColor={displayWaterColor}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
 
         <div
           className={[
-            "mt-auto grid grid-cols-2 gap-3 pt-5 md:gap-4 md:pt-6",
+            "grid w-full grid-cols-2 gap-3 md:gap-4",
             hasLeaderboard
-              ? "md:max-w-[60rem] lg:max-w-[68rem]"
-              : "md:max-w-[46rem] lg:max-w-[54rem]",
+              ? "mt-auto pt-6 md:max-w-[46rem] md:pt-7 lg:max-w-[54rem]"
+              : "self-end md:max-w-[46rem] lg:max-w-[54rem]",
           ].join(" ")}
+          data-results-actions={!hasLeaderboard ? "true" : undefined}
           data-screen-reveal="cream"
           data-screen-reveal-row="true"
           data-screen-reveal-target="children"
@@ -784,6 +837,7 @@ export default function ScoreboardScreen({
   settings,
 }) {
   const { locale, t } = useTranslation();
+  useMusicScene(MUSIC_SCENES.MENU);
   const leaderboardPlayers = getLeaderboardPlayers(leaderboard);
   const currentLeaderboardPlayer =
     leaderboardPlayers.find((player) => player.id === currentPlayerId) ||
@@ -799,14 +853,19 @@ export default function ScoreboardScreen({
     WATER_COLORS[0];
   const sourceResults = currentLeaderboardPlayer?.results || results || [];
   const rounds = normalizeRounds(sourceResults);
-  const totalScore =
+  const fallbackTotalScore = normalizeTotalScore(
+    rounds.reduce((total, result) => total + result.score, 0),
+  );
+  const totalScore = normalizeTotalScore(
     currentLeaderboardPlayer?.score ??
-    currentLeaderboardPlayer?.totalScore ??
-    rounds.reduce((total, result) => total + result.score, 0);
-  const topTotalScore =
+      currentLeaderboardPlayer?.totalScore ??
+      fallbackTotalScore,
+  );
+  const topTotalScore = normalizeTotalScore(
     topLeaderboardPlayer?.score ??
-    topLeaderboardPlayer?.totalScore ??
-    totalScore;
+      topLeaderboardPlayer?.totalScore ??
+      totalScore,
+  );
   const getScoreMessage = (score) =>
     score >= 42
       ? t("results.assessment.excellent")
@@ -828,12 +887,18 @@ export default function ScoreboardScreen({
   ]);
 
   const handleMenu = async () => {
-    await playResultsExit();
+    await playResultsExit({ variant: "results-exit" });
     onMenu?.();
   };
 
   const handlePlayAgain = async () => {
-    await playResultsExit();
+    if (playAgainLabel || leaderboard) {
+      await playResultsExit({ variant: "results-exit" });
+    } else {
+      fadeOutMusic();
+      await playGameStartScreenExit();
+    }
+
     onPlayAgain?.();
   };
 

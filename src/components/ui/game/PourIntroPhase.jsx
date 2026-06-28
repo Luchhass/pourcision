@@ -31,7 +31,7 @@ export default function PourIntroPhase({ onComplete }) {
       const words = wordRefs.current.filter(Boolean);
 
       gsap.set(words, {
-        yPercent: -120,
+        yPercent: -220,
         force3D: false,
       });
 
@@ -59,7 +59,7 @@ export default function PourIntroPhase({ onComplete }) {
         .to(
           words[0],
           {
-            yPercent: 120,
+            yPercent: 220,
             duration: 0.62,
             ease: "power4.inOut",
             force3D: false,
@@ -82,7 +82,7 @@ export default function PourIntroPhase({ onComplete }) {
         .to(
           words[1],
           {
-            yPercent: 120,
+            yPercent: 220,
             duration: 0.62,
             ease: "power4.inOut",
             force3D: false,
@@ -113,7 +113,7 @@ export default function PourIntroPhase({ onComplete }) {
       ref={scopeRef}
     >
       <div className="pc-page-title ml-auto text-right text-[clamp(4.25rem,18vw,7.5rem)] text-white md:text-[clamp(6.25rem,14vw,10.5rem)] xl:text-[clamp(8rem,12vw,13rem)]">
-        <div className="relative overflow-hidden pb-[0.12em]">
+        <div className="relative overflow-visible pb-[0.12em] [clip-path:inset(-0.24em_-0.04em_-0.76em_-0.04em)]">
           <span className="invisible block select-none" aria-hidden="true">
             {widestStep}
           </span>

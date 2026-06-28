@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import {
+  releaseRevealRowMasks,
+  setRevealRowMasks,
+} from "@/lib/revealMasks";
 
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -10,6 +14,17 @@ const STABLE_TRANSFORM = { force3D: false };
 
 const DEFAULT_ROW_SELECTOR = "[data-modal-reveal-row]";
 const DEFAULT_ITEM_SELECTOR = "[data-modal-reveal-item]";
+const MODAL_OVERLAY_IN_DURATION = 0.28;
+const MODAL_OVERLAY_OUT_DURATION = 0.26;
+const MODAL_PANEL_IN_DURATION = 0.48;
+const MODAL_PANEL_OUT_DURATION = 0.28;
+const MODAL_ITEM_IN_DURATION = 0.46;
+const MODAL_ITEM_OUT_DURATION = 0.18;
+const MODAL_ITEM_IN_STAGGER = 0.036;
+const MODAL_ITEM_OUT_STAGGER = 0.014;
+const MODAL_PANEL_START_BLUR = "blur(8px)";
+const MODAL_PANEL_END_BLUR = "blur(0px)";
+const MODAL_PANEL_EXIT_BLUR = "blur(5px)";
 
 function prefersReducedMotion() {
   return (
@@ -27,6 +42,21 @@ function getTargets(panel, rowSelector, itemSelector) {
     items: Array.from(panel.querySelectorAll(itemSelector)),
     rows: Array.from(panel.querySelectorAll(rowSelector)),
   };
+}
+
+function releaseRowMasks(rows) {
+  releaseRevealRowMasks(gsap, rows);
+}
+
+function clearEntranceProps(panel, items) {
+  gsap.set(panel, {
+    clearProps: "filter,transform,transformOrigin,willChange",
+  });
+  if (items.length) {
+    gsap.set(items, {
+      clearProps: "transform,willChange",
+    });
+  }
 }
 
 export function useModalMotion({
@@ -62,21 +92,29 @@ export function useModalMotion({
         return;
       }
 
-      const { items } = getTargets(panel, rowSelector, itemSelector);
+      const { items, rows } = getTargets(panel, rowSelector, itemSelector);
 
       timelineRef.current = gsap.timeline({
-        onComplete: () => complete?.(),
+        onComplete: () => {
+          releaseRowMasks(rows);
+          complete?.();
+        },
       });
+
+      setRevealRowMasks(gsap, rows);
 
       if (items.length) {
         timelineRef.current.to(items, {
           autoAlpha: 0,
-          duration: 0.1,
-          ease: "power2.in",
-          stagger: 0.008,
+          duration: MODAL_ITEM_OUT_DURATION,
+          ease: "power2.inOut",
+          stagger: {
+            amount: Math.min(0.08, items.length * MODAL_ITEM_OUT_STAGGER),
+            from: "end",
+          },
           ...STABLE_TRANSFORM,
-          y: 4,
-        });
+          yPercent: -24,
+        }, 0);
       }
 
       timelineRef.current
@@ -84,22 +122,23 @@ export function useModalMotion({
           panel,
           {
             autoAlpha: 0,
-            duration: 0.2,
-            ease: "power2.inOut",
-            scale: 0.975,
+            duration: MODAL_PANEL_OUT_DURATION,
+            ease: "power3.inOut",
+            filter: MODAL_PANEL_EXIT_BLUR,
+            scale: 0.985,
             ...STABLE_TRANSFORM,
-            y: 8,
+            y: 18,
           },
-          items.length ? 0.03 : 0,
+          items.length ? 0.05 : 0,
         )
         .to(
           overlay,
           {
             autoAlpha: 0,
-            duration: 0.18,
-            ease: "power2.in",
+            duration: MODAL_OVERLAY_OUT_DURATION,
+            ease: "power2.inOut",
           },
-          "<",
+          items.length ? 0.08 : 0,
         );
     },
     [itemSelector, rowSelector],
@@ -116,65 +155,63 @@ export function useModalMotion({
 
     if (prefersReducedMotion()) {
       gsap.set(overlay, { autoAlpha: 1 });
-      gsap.set(panel, { autoAlpha: 1, scale: 1, y: 0 });
-      if (items.length) gsap.set(items, { autoAlpha: 1, y: 0 });
+      gsap.set(panel, {
+        autoAlpha: 1,
+        filter: MODAL_PANEL_END_BLUR,
+        scale: 1,
+        y: 0,
+      });
+      releaseRowMasks(rows);
+      if (items.length) gsap.set(items, { autoAlpha: 1, y: 0, yPercent: 0 });
       return undefined;
     }
 
     gsap.set(overlay, { autoAlpha: 0 });
     gsap.set(panel, {
       autoAlpha: 0,
-      scale: 0.96,
-      transformOrigin: "50% 52%",
+      filter: MODAL_PANEL_START_BLUR,
+      scale: 0.982,
+      transformOrigin: "50% 54%",
       ...STABLE_TRANSFORM,
-      willChange: "transform, opacity",
-      y: 10,
+      willChange: "filter, transform, opacity",
+      y: 30,
     });
-    if (rows.length) {
-      gsap.set(rows, { overflow: "hidden" });
-    }
+    setRevealRowMasks(gsap, rows);
     if (items.length) {
       gsap.set(items, {
         autoAlpha: 0,
         ...STABLE_TRANSFORM,
         willChange: "transform, opacity",
-        y: 8,
+        y: 0,
+        yPercent: 64,
       });
     }
 
     timelineRef.current = gsap.timeline({
       onComplete: () => {
-        gsap.set(panel, {
-          clearProps: "transform,opacity,visibility,willChange",
-        });
-        if (rows.length) {
-          gsap.set(rows, { clearProps: "overflow" });
-        }
-        if (items.length) {
-          gsap.set(items, {
-            clearProps: "transform,opacity,visibility,willChange",
-          });
-        }
+        releaseRowMasks(rows);
+        clearEntranceProps(panel, items);
       },
     });
 
     timelineRef.current
       .to(overlay, {
         autoAlpha: 1,
-        duration: 0.16,
+        duration: MODAL_OVERLAY_IN_DURATION,
         ease: "power2.out",
       })
       .to(
         panel,
         {
           autoAlpha: 1,
-          duration: 0.3,
-          ease: "power3.out",
+          duration: MODAL_PANEL_IN_DURATION,
+          ease: "expo.out",
+          filter: MODAL_PANEL_END_BLUR,
           scale: 1,
           ...STABLE_TRANSFORM,
           y: 0,
         },
-        "<0.02",
+        0.04,
       );
 
     if (items.length) {
@@ -182,18 +219,19 @@ export function useModalMotion({
         items,
         {
           autoAlpha: 1,
-          duration: 0.22,
-          ease: "power3.out",
-          stagger: 0.025,
+          duration: MODAL_ITEM_IN_DURATION,
+          ease: "expo.out",
+          stagger: MODAL_ITEM_IN_STAGGER,
           ...STABLE_TRANSFORM,
-          y: 0,
+          yPercent: 0,
         },
-        "-=0.13",
+        0.18,
       );
     }
 
     return () => {
       timelineRef.current?.kill();
+      releaseRowMasks(rows);
     };
   }, [itemSelector, rowSelector]);
 

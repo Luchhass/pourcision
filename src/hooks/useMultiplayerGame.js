@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "@/hooks/useLanguage";
 import { DEFAULT_DIFFICULTY_ID, GAME_RULE_MODES, MENU_MODES, ROUTES, WATER_COLORS } from "@/lib/constants";
+import { createGameResumeKey } from "@/lib/gameResume";
 import { emitWithAck, getSocket } from "@/lib/socket";
 
 function responseData(response) {
@@ -34,6 +35,12 @@ export function useMultiplayerGame({
       mode: MENU_MODES.MULTIPLAYER,
       modeQueue: activeGame?.modeQueue || null,
       route: ROUTES.MULTIPLAYER,
+      resumeKey: createGameResumeKey([
+        MENU_MODES.MULTIPLAYER,
+        roomCode,
+        playerId,
+        activeGame?.seed,
+      ]),
       roundCount:
         activeGame?.roundCount ||
         activeGame?.targets?.length ||
@@ -49,7 +56,7 @@ export function useMultiplayerGame({
         activeGame?.waterColorId ||
         WATER_COLORS[0].id,
     }),
-    [activeGame, currentPlayer?.waterColorId, playerId, room],
+    [activeGame, currentPlayer?.waterColorId, playerId, room, roomCode],
   );
 
   const submitRoundResult = useCallback(
@@ -101,8 +108,12 @@ export function useMultiplayerGame({
     [playerId, roomCode],
   );
 
-  const markComplete = useCallback(async () => {
-    setFinishedGameSeed(activeGame?.seed || null);
+  const markComplete = useCallback(async (options = {}) => {
+    const shouldDeferFinishedState = Boolean(options.deferFinishedState);
+
+    if (!shouldDeferFinishedState) {
+      setFinishedGameSeed(activeGame?.seed || null);
+    }
 
     if (!playerId || !roomCode) return { ok: false };
 
@@ -116,6 +127,8 @@ export function useMultiplayerGame({
       setError(response.error || t("room.couldNotStart"));
       return response;
     }
+
+    setFinishedGameSeed(activeGame?.seed || null);
 
     const data = responseData(response);
     if (data.completed && data.leaderboard) {

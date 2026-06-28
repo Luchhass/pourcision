@@ -178,7 +178,7 @@ export function createJsonLd() {
           "Public and private multiplayer lobbies",
           "Selectable 1, 3, 5, or 10 round matches",
           "Easy, Normal, and Hard difficulty",
-          "Classic, Invert, Flash, No Guide, Draining, Leaky, Fake Target, Split Fill, All or Nothing, Band Run, Pressure Charge, Burst Click, Blind, Auto Rise, Tilt, and Chaos Queue rule modes",
+          "Classic, Upside Down, Flash, No Line, Drain, Leaky, Trap Line, Dual Tank, Strike Zone, Band Chase, Charged Pour, Blackout, Auto Rise, Tilt, and Rule Shuffle rule modes",
           "Shared multiplayer lobbies with the same rule set as singleplayer",
         ],
         gamePlatform: "Web browser",

@@ -8,9 +8,21 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+export const SCORE_PRECISION = 2;
+
+const ROUNDING_EPSILON = 1e-9;
+
 function roundTo(value, precision = 1) {
   const factor = 10 ** precision;
-  return Math.round(value * factor) / factor;
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  const adjustment = parsed >= 0 ? ROUNDING_EPSILON : -ROUNDING_EPSILON;
+
+  return Math.round((parsed + adjustment) * factor) / factor;
 }
 
 export function getResultLabel(level, target, diff) {
@@ -20,7 +32,7 @@ export function getResultLabel(level, target, diff) {
 }
 
 export function getRoundScore(diff) {
-  return clamp(roundTo(MAX_ROUND_SCORE - diff * 0.25, 1), 0, MAX_ROUND_SCORE);
+  return normalizeRoundScore(MAX_ROUND_SCORE - diff * 0.25);
 }
 
 function getPerfectOrNothingScore(diff) {
@@ -35,6 +47,14 @@ function average(values) {
   if (!values.length) return 0;
 
   return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+export function normalizeRoundScore(value) {
+  return clamp(roundTo(value, SCORE_PRECISION), 0, MAX_ROUND_SCORE);
+}
+
+export function normalizeTotalScore(value) {
+  return roundTo(value, SCORE_PRECISION);
 }
 
 export function calculateRoundResult({
@@ -67,7 +87,7 @@ export function calculateRoundResult({
     );
     const bandScores = bandDiffs.map(getRoundScore);
     const diff = roundTo(average(bandDiffs), 2);
-    const score = roundTo(average(bandScores), 1);
+    const score = normalizeRoundScore(average(bandScores));
     const levelAverage = roundTo(average(safeBandLevels), 1);
     const targetAverage = roundTo(average(safeBandTargets), 1);
 
@@ -101,7 +121,7 @@ export function calculateRoundResult({
     );
     const splitScores = splitDiffs.map(getRoundScore);
     const diff = roundTo(average(splitDiffs), 2);
-    const score = roundTo(average(splitScores), 1);
+    const score = normalizeRoundScore(average(splitScores));
     const levelAverage = roundTo(average(safeSplitLevels), 1);
     const targetAverage = roundTo(average(safeSplitTargets), 1);
 
@@ -140,7 +160,7 @@ export function calculateRoundResult({
     round: roundIndex + 1,
     roundIndex,
     ruleMode,
-    score,
+    score: normalizeRoundScore(score),
     target,
     tilt: safeTilt,
   };

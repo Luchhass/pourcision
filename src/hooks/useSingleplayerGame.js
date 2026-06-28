@@ -12,7 +12,7 @@ import {
   gameModeIsOneHold,
   getGameModeOption,
 } from "@/lib/gameMode";
-import { calculateRoundResult } from "@/lib/scoring";
+import { calculateRoundResult, normalizeTotalScore } from "@/lib/scoring";
 import {
   createFakeTarget,
   createBandTargets,
@@ -49,9 +49,76 @@ const BURST_CLICK_MAX_CPS = 13.2;
 const CHAOS_ELIGIBLE_MODE_POOL = CHAOS_QUEUE_MODE_POOL.filter(
   (mode) => mode !== GAME_RULE_MODES.ENDLESS,
 );
+const RESUMABLE_PHASES = new Set(Object.values(GAME_PHASES));
+const RESUMABLE_POUR_STATUSES = new Set(Object.values(POUR_STATUSES));
 
 function clampPercent(value) {
   return Math.max(0, Math.min(100, value));
+}
+
+function clampRoundIndex(value, roundCount) {
+  const parsed = Number(value);
+  const maxRoundIndex = Math.max(0, (Number(roundCount) || 1) - 1);
+
+  if (!Number.isInteger(parsed)) return 0;
+
+  return Math.max(0, Math.min(maxRoundIndex, parsed));
+}
+
+function sanitizePercentList(values) {
+  if (!Array.isArray(values)) return [];
+
+  return values
+    .map((value) => Number(value))
+    .filter(Number.isFinite)
+    .map(clampPercent);
+}
+
+function sanitizeResumeResults(results) {
+  if (!Array.isArray(results)) return [];
+
+  return results.filter((result) => result && typeof result === "object");
+}
+
+function sanitizeResumeResult(result) {
+  return result && typeof result === "object" ? result : null;
+}
+
+function normalizeResumePhase(snapshot) {
+  const phase = snapshot?.phase;
+  const pourStatus = snapshot?.pourStatus;
+
+  if (RESUMABLE_PHASES.has(phase)) return phase;
+  if (pourStatus === POUR_STATUSES.RESULT) return GAME_PHASES.RESULT;
+  if (pourStatus === POUR_STATUSES.COMPLETE) return GAME_PHASES.FINAL;
+
+  return GAME_PHASES.INTRO;
+}
+
+function normalizeResumePourStatus(snapshot, phase, ruleMode) {
+  const pourStatus = snapshot?.pourStatus;
+
+  if (phase === GAME_PHASES.INTRO) return POUR_STATUSES.INTRO;
+  if (phase === GAME_PHASES.RESULT) return POUR_STATUSES.RESULT;
+  if (phase === GAME_PHASES.FINAL) return POUR_STATUSES.COMPLETE;
+  if (!RESUMABLE_POUR_STATUSES.has(pourStatus)) return POUR_STATUSES.IDLE;
+  if (
+    pourStatus === POUR_STATUSES.FILLING &&
+    ruleMode !== GAME_RULE_MODES.AUTO_RISE
+  ) {
+    return POUR_STATUSES.IDLE;
+  }
+  if (pourStatus === POUR_STATUSES.BURST) return POUR_STATUSES.SETTLING;
+
+  return pourStatus === POUR_STATUSES.INTRO ? POUR_STATUSES.IDLE : pourStatus;
+}
+
+function getResumeTimeLeft(snapshot, fallback) {
+  const timeLeftMs = Number(snapshot?.timeLeftMs);
+
+  if (!Number.isFinite(timeLeftMs)) return fallback;
+
+  return Math.max(0, timeLeftMs);
 }
 
 function normalizeRoundTarget(roundTarget) {
@@ -74,11 +141,20 @@ function normalizeRoundTarget(roundTarget) {
 
 function createChaosModes(seed, roundCount) {
   const random = createSeededRandom(seed || "chaos-queue");
+  const modes = [];
 
-  return Array.from({ length: roundCount }, () => {
-    const index = Math.floor(random() * CHAOS_ELIGIBLE_MODE_POOL.length);
-    return CHAOS_ELIGIBLE_MODE_POOL[index] ?? GAME_RULE_MODES.CLASSIC;
-  });
+  while (modes.length < roundCount) {
+    const bag = [...CHAOS_ELIGIBLE_MODE_POOL];
+
+    for (let index = bag.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random() * (index + 1));
+      [bag[index], bag[swapIndex]] = [bag[swapIndex], bag[index]];
+    }
+
+    modes.push(...bag);
+  }
+
+  return modes.slice(0, roundCount);
 }
 
 function sanitizeChaosModeQueue(modeQueue) {
@@ -131,6 +207,7 @@ export function useSingleplayerGame({
   ruleMode = GAME_RULE_MODES.CLASSIC,
   targetSeed = null,
   targets = null,
+  initialSnapshot = null,
 } = {}) {
   const normalizedRuleMode =
     ruleMode === GAME_RULE_MODES.ENDLESS ? GAME_RULE_MODES.CLASSIC : ruleMode;
@@ -163,10 +240,46 @@ export function useSingleplayerGame({
     },
     [generatedTargets, targetBaseSeed, targets],
   );
-  const initialTarget = getRoundTarget(0);
-  const [phase, setPhase] = useState(GAME_PHASES.INTRO);
-  const [pourStatus, setPourStatus] = useState(POUR_STATUSES.INTRO);
-  const [roundIndex, setRoundIndex] = useState(0);
+  const initialRoundIndex = clampRoundIndex(
+    initialSnapshot?.roundIndex,
+    roundCount,
+  );
+  const initialRuleMode =
+    chaosModes?.[initialRoundIndex] ??
+    normalizedRuleMode ??
+    GAME_RULE_MODES.CLASSIC;
+  const initialTarget = getRoundTarget(initialRoundIndex);
+  const resumedPhase = normalizeResumePhase(initialSnapshot);
+  const initialResults = sanitizeResumeResults(initialSnapshot?.results);
+  const initialLastResult = sanitizeResumeResult(initialSnapshot?.lastResult);
+  const initialPhase =
+    resumedPhase === GAME_PHASES.RESULT && !initialLastResult
+      ? GAME_PHASES.POUR
+      : resumedPhase;
+  const initialPourStatus = normalizeResumePourStatus(
+    initialSnapshot,
+    initialPhase,
+    initialRuleMode,
+  );
+  const initialBandLevels = sanitizePercentList(initialSnapshot?.bandLevels);
+  const initialBandAttemptIndex = Math.max(
+    0,
+    Math.min(
+      initialTarget?.bandTargets?.length ?? 0,
+      Number.isInteger(Number(initialSnapshot?.bandAttemptIndex))
+        ? Number(initialSnapshot.bandAttemptIndex)
+        : initialBandLevels.length,
+    ),
+  );
+  const initialRoundDuration =
+    getRoundDurationMs(initialRuleMode) ?? LEAKY_ROUND_MS;
+  const initialTimeLeftMs = getResumeTimeLeft(
+    initialSnapshot,
+    initialRoundDuration,
+  );
+  const [phase, setPhase] = useState(initialPhase);
+  const [pourStatus, setPourStatus] = useState(initialPourStatus);
+  const [roundIndex, setRoundIndex] = useState(initialRoundIndex);
   const [target, setTarget] = useState(initialTarget?.target ?? 50);
   const [fakeTarget, setFakeTarget] = useState(initialTarget?.fakeTarget ?? 62);
   const [splitTargets, setSplitTargets] = useState(
@@ -175,11 +288,13 @@ export function useSingleplayerGame({
   const [bandTargets, setBandTargets] = useState(
     initialTarget?.bandTargets ?? [38, 62],
   );
-  const [bandLevels, setBandLevels] = useState([]);
-  const [bandAttemptIndex, setBandAttemptIndex] = useState(0);
-  const [lastResult, setLastResult] = useState(null);
-  const [results, setResults] = useState([]);
-  const [timeLeftMs, setTimeLeftMs] = useState(LEAKY_ROUND_MS);
+  const [bandLevels, setBandLevels] = useState(initialBandLevels);
+  const [bandAttemptIndex, setBandAttemptIndex] = useState(
+    initialBandAttemptIndex,
+  );
+  const [lastResult, setLastResult] = useState(initialLastResult);
+  const [results, setResults] = useState(initialResults);
+  const [timeLeftMs, setTimeLeftMs] = useState(initialTimeLeftMs);
   const effectiveRuleMode =
     chaosModes?.[roundIndex] ?? normalizedRuleMode ?? GAME_RULE_MODES.CLASSIC;
   const getSplitLevelsRef = useRef(getSplitLevels);
@@ -195,8 +310,8 @@ export function useSingleplayerGame({
   const fakeTargetRef = useRef(fakeTarget);
   const splitTargetsRef = useRef(splitTargets);
   const bandTargetsRef = useRef(bandTargets);
-  const bandLevelsRef = useRef([]);
-  const bandAttemptIndexRef = useRef(0);
+  const bandLevelsRef = useRef(initialBandLevels);
+  const bandAttemptIndexRef = useRef(initialBandAttemptIndex);
   const targetRef = useRef(target);
   const timeLeftRef = useRef(timeLeftMs);
   const chargeStartedAtRef = useRef(0);
@@ -615,10 +730,9 @@ export function useSingleplayerGame({
   }, [chaosModes, getRoundTarget, normalizedRuleMode, setPhaseValue, setPourStatusValue]);
 
   const summary = useMemo(() => {
-    const totalScore =
-      Math.round(
-        results.reduce((total, result) => total + result.score, 0) * 10,
-      ) / 10;
+    const totalScore = normalizeTotalScore(
+      results.reduce((total, result) => total + result.score, 0),
+    );
     const bestDiff = results.length
       ? Math.min(...results.map((result) => result.diff))
       : null;

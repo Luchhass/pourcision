@@ -29,6 +29,7 @@ const STREAM_DESCEND_SPEED = 3.6;
 const STREAM_SOURCE_FOLLOW = 0.24;
 const STREAM_MID_FOLLOW = 0.14;
 const STREAM_TAIL_FOLLOW = 0.09;
+const STREAM_SURFACE_OVERLAP_PX = 7;
 const SETTLED_MAX_SURFACE_PX = 0.35;
 const SETTLED_MAX_VELOCITY_PX = 0.28;
 const SETTLED_MAX_UNSETTLED_WATER = 0.00008;
@@ -674,7 +675,10 @@ function drawPourStream(
     0,
     WATER_COLUMN_COUNT - 1,
   );
-  const surfaceTargetY = Math.max(24, surfaceY[centerColumn] + 2);
+  const surfaceTargetY = Math.max(
+    24,
+    surfaceY[centerColumn] + STREAM_SURFACE_OVERLAP_PX,
+  );
   const sourceY = -8;
   const endY = lerp(sourceY, surfaceTargetY, easedProgress);
   const streamWidth = Math.max(
@@ -995,6 +999,7 @@ function renderWater(
   surfaceLevelRef,
   surfaceSampleX,
   isInvertedWater,
+  currentStatus,
   isDraining,
   drainX,
 ) {
@@ -1008,7 +1013,7 @@ function renderWater(
     surfaceSampleX,
     isInvertedWater,
     state,
-    status,
+    currentStatus,
   );
   applyAmbientSurfaceMotion(
     surfaceY,
@@ -1449,6 +1454,7 @@ export default function WaterPhysicsCanvas({
         surfaceLevelTargetRef,
         effectivePourX,
         isInvertedWater,
+        currentStatus,
         currentStatus === "filling" && isReversePour && currentPourActive,
         effectivePourX,
       );

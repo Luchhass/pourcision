@@ -28,6 +28,8 @@ export default function useFillGame(options) {
     lastResult: game.lastResult,
     mode: game.gameMode,
     modeAllowsDone: game.modeAllowsDone,
+    phase: game.phase,
+    pourStatus: game.pourStatus,
     results: game.results,
     roundCount: game.roundCount,
     roundIndex: game.roundIndex,
