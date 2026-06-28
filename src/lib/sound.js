@@ -839,6 +839,46 @@ export function playIntroStep(stepIndex = 0) {
   });
 }
 
+export function playBriefingTimerTick({ accented = false, urgency = 0 } = {}) {
+  const context = getPlayableContext();
+  const safeUrgency = clamp01(Number(urgency) || 0);
+  const tickType = accented ? "accent" : "sub";
+
+  if (!context || !allowSound(`briefing-timer-${tickType}`, accented ? 160 : 54)) {
+    return;
+  }
+
+  const baseFrequency = 980 + safeUrgency * 420;
+
+  scheduleNoise(context, {
+    duration: accented ? 0.018 : 0.01,
+    filterFrequency: 2600 + safeUrgency * 900,
+    filterType: "bandpass",
+    gain: accented ? 0.014 : 0.0065,
+    q: 9,
+  });
+  scheduleTone(context, {
+    attack: 0.001,
+    duration: accented ? 0.06 : 0.028,
+    endFrequency: baseFrequency * (accented ? 1.06 : 0.98),
+    frequency: accented ? baseFrequency * 0.54 : baseFrequency,
+    gain: accented ? 0.03 : 0.011,
+    type: accented ? "triangle" : "sine",
+  });
+
+  if (accented) {
+    scheduleTone(context, {
+      attack: 0.002,
+      delay: 0.026,
+      duration: 0.042,
+      endFrequency: baseFrequency * 1.24,
+      frequency: baseFrequency,
+      gain: 0.014,
+      type: "sine",
+    });
+  }
+}
+
 export function startChargeLoop() {
   const context = getPlayableContext();
   if (!context || !mixBus) return { stop: () => {}, update: () => {} };
@@ -1310,6 +1350,44 @@ export function playRoundResult(score = 0, diff = 0) {
       pan: (index - (motif.length - 1) / 2) * 0.05,
       rise: 1.04 + quality * 0.52,
     });
+  });
+}
+
+export function playTimeAttackFail() {
+  const context = getPlayableContext();
+  if (!context || !allowSound("time-attack-fail", 180)) return;
+
+  scheduleNoise(context, {
+    duration: 0.09,
+    filterFrequency: 980,
+    filterType: "bandpass",
+    gain: 0.052,
+    q: 2.4,
+  });
+  scheduleTone(context, {
+    attack: 0.002,
+    duration: 0.18,
+    endFrequency: 92,
+    frequency: 420,
+    gain: 0.062,
+    type: "square",
+  });
+  scheduleTone(context, {
+    attack: 0.003,
+    delay: 0.055,
+    duration: 0.18,
+    endFrequency: 54,
+    frequency: 180,
+    gain: 0.048,
+    type: "triangle",
+  });
+  scheduleNoise(context, {
+    delay: 0.07,
+    duration: 0.16,
+    filterFrequency: 160,
+    filterType: "lowpass",
+    gain: 0.04,
+    q: 0.9,
   });
 }
 

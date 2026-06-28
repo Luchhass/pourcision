@@ -14,6 +14,7 @@ import {
   GAME_MODE_OPTIONS,
   GAME_RULE_MODES,
   PERFECT_ZONE_RADIUS,
+  TIME_ATTACK_ZONE_RADIUS,
   WATER_COLORS,
 } from "@/lib/constants";
 import {
@@ -28,15 +29,30 @@ function formatRoundNumber(value) {
   return String(value).padStart(2, "0");
 }
 
+function formatRaceClock(value) {
+  const totalSeconds = Math.max(0, Number(value) || 0) / 1000;
+
+  if (totalSeconds < 60) {
+    return totalSeconds.toFixed(2);
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = (totalSeconds % 60).toFixed(2).padStart(5, "0");
+
+  return `${minutes}:${seconds}`;
+}
+
 function getRoundModeTag(ruleMode) {
   const tags = {
     [GAME_RULE_MODES.REVERSE_POUR]: "DRAIN",
     [GAME_RULE_MODES.LEAKY]: "LEAK",
+    [GAME_RULE_MODES.SIPHON]: "SIPHN",
     [GAME_RULE_MODES.INVERT]: "INV",
     [GAME_RULE_MODES.TILT]: "TILT",
     [GAME_RULE_MODES.FAKE_TARGET]: "TRAP",
     [GAME_RULE_MODES.SPLIT_FILL]: "DUAL",
     [GAME_RULE_MODES.PERFECT_OR_NOTHING]: "HIT",
+    [GAME_RULE_MODES.TIME_ATTACK]: "TIME",
     [GAME_RULE_MODES.BAND_RUN]: "BAND",
     [GAME_RULE_MODES.CHARGE_POUR]: "CHRG",
     [GAME_RULE_MODES.BURST_CLICK]: "BURST",
@@ -205,6 +221,8 @@ function ScoreBlock({
   className = "",
   compact = false,
   dark = false,
+  denominator = "/ 50",
+  displayValue = null,
   fitMobile = false,
   score,
   singleResult = false,
@@ -226,15 +244,17 @@ function ScoreBlock({
           singleResult ? "pc-result-score-single" : "",
         ].join(" ")}
       >
-        {formatScore(score)}
-        <span
-          className={[
-            "pc-score-denominator ml-2",
-            dark ? "text-[#f7f7f2]/52" : "text-[#0d0d0c]/48",
-          ].join(" ")}
-        >
-          / 50
-        </span>
+        {displayValue ?? formatScore(score)}
+        {denominator ? (
+          <span
+            className={[
+              "pc-score-denominator ml-2",
+              dark ? "text-[#f7f7f2]/52" : "text-[#0d0d0c]/48",
+            ].join(" ")}
+          >
+            {denominator}
+          </span>
+        ) : null}
       </p>
     </div>
   );
@@ -243,6 +263,7 @@ function ScoreBlock({
 function PlayerResultHeader({
   dark = false,
   index,
+  isTimeAttack = false,
   player,
   waterColor,
 }) {
@@ -263,7 +284,9 @@ function PlayerResultHeader({
       <span className="pc-round-value">{player.rank ?? index + 1}.</span>
       <span className="min-w-0 truncate">{player.name || player.playerName}</span>
       <span className="pc-round-value">
-        {formatScore(player.score ?? player.totalScore)}
+        {isTimeAttack
+          ? formatRaceClock(player.totalElapsedMs)
+          : formatScore(player.score ?? player.totalScore)}
       </span>
     </div>
   );
@@ -289,6 +312,7 @@ function RoundCard({
   const isLeaky = effectiveRuleMode === GAME_RULE_MODES.LEAKY;
   const isPerfectZone =
     effectiveRuleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING;
+  const isTimeAttack = effectiveRuleMode === GAME_RULE_MODES.TIME_ATTACK;
   const isReversePour = effectiveRuleMode === GAME_RULE_MODES.REVERSE_POUR;
   const isSplitFill = effectiveRuleMode === GAME_RULE_MODES.SPLIT_FILL;
   const isTilt = effectiveRuleMode === GAME_RULE_MODES.TILT;
@@ -300,8 +324,11 @@ function RoundCard({
   const bandLevels = getPercentList(result.bandLevels);
   const splitLevels = getPercentPair(result.splitLevels, fillPercent);
   const splitTargets = getPercentPair(result.splitTargets, targetPercent);
-  const zoneStart = clampPercent(targetPercent - PERFECT_ZONE_RADIUS);
-  const zoneEnd = clampPercent(targetPercent + PERFECT_ZONE_RADIUS);
+  const zoneRadius = isTimeAttack
+    ? TIME_ATTACK_ZONE_RADIUS
+    : PERFECT_ZONE_RADIUS;
+  const zoneStart = clampPercent(targetPercent - zoneRadius);
+  const zoneEnd = clampPercent(targetPercent + zoneRadius);
   const zoneHeight = Math.max(5, zoneEnd - zoneStart);
   const tiltValue = isTilt ? clampTilt(result.tilt, -0.5) : 0;
   const tiltDegrees = Math.max(-7, Math.min(7, tiltValue * 7));
@@ -340,6 +367,7 @@ function RoundCard({
     !isBlind &&
     !isFlash &&
     !isPerfectZone &&
+    !isTimeAttack &&
     !isSplitFill;
 
   return (
@@ -425,7 +453,7 @@ function RoundCard({
           style={{ bottom: `${fakeTargetPercent}%` }}
         />
       ) : null}
-      {isPerfectZone ? (
+      {isPerfectZone || isTimeAttack ? (
         <>
           <span
             aria-hidden="true"
@@ -465,7 +493,9 @@ function RoundCard({
         <span
           className="pc-round-value text-[#0d0d0c] dark:text-[#f7f7f2]"
         >
-          {formatScore(result.score)}
+          {isTimeAttack
+            ? formatRaceClock(result.roundElapsedMs ?? result.elapsedMs)
+            : formatScore(result.score)}
         </span>
       </div>
     </div>
@@ -479,6 +509,8 @@ function LeaderboardResultsList({
   waterColor,
 }) {
   if (!players.length) return null;
+
+  const isTimeAttack = ruleMode === GAME_RULE_MODES.TIME_ATTACK;
 
   return (
     <div
@@ -502,6 +534,7 @@ function LeaderboardResultsList({
               <PlayerResultHeader
                 dark={dark}
                 index={index}
+                isTimeAttack={isTimeAttack}
                 player={player}
                 waterColor={playerWaterColor}
               />
@@ -542,6 +575,7 @@ function ResultsPanel({
   playAgainLabel = null,
   ruleMode = GAME_RULE_MODES.CLASSIC,
   rounds,
+  totalElapsedMs = null,
   totalScore,
   waterColor,
 }) {
@@ -552,6 +586,7 @@ function ResultsPanel({
     GAME_MODE_OPTIONS.find((option) => option.id === ruleMode) ||
     GAME_MODE_OPTIONS[0];
   const displayWaterColor = waterColor;
+  const isTimeAttack = ruleMode === GAME_RULE_MODES.TIME_ATTACK;
 
   return (
     <div
@@ -566,6 +601,10 @@ function ResultsPanel({
       <ScoreBlock
         compact={hasLeaderboard}
         dark={dark}
+        denominator={isTimeAttack ? t("game.time").toUpperCase() : "/ 50"}
+        displayValue={
+          isTimeAttack ? formatRaceClock(totalElapsedMs) : null
+        }
         fitMobile={isSingleResult}
         score={totalScore}
         singleResult={isSingleResult}
@@ -652,6 +691,7 @@ function UniversalResultsScreen({
   ruleMode = GAME_RULE_MODES.CLASSIC,
   rounds = [],
   scoreMessage,
+  totalElapsedMs = null,
   totalScore,
   waterColor,
 }) {
@@ -659,6 +699,7 @@ function UniversalResultsScreen({
   const hasLeaderboard = leaderboardPlayers.length > 0;
   const displayWaterColor = waterColor;
   const titleText = t("results.title");
+  const isTimeAttack = ruleMode === GAME_RULE_MODES.TIME_ATTACK;
 
   return (
     <div
@@ -725,7 +766,14 @@ function UniversalResultsScreen({
                 data-screen-reveal-row="true"
                 data-screen-reveal-target="self"
               >
-                <ScoreBlock dark score={totalScore} />
+                <ScoreBlock
+                  dark
+                  denominator={isTimeAttack ? t("game.time").toUpperCase() : "/ 50"}
+                  displayValue={
+                    isTimeAttack ? formatRaceClock(totalElapsedMs) : null
+                  }
+                  score={totalScore}
+                />
               </div>
             ) : null}
           </div>
@@ -756,7 +804,15 @@ function UniversalResultsScreen({
                 data-screen-reveal-row="true"
                 data-screen-reveal-target="self"
               >
-                <ScoreBlock dark score={totalScore} singleResult />
+                <ScoreBlock
+                  dark
+                  denominator={isTimeAttack ? t("game.time").toUpperCase() : "/ 50"}
+                  displayValue={
+                    isTimeAttack ? formatRaceClock(totalElapsedMs) : null
+                  }
+                  score={totalScore}
+                  singleResult
+                />
               </div>
               <div
                 className="grid min-h-0 min-w-0"
@@ -853,6 +909,14 @@ export default function ScoreboardScreen({
     WATER_COLORS[0];
   const sourceResults = currentLeaderboardPlayer?.results || results || [];
   const rounds = normalizeRounds(sourceResults);
+  const isTimeAttack = settings?.ruleMode === GAME_RULE_MODES.TIME_ATTACK;
+  const fallbackTotalElapsedMs = rounds.length
+    ? rounds[rounds.length - 1]?.elapsedMs
+    : null;
+  const totalElapsedMs =
+    currentLeaderboardPlayer?.totalElapsedMs ?? fallbackTotalElapsedMs ?? 0;
+  const topTotalElapsedMs =
+    topLeaderboardPlayer?.totalElapsedMs ?? totalElapsedMs;
   const fallbackTotalScore = normalizeTotalScore(
     rounds.reduce((total, result) => total + result.score, 0),
   );
@@ -875,7 +939,14 @@ export default function ScoreboardScreen({
           ? t("results.assessment.learning")
           : t("results.assessment.retry");
   const displayTotalScore = topLeaderboardPlayer ? topTotalScore : totalScore;
-  const scoreMessage = getScoreMessage(displayTotalScore);
+  const displayTotalElapsedMs = topLeaderboardPlayer
+    ? topTotalElapsedMs
+    : totalElapsedMs;
+  const scoreMessage = isTimeAttack
+    ? t("results.timeAttackAssessment", {
+        time: formatRaceClock(displayTotalElapsedMs),
+      })
+    : getScoreMessage(displayTotalScore);
   const resultsRevealRef = useRef(null);
   const playResultsExit = useScreenReveal(resultsRevealRef, [
     leaderboardPlayers.length,
@@ -883,6 +954,7 @@ export default function ScoreboardScreen({
     rounds.length,
     scoreMessage,
     settings?.ruleMode,
+    totalElapsedMs,
     totalScore,
   ]);
 
@@ -903,8 +975,10 @@ export default function ScoreboardScreen({
   };
 
   useEffect(() => {
-    playFinalScore(displayTotalScore, 50);
-  }, [displayTotalScore]);
+    if (!isTimeAttack) {
+      playFinalScore(displayTotalScore, 50);
+    }
+  }, [displayTotalScore, isTimeAttack]);
 
   return (
     <div ref={resultsRevealRef}>
@@ -918,6 +992,7 @@ export default function ScoreboardScreen({
         rounds={rounds}
         ruleMode={settings?.ruleMode || GAME_RULE_MODES.CLASSIC}
         scoreMessage={scoreMessage}
+        totalElapsedMs={displayTotalElapsedMs}
         totalScore={displayTotalScore}
         waterColor={waterColor}
       />

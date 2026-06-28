@@ -88,6 +88,9 @@ function serializeResult(result) {
 
   return {
     diff: result.diff,
+    cleared: result.cleared ?? null,
+    elapsedMs: result.elapsedMs ?? null,
+    roundElapsedMs: result.roundElapsedMs ?? null,
     fakeTarget: result.fakeTarget,
     label: result.label,
     level: result.level,
@@ -154,7 +157,10 @@ export function startGameForRoom(room) {
     ruleMode: room.ruleMode,
     seed,
     startedAt: now(),
-    targets: createRoundTargets(seed, roundCount),
+    targets: createRoundTargets(seed, roundCount, {
+      modeQueue,
+      ruleMode: room.ruleMode,
+    }),
     modeQueue,
     playerWaterColorIds: serializePlayerWaterColors(room),
     waterColorId: DEFAULT_SETTINGS.waterColorId,
@@ -168,6 +174,7 @@ export function startGameForRoom(room) {
     player.score = 0;
     player.scoreboardReady = false;
     player.submitted = false;
+    player.totalElapsedMs = null;
     player.totalScore = 0;
     player.waitingForNextGame = false;
   }
@@ -243,6 +250,8 @@ export function submitRoundGuess(room, payload) {
         ? target.fakeTarget
         : null,
     level: levelResult.data.level,
+    elapsedMs: payload.elapsedMs,
+    roundElapsedMs: payload.roundElapsedMs,
     roundIndex,
     ruleMode: activeRuleMode,
     splitLevels: splitLevelsResult.data.splitLevels,
@@ -258,6 +267,9 @@ export function submitRoundGuess(room, payload) {
     player.results.filter(Boolean).reduce((total, round) => total + round.score, 0),
   );
   player.totalScore = player.score;
+  if (activeRuleMode === GAME_RULE_MODES.TIME_ATTACK) {
+    player.totalElapsedMs = result.elapsedMs;
+  }
   player.submitted =
     player.results.filter(Boolean).length >= room.game.roundCount;
   player.lastSeenAt = now();
@@ -310,6 +322,8 @@ export function submitFullResults(room, payload) {
   for (const item of payload.results) {
     const submission = submitRoundGuess(room, {
       bandLevels: item.bandLevels,
+      elapsedMs: item.elapsedMs,
+      roundElapsedMs: item.roundElapsedMs,
       level: item.level,
       playerId: payload.playerId,
       roundIndex: item.roundIndex,
@@ -361,6 +375,11 @@ export function buildLeaderboard(room) {
       const totalScore = roundScore(
         roundResults.reduce((total, result) => total + result.score, 0),
       );
+      const lastRoundElapsedMs = roundResults.length
+        ? roundResults[roundResults.length - 1]?.elapsedMs
+        : null;
+      const totalElapsedMs =
+        player.totalElapsedMs ?? lastRoundElapsedMs ?? null;
       const bestDiff = roundResults.length
         ? Math.min(...roundResults.map((result) => result.diff))
         : null;
@@ -378,11 +397,23 @@ export function buildLeaderboard(room) {
         roundResults,
         score: totalScore,
         submitted: player.submitted,
+        totalElapsedMs,
         totalScore,
         waterColorId: player.waterColorId || room.game.waterColorId,
       };
     })
     .sort((first, second) => {
+      if (room.game?.ruleMode === GAME_RULE_MODES.TIME_ATTACK) {
+        const firstTime = Number.isFinite(first.totalElapsedMs)
+          ? first.totalElapsedMs
+          : Number.POSITIVE_INFINITY;
+        const secondTime = Number.isFinite(second.totalElapsedMs)
+          ? second.totalElapsedMs
+          : Number.POSITIVE_INFINITY;
+
+        return firstTime - secondTime;
+      }
+
       if (second.totalScore !== first.totalScore) {
         return second.totalScore - first.totalScore;
       }

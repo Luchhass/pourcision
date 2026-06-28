@@ -2,6 +2,7 @@ import {
   GAME_RULE_MODES,
   MAX_ROUND_SCORE,
   PERFECT_ZONE_RADIUS,
+  TIME_ATTACK_ZONE_RADIUS,
 } from "../constants.js";
 
 function clamp(value, min, max) {
@@ -43,6 +44,10 @@ function getPerfectOrNothingLabel(diff) {
   return diff <= PERFECT_ZONE_RADIUS ? "PERFECT!" : "NO SCORE";
 }
 
+function getTimeAttackLabel(diff) {
+  return diff <= TIME_ATTACK_ZONE_RADIUS ? "CLEARED" : "RESET";
+}
+
 function average(values) {
   if (!values.length) return 0;
 
@@ -62,6 +67,8 @@ export function calculateRoundResult({
   bandTargets = null,
   fakeTarget = null,
   level,
+  elapsedMs = null,
+  roundElapsedMs = null,
   roundIndex,
   ruleMode = GAME_RULE_MODES.CLASSIC,
   splitLevels = null,
@@ -146,16 +153,31 @@ export function calculateRoundResult({
   const safeLevel = roundTo(clamp(Number(level), 0, 100), 1);
   const diff = roundTo(Math.abs(safeLevel - target), 2);
   const isPerfectOrNothing = ruleMode === GAME_RULE_MODES.PERFECT_OR_NOTHING;
+  const isTimeAttack = ruleMode === GAME_RULE_MODES.TIME_ATTACK;
+  const cleared = isTimeAttack ? diff <= TIME_ATTACK_ZONE_RADIUS : null;
+  const safeElapsedMs = Number.isFinite(Number(elapsedMs))
+    ? Math.max(0, Math.round(Number(elapsedMs)))
+    : null;
+  const safeRoundElapsedMs = Number.isFinite(Number(roundElapsedMs))
+    ? Math.max(0, Math.round(Number(roundElapsedMs)))
+    : safeElapsedMs;
   const score = isPerfectOrNothing
     ? getPerfectOrNothingScore(diff)
+    : isTimeAttack
+      ? 0
     : getRoundScore(diff);
 
   return {
+    cleared,
     diff,
+    elapsedMs: isTimeAttack ? safeElapsedMs : null,
+    roundElapsedMs: isTimeAttack ? safeRoundElapsedMs : null,
     fakeTarget,
-    label: isPerfectOrNothing
-      ? getPerfectOrNothingLabel(diff)
-      : getResultLabel(safeLevel, target, diff),
+    label: isTimeAttack
+      ? getTimeAttackLabel(diff)
+      : isPerfectOrNothing
+        ? getPerfectOrNothingLabel(diff)
+        : getResultLabel(safeLevel, target, diff),
     level: safeLevel,
     round: roundIndex + 1,
     roundIndex,

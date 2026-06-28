@@ -14,10 +14,12 @@ export const GAME_RULE_MODES = {
   INVERT: "invert",
   REVERSE_POUR: "reverse-pour",
   LEAKY: "leaky",
+  SIPHON: "siphon",
   TILT: "tilt",
   CHAOS_QUEUE: "chaos-queue",
   SPLIT_FILL: "split-fill",
   PERFECT_OR_NOTHING: "perfect-or-nothing",
+  TIME_ATTACK: "time-attack",
   BAND_RUN: "band-run",
   CHARGE_POUR: "charge-pour",
   BURST_CLICK: "burst-click",
@@ -70,8 +72,10 @@ export const ROUND_COUNT_OPTIONS = [1, 3, 5, 10];
 export const MAX_ROUND_SCORE = 10;
 export const MIN_TARGET = 24;
 export const MAX_TARGET = 86;
+export const SIPHON_TARGET_MAX = 70;
 export const FAKE_TARGET_MIN_DISTANCE = 12;
 export const PERFECT_ZONE_RADIUS = 2.2;
+export const TIME_ATTACK_ZONE_RADIUS = 3.4;
 export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CLASSIC,
   GAME_RULE_MODES.BLIND,
@@ -80,6 +84,7 @@ export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.INVERT,
   GAME_RULE_MODES.REVERSE_POUR,
   GAME_RULE_MODES.LEAKY,
+  GAME_RULE_MODES.SIPHON,
   GAME_RULE_MODES.TILT,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
@@ -113,10 +118,12 @@ export const GAME_MODE_CONFIG = {
   [GAME_RULE_MODES.LEAKY]: {
     roundDurationMs: 5000,
   },
+  [GAME_RULE_MODES.SIPHON]: {},
   [GAME_RULE_MODES.TILT]: {},
   [GAME_RULE_MODES.CHAOS_QUEUE]: {},
   [GAME_RULE_MODES.SPLIT_FILL]: {},
   [GAME_RULE_MODES.PERFECT_OR_NOTHING]: {},
+  [GAME_RULE_MODES.TIME_ATTACK]: {},
   [GAME_RULE_MODES.BAND_RUN]: {},
   [GAME_RULE_MODES.CHARGE_POUR]: {},
   [GAME_RULE_MODES.BURST_CLICK]: {

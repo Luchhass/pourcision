@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { DEFAULT_DIFFICULTY_ID, GAME_RULE_MODES, WATER_COLORS } from "@/lib/constants";
+import {
+  DEFAULT_DIFFICULTY_ID,
+  GAME_RULE_MODES,
+  SIPHON_LEAK_RATE_PER_SECOND,
+  WATER_COLORS,
+} from "@/lib/constants";
 import WaterPhysicsCanvas from "@/components/sections/gameplay/WaterPhysicsCanvas";
 
 const OPPONENT_WATER_CLASS =
@@ -194,6 +199,11 @@ function OpponentWaterLayer({ index, roundIndex, settings, state }) {
         isInvertedWater={isInvert}
         isPourActive={state.isPouring}
         isReversePour={activeRuleMode === GAME_RULE_MODES.REVERSE_POUR}
+        leakRatePerSecond={
+          activeRuleMode === GAME_RULE_MODES.SIPHON
+            ? SIPHON_LEAK_RATE_PER_SECOND
+            : undefined
+        }
         levelRef={levelRef}
         pourXRef={pourXRef}
         renderStream={state.isPouring}

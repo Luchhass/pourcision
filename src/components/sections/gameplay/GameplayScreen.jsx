@@ -16,11 +16,16 @@ import {
   GAME_MODE_OPTIONS,
   GAME_RULE_MODES,
   PERFECT_ZONE_RADIUS,
+  SIPHON_LEAK_RATE_PER_SECOND,
+  TIME_ATTACK_RESULT_AUTO_ADVANCE_MS,
+  TIME_ATTACK_ZONE_RADIUS,
   WATER_COLORS,
 } from "@/lib/constants";
 import {
+  playBriefingTimerTick,
   playRoundAdvance,
   playRoundResult,
+  playTimeAttackFail,
   startRoundScoreCountSound,
   startChargeLoop,
   startPourLoop,
@@ -80,20 +85,128 @@ function formatTimerClock(value) {
   return (Math.max(0, value) / 1000).toFixed(2);
 }
 
-function formatChaosBriefingTime(value) {
-  return String(clamp(Math.ceil(Math.max(0, value) / 1000), 0, 9));
+function formatRaceClock(value) {
+  const totalSeconds = Math.max(0, Number(value) || 0) / 1000;
+
+  if (totalSeconds < 60) {
+    return totalSeconds.toFixed(2);
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = (totalSeconds % 60).toFixed(2).padStart(5, "0");
+
+  return `${minutes}:${seconds}`;
+}
+
+function formatChaosBriefingTimeParts(value) {
+  const safeValue = Math.max(0, value);
+  const totalCentiseconds = Math.ceil(safeValue / 10);
+  const seconds = Math.floor(totalCentiseconds / 100);
+  const centiseconds = totalCentiseconds % 100;
+
+  return {
+    centiseconds: String(centiseconds).padStart(2, "0"),
+    seconds: String(clamp(seconds, 0, 9)),
+    secondsValue: seconds,
+    timerText: `${seconds}.${String(centiseconds).padStart(2, "0")}`,
+  };
 }
 
 function ChaosCountdownWheel({ value }) {
-  const displayValue = formatChaosBriefingTime(value);
+  const { centiseconds, seconds, secondsValue, timerText } =
+    formatChaosBriefingTimeParts(value);
+  const wheelRef = useRef(null);
+  const secondsRef = useRef(null);
+  const previousSecondsRef = useRef(secondsValue);
+  const previousTickRef = useRef(Math.ceil(value / 250));
+
+  useLayoutEffect(() => {
+    const secondsElement = secondsRef.current;
+    const previousSeconds = previousSecondsRef.current;
+
+    previousSecondsRef.current = secondsValue;
+
+    if (!secondsElement || previousSeconds === secondsValue) {
+      return undefined;
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return undefined;
+    }
+
+    gsap.killTweensOf(secondsElement);
+
+    const timeline = gsap.timeline({
+      defaults: {
+        overwrite: "auto",
+      },
+      onComplete: () => {
+        gsap.set(secondsElement, {
+          clearProps: "filter,transform,willChange",
+        });
+      },
+    });
+
+    timeline
+      .fromTo(
+        secondsElement,
+        {
+          filter: "blur(2px)",
+          scale: 0.94,
+          y: -2,
+          willChange: "transform",
+        },
+        {
+          duration: 0.2,
+          ease: "power3.out",
+          filter: "blur(0px)",
+          scale: 1.035,
+          y: 0,
+        },
+      )
+      .to(secondsElement, {
+        duration: 0.16,
+        ease: "power3.out",
+        scale: 1,
+      });
+
+    return () => {
+      timeline.kill();
+      gsap.set(secondsElement, {
+        clearProps: "filter,transform,willChange",
+      });
+    };
+  }, [secondsValue]);
+
+  useEffect(() => {
+    const tick = Math.ceil(value / 250);
+    const previousTick = previousTickRef.current;
+
+    previousTickRef.current = tick;
+
+    if (tick === previousTick || value <= 0 || value >= CHAOS_BRIEFING_MS) {
+      return;
+    }
+
+    playBriefingTimerTick({
+      accented: tick % 4 === 0,
+      urgency: 1 - value / CHAOS_BRIEFING_MS,
+    });
+  }, [value]);
 
   return (
     <div
-      aria-label={displayValue}
+      aria-label={timerText}
       className="pc-chaos-countdown-wheel"
+      ref={wheelRef}
       role="timer"
     >
-      {displayValue}
+      <span className="pc-chaos-countdown-seconds" ref={secondsRef}>
+        {seconds}
+      </span>
+      <span className="pc-chaos-countdown-centiseconds">
+        .{centiseconds}
+      </span>
     </div>
   );
 }
@@ -154,7 +267,7 @@ function getRuleModeOption(ruleMode) {
   );
 }
 
-function ChaosRoundBriefing({ onComplete, ruleMode }) {
+function ModeRoundBriefing({ isChaosQueue, onComplete, ruleMode }) {
   const [timeLeftMs, setTimeLeftMs] = useState(CHAOS_BRIEFING_MS);
   const briefingRef = useRef(null);
   const completedRef = useRef(false);
@@ -259,11 +372,11 @@ function ChaosRoundBriefing({ onComplete, ruleMode }) {
       <div className="grid w-full max-w-[36rem] justify-items-center gap-4 sm:gap-5">
         <div data-chaos-briefing-row="true">
           <p className="pc-label text-[#0d0d0c]/52">
-            {t("game.chaosQueue")}
+            {isChaosQueue ? t("game.chaosQueue") : t("setup.mode")}
           </p>
         </div>
         <div className="w-full min-w-0 px-2" data-chaos-briefing-row="true">
-          <h1 className="pc-result-score-compact mx-auto max-w-full break-words text-balance uppercase leading-[0.88] text-[#0d0d0c] [font-size:clamp(2rem,10.5vw,5.75rem)] [overflow-wrap:anywhere] sm:[font-size:clamp(2.6rem,8.2vw,7.4rem)]">
+          <h1 className="pc-result-score mx-auto max-w-full break-words text-balance uppercase text-[#0d0d0c] [font-size:clamp(2.55rem,8.4vw,4.85rem)] [overflow-wrap:anywhere] sm:[font-size:clamp(3.05rem,6.9vw,5.75rem)]">
             {t(`modes.${option.id}.label`)}
           </h1>
         </div>
@@ -367,6 +480,12 @@ function getResultMessage(result, t) {
     return "";
   }
 
+  if (result.ruleMode === GAME_RULE_MODES.TIME_ATTACK) {
+    return t("game.timeAttackClearedMessage", {
+      time: formatRaceClock(result.roundElapsedMs ?? result.elapsedMs),
+    });
+  }
+
   const diff = result.diff ?? 100;
   const bucket =
     diff <= 0.75
@@ -390,6 +509,7 @@ function getResultLabel(label, t) {
   const labels = {
     "NO SCORE": t("game.labels.noScore"),
     "BAND MISS": t("game.bandMiss"),
+    "CLEARED": t("game.labels.cleared"),
     "PERFECT!": t("game.labels.perfect"),
     "SO CLOSE!": t("game.labels.soClose"),
     "SPLIT MISS": t("game.splitMiss"),
@@ -458,6 +578,8 @@ export default function GameplayScreen({
   const gameplayRootRef = useRef(null);
   const gameplayRootRectRef = useRef({ left: 0, width: 1 });
   const gameplayTiltLayerRef = useRef(null);
+  const timeAttackFailFlashRef = useRef(null);
+  const timeAttackFailNonceRef = useRef(0);
   const resumeClearedRef = useRef(false);
   const resultSoundKeyRef = useRef("");
   const soundStatusRef = useRef("");
@@ -494,7 +616,7 @@ export default function GameplayScreen({
     initialActiveSplitIndex,
   );
   const activeSplitIndexRef = useRef(initialActiveSplitIndex);
-  const [chaosBriefingRound, setChaosBriefingRound] = useState(-1);
+  const [modeBriefingRound, setModeBriefingRound] = useState(-1);
   const [blackoutVisible, setBlackoutVisible] = useState(false);
   const [flashTargetVisible, setFlashTargetVisible] = useState(false);
   const [isCompletingExit, setIsCompletingExit] = useState(false);
@@ -556,15 +678,20 @@ export default function GameplayScreen({
     modeAllowsDone,
     phase,
     pourStatus,
+    raceElapsedMs,
+    raceRoundElapsedMs,
+    raceRoundStartedAtElapsedMs,
     results,
     roundCount,
     roundIndex,
+    roundResetNonce,
     showTargetGuide,
     splitTargets,
     startFilling,
     status,
     stopFilling,
     target,
+    timeAttackFailNonce,
     timeLeftMs,
   } = useFillGame({
     getIsSettled: getWaterSettled,
@@ -592,6 +719,8 @@ export default function GameplayScreen({
   const isBurstClickMode = activeRuleMode === GAME_RULE_MODES.BURST_CLICK;
   const isBlackoutBlindMode = activeRuleMode === GAME_RULE_MODES.COLORBLIND;
   const isAutoRiseMode = activeRuleMode === GAME_RULE_MODES.AUTO_RISE;
+  const isSiphonMode = activeRuleMode === GAME_RULE_MODES.SIPHON;
+  const isTimeAttackMode = activeRuleMode === GAME_RULE_MODES.TIME_ATTACK;
   const waterColor = selectedWaterColor;
   const canvasStatus =
     isChargePourMode && status === "filling" ? "idle" : status;
@@ -608,10 +737,14 @@ export default function GameplayScreen({
   const initialSplitRightWaterLevel = shouldUseResumeWater
     ? resumeSplitRightLevel
     : 0;
+  const roundResetKey = `${roundIndex}:${roundResetNonce}`;
   const isIntroPhase = status === "intro";
   const isResultPhase = status === "result";
-  const shouldShowChaosBriefing =
-    isChaosQueue && isIntroPhase && chaosBriefingRound !== roundIndex;
+  const shouldShowRoundBriefing =
+    isIntroPhase &&
+    (isChaosQueue
+      ? modeBriefingRound !== roundIndex
+      : roundIndex === 0 && modeBriefingRound !== 0);
   const startGameplayMusic = useCallback(() => {
     if (gameMusicStartedRef.current) return;
 
@@ -640,6 +773,7 @@ export default function GameplayScreen({
   const resultLabel = getResultLabel(lastResult?.label ?? "", t);
   const resultGuidance = getResultMessage(lastResult, t);
   const roundDiff = isResultPhase ? "00" : "00";
+  const displayedRaceTime = formatRaceClock(raceElapsedMs);
   const approachGuidance =
     isEndless
       ? t("game.guidance.endless")
@@ -663,15 +797,19 @@ export default function GameplayScreen({
             ? t("game.guidance.perfect")
             : activeRuleMode === GAME_RULE_MODES.LEAKY
               ? t(`modes.${GAME_RULE_MODES.LEAKY}.briefing`)
-              : activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
-                ? t(`modes.${GAME_RULE_MODES.FAKE_TARGET}.briefing`)
-                : activeRuleMode === GAME_RULE_MODES.INVERT
-                  ? t(`modes.${GAME_RULE_MODES.INVERT}.briefing`)
-                  : activeRuleMode === GAME_RULE_MODES.REVERSE_POUR
-                    ? t(`modes.${GAME_RULE_MODES.REVERSE_POUR}.briefing`)
-                    : activeRuleMode === GAME_RULE_MODES.TILT
-                      ? t(`modes.${GAME_RULE_MODES.TILT}.briefing`)
-                      : t("game.guidance.classic");
+              : activeRuleMode === GAME_RULE_MODES.SIPHON
+                ? t(`modes.${GAME_RULE_MODES.SIPHON}.briefing`)
+                : activeRuleMode === GAME_RULE_MODES.TIME_ATTACK
+                  ? t(`modes.${GAME_RULE_MODES.TIME_ATTACK}.briefing`)
+                  : activeRuleMode === GAME_RULE_MODES.FAKE_TARGET
+                    ? t(`modes.${GAME_RULE_MODES.FAKE_TARGET}.briefing`)
+                    : activeRuleMode === GAME_RULE_MODES.INVERT
+                      ? t(`modes.${GAME_RULE_MODES.INVERT}.briefing`)
+                      : activeRuleMode === GAME_RULE_MODES.REVERSE_POUR
+                        ? t(`modes.${GAME_RULE_MODES.REVERSE_POUR}.briefing`)
+                        : activeRuleMode === GAME_RULE_MODES.TILT
+                          ? t(`modes.${GAME_RULE_MODES.TILT}.briefing`)
+                          : t("game.guidance.classic");
   const displayedGoal =
     isSplitFillMode
         ? `${formatPercent(splitTargets[0])} / ${formatPercent(splitTargets[1])}`
@@ -684,10 +822,14 @@ export default function GameplayScreen({
     ? `${t(`modes.${GAME_RULE_MODES.ENDLESS}.label`)} ${roundIndex + 1}`
     : `${t("game.round")} ${roundIndex + 1} / ${roundCount}`;
   const currentResultKey = lastResult
-    ? `${lastResult.roundIndex}:${lastResult.score}:${lastResult.diff}`
+    ? `${lastResult.roundIndex}:${lastResult.score}:${lastResult.diff}:${lastResult.elapsedMs ?? ""}:${lastResult.roundElapsedMs ?? ""}`
     : "";
   const shouldShowResultContent =
     isResultPhase && Boolean(currentResultKey) && visibleResultKey === currentResultKey;
+  const displayedLevelTime =
+    shouldShowResultContent && lastResult?.ruleMode === GAME_RULE_MODES.TIME_ATTACK
+      ? formatRaceClock(lastResult.roundElapsedMs ?? lastResult.elapsedMs)
+      : formatRaceClock(raceRoundElapsedMs);
 
   useEffect(() => {
     if (isIntroPhase) {
@@ -696,13 +838,13 @@ export default function GameplayScreen({
   }, [isIntroPhase, roundIndex]);
 
   useEffect(() => {
-    if (isIntroPhase || isResultPhase || shouldShowChaosBriefing) return;
+    if (isIntroPhase || isResultPhase || shouldShowRoundBriefing) return;
 
     startGameplayMusic();
   }, [
     isIntroPhase,
     isResultPhase,
-    shouldShowChaosBriefing,
+    shouldShowRoundBriefing,
     startGameplayMusic,
   ]);
 
@@ -710,7 +852,7 @@ export default function GameplayScreen({
     if (
       isIntroPhase ||
       isResultPhase ||
-      shouldShowChaosBriefing ||
+      shouldShowRoundBriefing ||
       !isFlashMode
     ) {
       const timerId = window.setTimeout(() => {
@@ -730,7 +872,96 @@ export default function GameplayScreen({
       window.clearTimeout(showTimerId);
       window.clearTimeout(hideTimerId);
     };
-  }, [isFlashMode, isIntroPhase, isResultPhase, roundIndex, shouldShowChaosBriefing]);
+  }, [isFlashMode, isIntroPhase, isResultPhase, roundIndex, shouldShowRoundBriefing]);
+
+  useLayoutEffect(() => {
+    if (timeAttackFailNonce === timeAttackFailNonceRef.current) {
+      return undefined;
+    }
+
+    timeAttackFailNonceRef.current = timeAttackFailNonce;
+
+    if (!timeAttackFailNonce || !isTimeAttackMode || isIntroPhase || isResultPhase) {
+      return undefined;
+    }
+
+    playTimeAttackFail();
+
+    const root = gameplayRootRef.current;
+    const flash = timeAttackFailFlashRef.current;
+    if (!root) return undefined;
+
+    const layers = [
+      root.querySelector("[data-gameplay-water-layer='true']"),
+      root.querySelector("[data-gameplay-content='true']"),
+    ].filter(Boolean);
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    gsap.killTweensOf([...layers, flash].filter(Boolean));
+
+    if (reducedMotion) {
+      if (flash) {
+        gsap.fromTo(
+          flash,
+          { autoAlpha: 0.22 },
+          { autoAlpha: 0, duration: 0.22, ease: "power2.out" },
+        );
+      }
+      return undefined;
+    }
+
+    const timeline = gsap.timeline({
+      defaults: { ease: "power2.out" },
+      onComplete: () => {
+        gsap.set(layers, { clearProps: "transform,willChange" });
+      },
+    });
+
+    timeline.set(layers, {
+      transformOrigin: "50% 50%",
+      willChange: "transform",
+    });
+
+    if (flash) {
+      timeline.fromTo(
+        flash,
+        { autoAlpha: 0, scale: 0.985 },
+        { autoAlpha: 0.26, duration: 0.035, ease: "power1.out", scale: 1 },
+        0,
+      );
+      timeline.to(
+        flash,
+        { autoAlpha: 0, duration: 0.3, ease: "power3.out" },
+        0.055,
+      );
+    }
+
+    timeline
+      .to(layers, { duration: 0.035, rotate: -0.18, x: -7, y: 3 }, 0)
+      .to(layers, { duration: 0.045, rotate: 0.2, x: 8, y: -3 })
+      .to(layers, { duration: 0.04, rotate: -0.1, x: -4, y: 2 })
+      .to(layers, {
+        duration: 0.18,
+        ease: "expo.out",
+        rotate: 0,
+        scale: 1,
+        x: 0,
+        y: 0,
+      });
+
+    return () => {
+      timeline.kill();
+      gsap.set(layers, { clearProps: "transform,willChange" });
+      if (flash) gsap.set(flash, { autoAlpha: 0, clearProps: "scale" });
+    };
+  }, [
+    isIntroPhase,
+    isResultPhase,
+    isTimeAttackMode,
+    timeAttackFailNonce,
+  ]);
 
   useEffect(() => {
     const resetTimerId = window.setTimeout(() => {
@@ -741,7 +972,7 @@ export default function GameplayScreen({
       !isBlackoutBlindMode ||
       isIntroPhase ||
       isResultPhase ||
-      shouldShowChaosBriefing
+      shouldShowRoundBriefing
     ) {
       return () => window.clearTimeout(resetTimerId);
     }
@@ -759,7 +990,7 @@ export default function GameplayScreen({
     isIntroPhase,
     isResultPhase,
     roundIndex,
-    shouldShowChaosBriefing,
+    shouldShowRoundBriefing,
   ]);
 
   useLayoutEffect(() => {
@@ -796,7 +1027,7 @@ export default function GameplayScreen({
       !root ||
       isIntroPhase ||
       isResultPhase ||
-      shouldShowChaosBriefing ||
+      shouldShowRoundBriefing ||
       gameplayRevealKeyRef.current === revealKey
     ) {
       return undefined;
@@ -925,7 +1156,7 @@ export default function GameplayScreen({
     isIntroPhase,
     isResultPhase,
     roundIndex,
-    shouldShowChaosBriefing,
+    shouldShowRoundBriefing,
   ]);
 
   useLayoutEffect(() => {
@@ -983,6 +1214,11 @@ export default function GameplayScreen({
 
     if (!diffElement) return undefined;
 
+    if (isTimeAttackMode) {
+      diffElement.textContent = displayedLevelTime;
+      return undefined;
+    }
+
     if (!isResultPhase || !shouldShowResultContent || !lastResult) {
       diffElement.textContent = "00";
       return undefined;
@@ -1009,7 +1245,14 @@ export default function GameplayScreen({
     });
 
     return () => tween.kill();
-  }, [currentResultKey, isResultPhase, lastResult, shouldShowResultContent]);
+  }, [
+    currentResultKey,
+    displayedLevelTime,
+    isResultPhase,
+    isTimeAttackMode,
+    lastResult,
+    shouldShowResultContent,
+  ]);
 
   useLayoutEffect(() => {
     if (!shouldShowResultContent || !lastResult) return undefined;
@@ -1024,12 +1267,21 @@ export default function GameplayScreen({
     const targets = [score, title, copy, action].filter(Boolean);
     const maskRows = getRevealMaskRows(targets);
     const resultKey = currentResultKey;
-    const displayScore = normalizeRoundScore(lastResult.score);
+    const isTimeAttackResult = lastResult.ruleMode === GAME_RULE_MODES.TIME_ATTACK;
+    const displayScore = isTimeAttackResult
+      ? 0
+      : normalizeRoundScore(lastResult.score);
+    const displayTime = formatRaceClock(
+      lastResult.roundElapsedMs ?? lastResult.elapsedMs,
+    );
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (score && isTimeAttackResult) {
+        score.textContent = displayTime;
+      }
       if (resultSoundKeyRef.current !== resultKey) {
         resultSoundKeyRef.current = resultKey;
-        playRoundResult(displayScore, lastResult.diff);
+        playRoundResult(isTimeAttackResult ? 10 : displayScore, lastResult.diff);
       }
       return undefined;
     }
@@ -1045,13 +1297,15 @@ export default function GameplayScreen({
       yPercent: 90,
       transformOrigin: "center center",
     });
-    gsap.set(action, {
-      ...STABLE_REVEAL_TRANSFORM,
-      scale: 0,
-      transformOrigin: "center center",
-    });
+    if (action) {
+      gsap.set(action, {
+        ...STABLE_REVEAL_TRANSFORM,
+        scale: 0,
+        transformOrigin: "center center",
+      });
+    }
     if (score) {
-      score.textContent = formatScore(0);
+      score.textContent = isTimeAttackResult ? displayTime : formatScore(0);
     }
 
     let scoreSound = null;
@@ -1080,6 +1334,15 @@ export default function GameplayScreen({
       .call(
         () => {
           if (!score) return;
+
+          if (isTimeAttackResult) {
+            score.textContent = displayTime;
+            if (resultSoundKeyRef.current !== resultKey) {
+              resultSoundKeyRef.current = resultKey;
+              playRoundResult(10, lastResult.diff);
+            }
+            return;
+          }
 
           const state = { value: 0 };
           score.textContent = formatScore(0);
@@ -1133,39 +1396,43 @@ export default function GameplayScreen({
           y: 0,
         },
         1.34,
-      )
-      .to(
-        action,
-        {
-          autoAlpha: 1,
-          duration: 0.22,
-          ease: "expo.out",
-          ...STABLE_REVEAL_TRANSFORM,
-          scale: 1.08,
-          y: 0,
-        },
-        1.64,
-      )
-      .to(
-        action,
-        {
-          duration: 0.1,
-          ease: "power3.out",
-          ...STABLE_REVEAL_TRANSFORM,
-          scale: 0.96,
-        },
-        1.86,
-      )
-      .to(
-        action,
-        {
-          duration: 0.14,
-          ease: "expo.out",
-          ...STABLE_REVEAL_TRANSFORM,
-          scale: 1,
-        },
-        1.96,
       );
+
+    if (action) {
+      timeline
+        .to(
+          action,
+          {
+            autoAlpha: 1,
+            duration: 0.22,
+            ease: "expo.out",
+            ...STABLE_REVEAL_TRANSFORM,
+            scale: 1.08,
+            y: 0,
+          },
+          1.64,
+        )
+        .to(
+          action,
+          {
+            duration: 0.1,
+            ease: "power3.out",
+            ...STABLE_REVEAL_TRANSFORM,
+            scale: 0.96,
+          },
+          1.86,
+        )
+        .to(
+          action,
+          {
+            duration: 0.14,
+            ease: "expo.out",
+            ...STABLE_REVEAL_TRANSFORM,
+            scale: 1,
+          },
+          1.96,
+        );
+    }
 
     return () => {
       timeline.kill();
@@ -1412,6 +1679,8 @@ export default function GameplayScreen({
         lastResult,
         phase,
         pourStatus,
+        raceElapsedMs,
+        raceRoundStartedAtElapsedMs,
         results,
         roundIndex,
         splitTargets,
@@ -1442,6 +1711,8 @@ export default function GameplayScreen({
       lastResult,
       phase,
       pourStatus,
+      raceElapsedMs,
+      raceRoundStartedAtElapsedMs,
       results,
       roundIndex,
       splitTargets,
@@ -1544,7 +1815,7 @@ export default function GameplayScreen({
     [animateCompleteExit],
   );
 
-  const handleAdvance = async () => {
+  const handleAdvance = useCallback(async () => {
     if (isCompletingExit) return;
 
     if (!isFinalRound) {
@@ -1567,7 +1838,32 @@ export default function GameplayScreen({
       }
       await onComplete?.(finalResults);
     }
-  };
+  }, [
+    advanceRound,
+    animateCompleteExit,
+    clearResumeSnapshot,
+    isCompletingExit,
+    isFinalRound,
+    onComplete,
+    playCompleteExit,
+  ]);
+
+  useEffect(() => {
+    if (!isTimeAttackMode || !shouldShowResultContent || !currentResultKey) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void handleAdvance();
+    }, TIME_ATTACK_RESULT_AUTO_ADVANCE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    currentResultKey,
+    handleAdvance,
+    isTimeAttackMode,
+    shouldShowResultContent,
+  ]);
 
   const handleExit = () => {
     transitionMusicToScene(MUSIC_SCENES.MENU, {
@@ -1784,15 +2080,26 @@ export default function GameplayScreen({
       onPointerUp={handlePointerUp}
       ref={gameplayRootRef}
     >
-      {shouldShowChaosBriefing ? (
-        <ChaosRoundBriefing
-          key={`chaos-${roundIndex}-${activeRuleMode}`}
-          onComplete={() => setChaosBriefingRound(roundIndex)}
+      {shouldShowRoundBriefing ? (
+        <ModeRoundBriefing
+          isChaosQueue={isChaosQueue}
+          key={`mode-briefing-${roundIndex}-${activeRuleMode}`}
+          onComplete={() => setModeBriefingRound(roundIndex)}
           ruleMode={activeRuleMode}
         />
       ) : isIntroPhase ? (
         <PourIntroPhase key={roundIndex} onComplete={handleIntroComplete} />
       ) : null}
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[55] opacity-0 mix-blend-multiply dark:mix-blend-screen"
+        ref={timeAttackFailFlashRef}
+        style={{
+          background:
+            "radial-gradient(circle at 50% 54%, rgba(239,47,37,0.2) 0%, rgba(239,47,37,0.12) 24%, rgba(13,13,12,0.1) 48%, rgba(13,13,12,0) 72%)",
+        }}
+      />
 
       <div
         aria-hidden="true"
@@ -1806,7 +2113,14 @@ export default function GameplayScreen({
             isResultPhase={isResultPhase}
             target={target}
             targetWindow={
-              isPerfectOrNothingMode ? PERFECT_ZONE_RADIUS * 2 : 0
+              isTimeAttackMode
+                ? TIME_ATTACK_ZONE_RADIUS * 2
+                : isPerfectOrNothingMode
+                  ? PERFECT_ZONE_RADIUS * 2
+                  : 0
+            }
+            targetWindowLabel={
+              isTimeAttackMode ? t("game.timeAttackGate") : null
             }
             targetGuideLabelRef={targetGuideLabelRef}
             targetGuideLineRef={targetGuideLineRef}
@@ -1839,6 +2153,7 @@ export default function GameplayScreen({
               levelRef={splitStreamLevelRef}
               pourXRef={pourXRef}
               renderStream
+              resetKey={roundResetKey}
               roundIndex={roundIndex}
               status={status}
               streamOnly
@@ -1853,6 +2168,7 @@ export default function GameplayScreen({
               isPourActive={activeSplitIndex === 0}
               levelRef={splitLeftLevelRef}
               pourXRef={splitLeftPourXRef}
+              resetKey={roundResetKey}
               roundIndex={roundIndex}
               settledRef={splitLeftSettledRef}
               status={
@@ -1874,6 +2190,7 @@ export default function GameplayScreen({
               isPourActive={activeSplitIndex === 1}
               levelRef={splitRightLevelRef}
               pourXRef={splitRightPourXRef}
+              resetKey={roundResetKey}
               roundIndex={roundIndex}
               settledRef={splitRightSettledRef}
               status={
@@ -1902,8 +2219,12 @@ export default function GameplayScreen({
             }
             isInvertedWater={isInvertMode}
             isReversePour={isReversePourMode}
+            leakRatePerSecond={
+              isSiphonMode ? SIPHON_LEAK_RATE_PER_SECOND : undefined
+            }
             levelRef={waterLevelRef}
             pourXRef={pourXRef}
+            resetKey={roundResetKey}
             roundIndex={roundIndex}
             settledRef={waterSettledRef}
             status={canvasStatus}
@@ -1927,15 +2248,17 @@ export default function GameplayScreen({
         className="relative z-30 grid h-full grid-rows-[auto_1fr_auto]"
         data-gameplay-content="true"
       >
-        {timeLeftMs !== null ? (
+        {timeLeftMs !== null || isTimeAttackMode ? (
           <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
             <div
-              aria-label={`${t("game.time")} ${formatTimerClock(timeLeftMs)}`}
+              aria-label={`${t("game.time")} ${
+                isTimeAttackMode ? displayedRaceTime : formatTimerClock(timeLeftMs)
+              }`}
               className="grid min-w-[4.75rem] place-items-center text-center text-[#0d0d0c] dark:text-[#f7f7f2]"
               role="timer"
             >
               <span className="font-heading text-[clamp(1.55rem,2.6vw,2.25rem)] font-black leading-none tabular-nums">
-                {formatTimerClock(timeLeftMs)}
+                {isTimeAttackMode ? displayedRaceTime : formatTimerClock(timeLeftMs)}
               </span>
             </div>
           </div>
@@ -1988,7 +2311,11 @@ export default function GameplayScreen({
                   data-gameplay-result-reveal="score"
                   ref={resultScoreRef}
                 >
-                  {formatScore(lastResult?.score)}
+                  {lastResult?.ruleMode === GAME_RULE_MODES.TIME_ATTACK
+                    ? formatRaceClock(
+                        lastResult?.roundElapsedMs ?? lastResult?.elapsedMs,
+                      )
+                    : formatScore(lastResult?.score)}
                 </p>
               </div>
               <div>
@@ -2048,7 +2375,7 @@ export default function GameplayScreen({
               <p className="pc-round-value mt-2">{displayedGoal}</p>
             </div>
           </div>
-          {shouldShowResultContent ? (
+          {shouldShowResultContent && !isTimeAttackMode ? (
             <div
               className="overflow-hidden"
               data-gameplay-result-reveal-row="true"
@@ -2057,15 +2384,21 @@ export default function GameplayScreen({
                 className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
                 data-game-control="true"
                 data-gameplay-result-reveal="action"
-                disabled={isCompletingExit}
+                disabled={isCompletingExit || isTimeAttackMode}
                 onClick={handleAdvance}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerUp={(event) => event.stopPropagation()}
                 type="button"
               >
-                {isFinalRound ? t("game.scoreboard") : t("game.nextRound")}
+                {isTimeAttackMode
+                  ? t("game.autoNext")
+                  : isFinalRound
+                    ? t("game.scoreboard")
+                    : t("game.nextRound")}
               </button>
             </div>
+          ) : shouldShowResultContent && isTimeAttackMode ? (
+            <div aria-hidden="true" className="min-h-12 min-w-36 sm:min-w-44" />
           ) : modeAllowsDone && status !== "complete" && status !== "settling" ? (
             <button
               className="pc-action inline-flex min-w-36 items-center justify-center rounded-lg bg-[#0d0d0c] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0d0d0c] sm:min-w-44 dark:bg-[#f7f7f2] dark:text-[#0d0d0c] dark:focus-visible:outline-[#f7f7f2]"
@@ -2085,9 +2418,11 @@ export default function GameplayScreen({
             data-gameplay-reveal-row="true"
           >
             <div data-gameplay-reveal="diff">
-              <p className="pc-label">{t("game.diff")}</p>
+              <p className="pc-label">
+                {isTimeAttackMode ? t("game.time") : t("game.diff")}
+              </p>
               <p className="pc-round-value mt-2" ref={diffValueRef}>
-                {roundDiff}
+                {isTimeAttackMode ? displayedLevelTime : roundDiff}
               </p>
             </div>
           </div>

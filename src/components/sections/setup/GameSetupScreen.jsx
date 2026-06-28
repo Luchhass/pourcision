@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
+  ArrowDownToLine,
   BatteryCharging,
   CircleDot,
   CircleOff,
@@ -183,6 +184,12 @@ const ruleModeOptions = [
     description: "Release leaks. Short clock, then lock.",
   },
   {
+    id: GAME_RULE_MODES.SIPHON,
+    icon: ArrowDownToLine,
+    title: "Siphon",
+    description: "Release opens a fast bottom drain.",
+  },
+  {
     id: GAME_RULE_MODES.TILT,
     icon: Gauge,
     title: "Tilt",
@@ -205,6 +212,12 @@ const ruleModeOptions = [
     icon: Target,
     title: "Strike Zone",
     description: "Hit the narrow zone for everything, miss it for nothing.",
+  },
+  {
+    id: GAME_RULE_MODES.TIME_ATTACK,
+    icon: Timer,
+    title: "Time Attack",
+    description: "Clear every zone before the clock gets heavy.",
   },
   {
     id: GAME_RULE_MODES.BAND_RUN,

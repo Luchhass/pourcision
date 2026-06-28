@@ -1096,11 +1096,13 @@ export default function WaterPhysicsCanvas({
   isPourActive = true,
   isInvertedWater = false,
   isReversePour = false,
+  leakRatePerSecond = OLD_LEAK_RATE_PER_SECOND,
   chargePowerRef = null,
   levelRef,
   externalLevelRef = null,
   pourXRef,
   roundIndex,
+  resetKey = roundIndex,
   status,
   tiltRef,
   waterColor,
@@ -1204,7 +1206,7 @@ export default function WaterPhysicsCanvas({
       sourceX: visualPourXRef.current,
       tailX: visualPourXRef.current,
     };
-  }, [initialLevel, isInvertedWater, levelRef, pourXRef, roundIndex, streamOnly]);
+  }, [initialLevel, isInvertedWater, levelRef, pourXRef, resetKey, streamOnly]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1399,6 +1401,7 @@ export default function WaterPhysicsCanvas({
       stepOptions.isLeaking = currentStatus === "leaking";
       stepOptions.isPouring = streamImpactReady;
       stepOptions.isReversePour = isReversePour;
+      stepOptions.leakRatePerSecond = leakRatePerSecond;
       stepOptions.pourMultiplier =
         currentStatus === "burst"
           ? (chargePowerRef?.current ?? 1) *
@@ -1472,7 +1475,7 @@ export default function WaterPhysicsCanvas({
       animationRef.current = null;
       lastTimeRef.current = null;
     };
-  }, [burstPattern, chargePowerRef, externalLevelRef, initialLevel, isInvertedWater, isReversePour, levelRef, pourXRef, renderStream, streamOnly, tiltRef]);
+  }, [burstPattern, chargePowerRef, externalLevelRef, initialLevel, isInvertedWater, isReversePour, leakRatePerSecond, levelRef, pourXRef, renderStream, streamOnly, tiltRef]);
 
   return (
     <canvas

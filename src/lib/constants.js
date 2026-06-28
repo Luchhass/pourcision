@@ -19,11 +19,13 @@ export const GAME_RULE_MODES = {
   INVERT: "invert",
   REVERSE_POUR: "reverse-pour",
   LEAKY: "leaky",
+  SIPHON: "siphon",
   TILT: "tilt",
   CHAOS_QUEUE: "chaos-queue",
   ENDLESS: "endless",
   SPLIT_FILL: "split-fill",
   PERFECT_OR_NOTHING: "perfect-or-nothing",
+  TIME_ATTACK: "time-attack",
   BAND_RUN: "band-run",
   CHARGE_POUR: "charge-pour",
   BURST_CLICK: "burst-click",
@@ -46,7 +48,12 @@ export const MAX_TARGET = 86;
 export const FAKE_TARGET_MIN_DISTANCE = 12;
 export const TIMED_ROUND_MS = 5000;
 export const LEAKY_ROUND_MS = TIMED_ROUND_MS;
+export const SIPHON_DRAIN_MS = 460;
+export const SIPHON_LEAK_RATE_PER_SECOND = 66;
+export const SIPHON_TARGET_MAX = 70;
 export const PERFECT_ZONE_RADIUS = 2.2;
+export const TIME_ATTACK_ZONE_RADIUS = 3.4;
+export const TIME_ATTACK_RESULT_AUTO_ADVANCE_MS = 1000;
 export const CHAOS_BRIEFING_MS = 5000;
 export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.CLASSIC,
@@ -56,6 +63,7 @@ export const CHAOS_QUEUE_MODE_POOL = [
   GAME_RULE_MODES.INVERT,
   GAME_RULE_MODES.REVERSE_POUR,
   GAME_RULE_MODES.LEAKY,
+  GAME_RULE_MODES.SIPHON,
   GAME_RULE_MODES.TILT,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
@@ -72,9 +80,11 @@ export const MODE_GRID_ORDER = [
   GAME_RULE_MODES.BLIND,
   GAME_RULE_MODES.REVERSE_POUR,
   GAME_RULE_MODES.LEAKY,
+  GAME_RULE_MODES.SIPHON,
   GAME_RULE_MODES.FAKE_TARGET,
   GAME_RULE_MODES.SPLIT_FILL,
   GAME_RULE_MODES.PERFECT_OR_NOTHING,
+  GAME_RULE_MODES.TIME_ATTACK,
   GAME_RULE_MODES.BAND_RUN,
   GAME_RULE_MODES.CHARGE_POUR,
   GAME_RULE_MODES.COLORBLIND,
@@ -395,6 +405,12 @@ export const GAME_MODE_OPTIONS = [
     roundDurationMs: LEAKY_ROUND_MS,
   },
   {
+    id: GAME_RULE_MODES.SIPHON,
+    label: "Siphon",
+    description: "Release opens a quick bottom drain before lock.",
+    oneHold: true,
+  },
+  {
     id: GAME_RULE_MODES.TILT,
     label: "Tilt",
     description: "Gravity leans. Read the slanted water line.",
@@ -415,6 +431,12 @@ export const GAME_MODE_OPTIONS = [
     id: GAME_RULE_MODES.PERFECT_OR_NOTHING,
     label: "Strike Zone",
     description: "Hit the narrow zone for everything, miss it for nothing.",
+    oneHold: true,
+  },
+  {
+    id: GAME_RULE_MODES.TIME_ATTACK,
+    label: "Time Attack",
+    description: "Clear each zone as fast as possible. Misses restart the round.",
     oneHold: true,
   },
   {

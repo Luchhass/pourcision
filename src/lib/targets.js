@@ -1,8 +1,10 @@
 import {
   FAKE_TARGET_MIN_DISTANCE,
+  GAME_RULE_MODES,
   GAME_ROUND_COUNT,
   MAX_TARGET,
   MIN_TARGET,
+  SIPHON_TARGET_MAX,
 } from "@/lib/constants";
 
 function hashSeed(seed) {
@@ -36,8 +38,14 @@ export function createSeededRandom(seed) {
   return mulberry32(hashSeed(seed));
 }
 
-export function createTarget(random = Math.random) {
-  return roundTarget(MIN_TARGET + random() * (MAX_TARGET - MIN_TARGET));
+function getTargetMaxForMode(ruleMode) {
+  return ruleMode === GAME_RULE_MODES.SIPHON ? SIPHON_TARGET_MAX : MAX_TARGET;
+}
+
+export function createTarget(random = Math.random, maxTarget = MAX_TARGET) {
+  const safeMaxTarget = Math.max(MIN_TARGET, Math.min(MAX_TARGET, maxTarget));
+
+  return roundTarget(MIN_TARGET + random() * (safeMaxTarget - MIN_TARGET));
 }
 
 export function createFakeTarget(realTarget, random = Math.random) {
@@ -88,11 +96,12 @@ export function createBandTargets(random = Math.random) {
   return targets.sort((first, second) => first - second);
 }
 
-export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT) {
+export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT, options = {}) {
   const random = seed ? createSeededRandom(seed) : Math.random;
 
   return Array.from({ length: roundCount }, (_, roundIndex) => {
-    const target = createTarget(random);
+    const roundRuleMode = options.modeQueue?.[roundIndex] || options.ruleMode;
+    const target = createTarget(random, getTargetMaxForMode(roundRuleMode));
 
     return {
       fakeTarget: createFakeTarget(target, random),

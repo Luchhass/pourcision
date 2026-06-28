@@ -20,6 +20,7 @@ export default function PourTargetGuide({
   isResultPhase,
   target,
   targetWindow = 0,
+  targetWindowLabel = null,
   targetGuideLabelRef,
   targetGuideLineRef,
   showBadge = true,
@@ -88,7 +89,10 @@ export default function PourTargetGuide({
               data-gameplay-reveal-badge="true"
               ref={targetGuideLabelRef}
             >
-              <ResponsiveTargetBadge label={t("game.tenOrZero")} value={target} />
+              <ResponsiveTargetBadge
+                label={targetWindowLabel || t("game.tenOrZero")}
+                value={target}
+              />
             </span>
           ) : null}
         </div>

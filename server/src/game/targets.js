@@ -1,9 +1,11 @@
 import crypto from "crypto";
 import {
   FAKE_TARGET_MIN_DISTANCE,
+  GAME_RULE_MODES,
   GAME_ROUND_COUNT,
   MAX_TARGET,
   MIN_TARGET,
+  SIPHON_TARGET_MAX,
 } from "../constants.js";
 
 function hashSeed(seed) {
@@ -27,8 +29,14 @@ function roundTarget(value) {
   return Math.round(value * 10) / 10;
 }
 
-function createTarget(random) {
-  return roundTarget(MIN_TARGET + random() * (MAX_TARGET - MIN_TARGET));
+function getTargetMaxForMode(ruleMode) {
+  return ruleMode === GAME_RULE_MODES.SIPHON ? SIPHON_TARGET_MAX : MAX_TARGET;
+}
+
+function createTarget(random, maxTarget = MAX_TARGET) {
+  const safeMaxTarget = Math.max(MIN_TARGET, Math.min(MAX_TARGET, maxTarget));
+
+  return roundTarget(MIN_TARGET + random() * (safeMaxTarget - MIN_TARGET));
 }
 
 function createFakeTarget(random, realTarget) {
@@ -82,11 +90,12 @@ export function createSeed() {
   return crypto.randomBytes(12).toString("hex");
 }
 
-export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT) {
+export function createRoundTargets(seed, roundCount = GAME_ROUND_COUNT, options = {}) {
   const random = mulberry32(hashSeed(seed));
 
   return Array.from({ length: roundCount }, (_, roundIndex) => {
-    const target = createTarget(random);
+    const roundRuleMode = options.modeQueue?.[roundIndex] || options.ruleMode;
+    const target = createTarget(random, getTargetMaxForMode(roundRuleMode));
 
     return {
       fakeTarget: createFakeTarget(random, target),

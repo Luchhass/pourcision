@@ -132,6 +132,7 @@ const dictionaries = {
     game: {
       actionHold: "HOLD",
       actionPour: "POUR",
+      autoNext: "Auto Next",
       chaosQueue: "Rule Shuffle",
       diff: "Diff",
       done: "Done",
@@ -154,6 +155,8 @@ const dictionaries = {
       target: "Target",
       tenOrZero: "Strike Zone",
       time: "Time",
+      timeAttackGate: "Gate",
+      timeAttackClearedMessage: "Cleared in {time}. The next level is loading.",
       go: "GO",
       band: "Band",
       bandMiss: "BAND MISS",
@@ -163,6 +166,7 @@ const dictionaries = {
       round: "Round",
       rounds: "Rounds",
       labels: {
+        cleared: "CLEARED",
         noScore: "NO SCORE",
         perfect: "PERFECT!",
         soClose: "SO CLOSE!",
@@ -210,6 +214,8 @@ const dictionaries = {
           "The water kept its secret this time. The next pour starts with better eyes.",
       },
       run: "RUN",
+      timeAttackAssessment:
+        "Finished in {time}. In this mode, clean speed matters more than score.",
       title: "RESULTS",
     },
     difficulties: {
@@ -363,6 +369,14 @@ const dictionaries = {
         setupText:
           "Leaky keeps moving after you let go. Stop a little above the target and let the leak settle into the line before the lock.",
       },
+      siphon: {
+        briefing:
+          "One hold and one release. When you let go, a bottom drain opens for a short pull before the level locks.",
+        description: "Release opens a quick bottom drain before lock.",
+        label: "Siphon",
+        setupText:
+          "Siphon plays like Classic until you release. The moment you let go, a bottom drain pulls a chunk of water away, so stop above the mark and let it settle into the line.",
+      },
       "perfect-or-nothing": {
         briefing:
           "A narrow strike zone replaces the target line. You get one release: land inside for full points, miss it for zero.",
@@ -370,6 +384,14 @@ const dictionaries = {
         label: "Strike Zone",
         setupText:
           "Strike Zone replaces the usual line with a tight scoring window. Land inside for full value; miss the zone and the round gives nothing back.",
+      },
+      "time-attack": {
+        briefing:
+          "Clear the gate as fast as possible. Hit it to move on; miss it and the water resets while the clock keeps running.",
+        description: "Fastest total time wins. Misses restart the level.",
+        label: "Time Attack",
+        setupText:
+          "Time Attack ignores score and only cares about speed. Hit the thicker gate to advance; miss it and the same level restarts with the clock still running.",
       },
       "reverse-pour": {
         briefing: "You start full instead of empty. Hold to drain down, then release once when the surface reaches the mark.",
@@ -532,6 +554,7 @@ const dictionaries = {
     game: {
       actionHold: "TUT",
       actionPour: "D\u00d6K",
+      autoNext: "Otomatik Ge\u00e7i\u015f",
       chaosQueue: "Rastgele Kural",
       diff: "Fark",
       done: "Kilitle",
@@ -554,6 +577,9 @@ const dictionaries = {
       target: "Hedef",
       tenOrZero: "Tam \u0130sabet",
       time: "S\u00fcre",
+      timeAttackGate: "Kap\u0131",
+      timeAttackClearedMessage:
+        "{time} i\u00e7inde ge\u00e7tin. Sonraki seviye haz\u0131rlan\u0131yor.",
       go: "BA\u015eLA",
       band: "Bant",
       bandMiss: "BANT KA\u00c7TI",
@@ -563,6 +589,7 @@ const dictionaries = {
       round: "Tur",
       rounds: "Tur",
       labels: {
+        cleared: "GE\u00c7T\u0130",
         noScore: "SKOR YOK",
         perfect: "KUSURSUZ!",
         soClose: "\u00c7OK YAKIN!",
@@ -613,6 +640,8 @@ const dictionaries = {
           "Su s\u0131rr\u0131n\u0131 bu kez saklad\u0131. Sonraki d\u00f6k\u00fc\u015f daha iyi g\u00f6zlerle ba\u015flayacak.",
       },
       run: "KO\u015eU",
+      timeAttackAssessment:
+        "{time} i\u00e7inde bitti. Bu modda puan de\u011fil, temiz h\u0131z konu\u015fur.",
       title: "SONU\u00c7LAR",
     },
     difficulties: {
@@ -770,6 +799,14 @@ const dictionaries = {
         setupText:
           "S\u0131z\u0131nt\u0131 modunda su b\u0131rakt\u0131ktan sonra da k\u0131sa s\u00fcre hareket eder. Biraz yukar\u0131da durdur ve s\u0131z\u0131nt\u0131n\u0131n \u00e7izgiye oturmas\u0131na izin ver.",
       },
+      siphon: {
+        briefing:
+          "Tek bas\u0131\u015f ve tek b\u0131rak\u0131\u015f. B\u0131rakt\u0131\u011f\u0131n anda alttaki kapak k\u0131sa s\u00fcre a\u00e7\u0131l\u0131r; su h\u0131zl\u0131ca d\u00fc\u015fer ve sonra kilitlenir.",
+        description: "B\u0131rak\u0131nca k\u0131sa ve g\u00fc\u00e7l\u00fc bir sifon d\u00fc\u015f\u00fc\u015f\u00fc olur.",
+        label: "Sifon",
+        setupText:
+          "Sifon klasik gibi oynan\u0131r ama b\u0131rakt\u0131\u011f\u0131nda alttaki kapak bir an a\u00e7\u0131l\u0131r. Suyu hedefin biraz \u00fcst\u00fcnde b\u0131rak, d\u00fc\u015fecek pay\u0131 hesapla ve \u00e7izgiye oturt.",
+      },
       "perfect-or-nothing": {
         briefing:
           "Dar isabet b\u00f6lgesi hedef \u00e7izgisinin yerini al\u0131r. Tek b\u0131rak\u0131\u015f hakk\u0131n var; i\u00e7ine denk getirirsen tam puan, ka\u00e7\u0131r\u0131rsan s\u0131f\u0131r.",
@@ -778,6 +815,15 @@ const dictionaries = {
         label: "Tam \u0130sabet",
         setupText:
           "Tam \u0130sabet normal \u00e7izginin yerine dar bir skor alan\u0131 koyar. \u0130\u00e7ine denk getirirsen tam puan al\u0131rs\u0131n; ka\u00e7\u0131r\u0131rsan tur bo\u015f d\u00f6ner.",
+      },
+      "time-attack": {
+        briefing:
+          "Kap\u0131y\u0131 olabildi\u011fince h\u0131zl\u0131 tuttur. Denk getirirsen ilerlersin; ka\u00e7\u0131r\u0131rsan su s\u0131f\u0131rlan\u0131r ve s\u00fcre akmaya devam eder.",
+        description:
+          "En h\u0131zl\u0131 toplam s\u00fcre kazan\u0131r. Ka\u00e7\u0131r\u0131rsan seviye ba\u015ftan ba\u015flar.",
+        label: "Zamana Kar\u015f\u0131",
+        setupText:
+          "Zamana Kar\u015f\u0131 puan\u0131 bo\u015f verir ve yaln\u0131zca s\u00fcreye bakar. Kal\u0131n hedef kap\u0131s\u0131n\u0131 tutturursan ilerlersin; ka\u00e7\u0131r\u0131rsan ayn\u0131 seviye su s\u0131f\u0131rlanarak yeniden ba\u015flar.",
       },
       "reverse-pour": {
         briefing: "Bo\u015f yerine dolu ba\u015flars\u0131n. Hedefe inmek i\u00e7in bas\u0131l\u0131 tutarak bo\u015falt, y\u00fczey hedefe geldi\u011finde tek kez b\u0131rak.",

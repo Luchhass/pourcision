@@ -6,6 +6,8 @@ import {
   GAME_ROUND_COUNT,
   GAME_RULE_MODES,
   LEAKY_ROUND_MS,
+  SIPHON_DRAIN_MS,
+  TIME_ATTACK_ZONE_RADIUS,
 } from "@/lib/constants";
 import {
   gameModeAllowsManualDone,
@@ -84,6 +86,12 @@ function sanitizeResumeResult(result) {
   return result && typeof result === "object" ? result : null;
 }
 
+function sanitizeElapsedMs(value) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+}
+
 function normalizeResumePhase(snapshot) {
   const phase = snapshot?.phase;
   const pourStatus = snapshot?.pourStatus;
@@ -109,6 +117,12 @@ function normalizeResumePourStatus(snapshot, phase, ruleMode) {
     return POUR_STATUSES.IDLE;
   }
   if (pourStatus === POUR_STATUSES.BURST) return POUR_STATUSES.SETTLING;
+  if (
+    pourStatus === POUR_STATUSES.LEAKING &&
+    ruleMode === GAME_RULE_MODES.SIPHON
+  ) {
+    return POUR_STATUSES.SETTLING;
+  }
 
   return pourStatus === POUR_STATUSES.INTRO ? POUR_STATUSES.IDLE : pourStatus;
 }
@@ -212,13 +226,6 @@ export function useSingleplayerGame({
   const normalizedRuleMode =
     ruleMode === GAME_RULE_MODES.ENDLESS ? GAME_RULE_MODES.CLASSIC : ruleMode;
   const targetBaseSeed = targetSeed || `${normalizedRuleMode}:${roundCount}`;
-  const generatedTargets = useMemo(
-    () =>
-      targets
-        ? null
-        : createRoundTargets(targetBaseSeed, roundCount),
-    [roundCount, targetBaseSeed, targets],
-  );
   const chaosModes = useMemo(
     () => {
       if (normalizedRuleMode !== GAME_RULE_MODES.CHAOS_QUEUE) return null;
@@ -229,16 +236,29 @@ export function useSingleplayerGame({
     },
     [modeQueue, normalizedRuleMode, roundCount, targetBaseSeed],
   );
+  const generatedTargets = useMemo(
+    () =>
+      targets
+        ? null
+        : createRoundTargets(targetBaseSeed, roundCount, {
+            modeQueue: chaosModes,
+            ruleMode: normalizedRuleMode,
+          }),
+    [chaosModes, normalizedRuleMode, roundCount, targetBaseSeed, targets],
+  );
   const getRoundTarget = useCallback(
     (index) => {
+      const fallbackRuleMode = chaosModes?.[index] ?? normalizedRuleMode;
       const roundTarget =
         targets?.[index] ||
         generatedTargets?.[index] ||
-        createRoundTargets(`${targetBaseSeed}:${index}`, 1)[0];
+        createRoundTargets(`${targetBaseSeed}:${index}`, 1, {
+          ruleMode: fallbackRuleMode,
+        })[0];
 
       return normalizeRoundTarget(roundTarget);
     },
-    [generatedTargets, targetBaseSeed, targets],
+    [chaosModes, generatedTargets, normalizedRuleMode, targetBaseSeed, targets],
   );
   const initialRoundIndex = clampRoundIndex(
     initialSnapshot?.roundIndex,
@@ -277,6 +297,18 @@ export function useSingleplayerGame({
     initialSnapshot,
     initialRoundDuration,
   );
+  const initialRaceElapsedMs = sanitizeElapsedMs(initialSnapshot?.raceElapsedMs);
+  const fallbackRaceRoundStartedAtElapsedMs = initialResults.length
+    ? sanitizeElapsedMs(initialResults[initialResults.length - 1]?.elapsedMs)
+    : 0;
+  const initialRaceRoundStartedAtElapsedMs = sanitizeElapsedMs(
+    initialSnapshot?.raceRoundStartedAtElapsedMs ??
+      fallbackRaceRoundStartedAtElapsedMs,
+  );
+  const initialRaceRoundElapsedMs = Math.max(
+    0,
+    initialRaceElapsedMs - initialRaceRoundStartedAtElapsedMs,
+  );
   const [phase, setPhase] = useState(initialPhase);
   const [pourStatus, setPourStatus] = useState(initialPourStatus);
   const [roundIndex, setRoundIndex] = useState(initialRoundIndex);
@@ -295,6 +327,15 @@ export function useSingleplayerGame({
   const [lastResult, setLastResult] = useState(initialLastResult);
   const [results, setResults] = useState(initialResults);
   const [timeLeftMs, setTimeLeftMs] = useState(initialTimeLeftMs);
+  const [raceElapsedMs, setRaceElapsedMs] = useState(initialRaceElapsedMs);
+  const [raceRoundElapsedMs, setRaceRoundElapsedMs] = useState(
+    initialRaceRoundElapsedMs,
+  );
+  const [raceRoundStartedAtElapsedMs, setRaceRoundStartedAtElapsedMs] = useState(
+    initialRaceRoundStartedAtElapsedMs,
+  );
+  const [roundResetNonce, setRoundResetNonce] = useState(0);
+  const [timeAttackFailNonce, setTimeAttackFailNonce] = useState(0);
   const effectiveRuleMode =
     chaosModes?.[roundIndex] ?? normalizedRuleMode ?? GAME_RULE_MODES.CLASSIC;
   const getSplitLevelsRef = useRef(getSplitLevels);
@@ -314,6 +355,11 @@ export function useSingleplayerGame({
   const bandAttemptIndexRef = useRef(initialBandAttemptIndex);
   const targetRef = useRef(target);
   const timeLeftRef = useRef(timeLeftMs);
+  const raceElapsedMsRef = useRef(initialRaceElapsedMs);
+  const raceRoundStartedAtElapsedMsRef = useRef(
+    initialRaceRoundStartedAtElapsedMs,
+  );
+  const raceSegmentStartedAtRef = useRef(0);
   const chargeStartedAtRef = useRef(0);
   const chargeBurstStartedAtRef = useRef(0);
   const chargeBurstMsRef = useRef(0);
@@ -325,6 +371,8 @@ export function useSingleplayerGame({
   const isReversePour = effectiveRuleMode === GAME_RULE_MODES.REVERSE_POUR;
   const isInvert = effectiveRuleMode === GAME_RULE_MODES.INVERT;
   const isLeaky = effectiveRuleMode === GAME_RULE_MODES.LEAKY;
+  const isSiphon = effectiveRuleMode === GAME_RULE_MODES.SIPHON;
+  const isTimeAttack = effectiveRuleMode === GAME_RULE_MODES.TIME_ATTACK;
   const isBandRun = effectiveRuleMode === GAME_RULE_MODES.BAND_RUN;
   const isChargePour = effectiveRuleMode === GAME_RULE_MODES.CHARGE_POUR;
   const isBurstClick = effectiveRuleMode === GAME_RULE_MODES.BURST_CLICK;
@@ -406,6 +454,53 @@ export function useSingleplayerGame({
     setPourStatus(nextStatus);
   }, []);
 
+  const getRaceElapsedMs = useCallback(() => {
+    const segmentStartedAt = raceSegmentStartedAtRef.current;
+    const segmentElapsed = segmentStartedAt
+      ? Date.now() - segmentStartedAt
+      : 0;
+
+    return raceElapsedMsRef.current + segmentElapsed;
+  }, []);
+
+  const getRaceRoundElapsedMs = useCallback(
+    (nextElapsedMs = getRaceElapsedMs()) =>
+      Math.max(0, nextElapsedMs - raceRoundStartedAtElapsedMsRef.current),
+    [getRaceElapsedMs],
+  );
+
+  const syncRaceElapsedMs = useCallback(() => {
+    const nextElapsedMs = getRaceElapsedMs();
+
+    setRaceElapsedMs(nextElapsedMs);
+    setRaceRoundElapsedMs(getRaceRoundElapsedMs(nextElapsedMs));
+    return nextElapsedMs;
+  }, [getRaceElapsedMs, getRaceRoundElapsedMs]);
+
+  const pauseRaceTimer = useCallback(() => {
+    if (!raceSegmentStartedAtRef.current) {
+      return raceElapsedMsRef.current;
+    }
+
+    const nextElapsedMs = getRaceElapsedMs();
+
+    raceElapsedMsRef.current = nextElapsedMs;
+    raceSegmentStartedAtRef.current = 0;
+    setRaceElapsedMs(nextElapsedMs);
+    setRaceRoundElapsedMs(getRaceRoundElapsedMs(nextElapsedMs));
+
+    return nextElapsedMs;
+  }, [getRaceElapsedMs, getRaceRoundElapsedMs]);
+
+  const resetRaceTimer = useCallback(() => {
+    raceElapsedMsRef.current = 0;
+    raceRoundStartedAtElapsedMsRef.current = 0;
+    raceSegmentStartedAtRef.current = 0;
+    setRaceElapsedMs(0);
+    setRaceRoundElapsedMs(0);
+    setRaceRoundStartedAtElapsedMs(0);
+  }, []);
+
   const lockRound = useCallback(() => {
     if (
       phaseRef.current === GAME_PHASES.RESULT ||
@@ -415,6 +510,7 @@ export function useSingleplayerGame({
     }
 
     const currentRuleMode = effectiveRuleModeRef.current;
+    const isCurrentTimeAttack = currentRuleMode === GAME_RULE_MODES.TIME_ATTACK;
     const sourceLevel = getLevelRef.current?.() ?? 0;
     const level = Math.round(clampPercent(sourceLevel) * 100) / 100;
     const tilt = getTiltRef.current?.() ?? 0;
@@ -432,6 +528,7 @@ export function useSingleplayerGame({
 
       if (nextAttemptIndex < currentBandTargets.length) {
         onRoundResetRef.current?.(currentRuleMode);
+        setRoundResetNonce((value) => value + 1);
         setLastResult(null);
         setPourStatusValue(POUR_STATUSES.IDLE);
         setPhaseValue(GAME_PHASES.POUR);
@@ -457,12 +554,18 @@ export function useSingleplayerGame({
       return;
     }
 
+    const raceTotalElapsedMs = isCurrentTimeAttack ? getRaceElapsedMs() : null;
+    const raceRoundElapsedMs = isCurrentTimeAttack
+      ? getRaceRoundElapsedMs(raceTotalElapsedMs)
+      : null;
     const result = calculateRoundResult({
       fakeTarget:
         currentRuleMode === GAME_RULE_MODES.FAKE_TARGET
           ? fakeTargetRef.current
           : null,
       level,
+      elapsedMs: raceTotalElapsedMs,
+      roundElapsedMs: raceRoundElapsedMs,
       roundIndex: roundIndexRef.current,
       ruleMode: currentRuleMode,
       splitLevels,
@@ -470,14 +573,32 @@ export function useSingleplayerGame({
       target: targetRef.current,
       tilt,
     });
+
+    if (isCurrentTimeAttack && result.diff > TIME_ATTACK_ZONE_RADIUS) {
+      onRoundResetRef.current?.(currentRuleMode);
+      setRoundResetNonce((value) => value + 1);
+      setTimeAttackFailNonce((value) => value + 1);
+      setLastResult(null);
+      setPourStatusValue(POUR_STATUSES.IDLE);
+      setPhaseValue(GAME_PHASES.POUR);
+      return;
+    }
+
     const nextResults = [...resultsRef.current, result];
+
+    if (isCurrentTimeAttack) {
+      raceElapsedMsRef.current = raceTotalElapsedMs;
+      raceSegmentStartedAtRef.current = 0;
+      setRaceElapsedMs(raceTotalElapsedMs);
+      setRaceRoundElapsedMs(raceRoundElapsedMs);
+    }
 
     setLastResult(result);
     resultsRef.current = nextResults;
     setResults(nextResults);
     setPourStatusValue(POUR_STATUSES.RESULT);
     setPhaseValue(GAME_PHASES.RESULT);
-  }, [setPhaseValue, setPourStatusValue]);
+  }, [getRaceElapsedMs, getRaceRoundElapsedMs, setPhaseValue, setPourStatusValue]);
 
   const startSettling = useCallback(() => {
     if (
@@ -536,6 +657,40 @@ export function useSingleplayerGame({
 
     return () => window.clearInterval(intervalId);
   }, [isTimedRound, phase, startSettling]);
+
+  useEffect(() => {
+    if (!isTimeAttack) return undefined;
+
+    const shouldRun =
+      phase === GAME_PHASES.POUR &&
+      pourStatus !== POUR_STATUSES.INTRO &&
+      pourStatus !== POUR_STATUSES.COMPLETE;
+
+    if (!shouldRun) {
+      pauseRaceTimer();
+      return undefined;
+    }
+
+    if (!raceSegmentStartedAtRef.current) {
+      raceSegmentStartedAtRef.current = Date.now();
+    }
+
+    const intervalId = window.setInterval(syncRaceElapsedMs, 80);
+
+    return () => window.clearInterval(intervalId);
+  }, [isTimeAttack, pauseRaceTimer, phase, pourStatus, syncRaceElapsedMs]);
+
+  useEffect(() => {
+    if (!isSiphon || pourStatus !== POUR_STATUSES.LEAKING) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      if (pourStatusRef.current === POUR_STATUSES.LEAKING) {
+        startSettling();
+      }
+    }, SIPHON_DRAIN_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isSiphon, pourStatus, startSettling]);
 
   useEffect(() => {
     if (
@@ -651,13 +806,18 @@ export function useSingleplayerGame({
       return;
     }
 
+    if (isSiphon) {
+      setPourStatusValue(POUR_STATUSES.LEAKING);
+      return;
+    }
+
     if (isOneHold || isBandRun) {
       startSettling();
       return;
     }
 
     setPourStatusValue(isLeaky ? POUR_STATUSES.LEAKING : POUR_STATUSES.IDLE);
-  }, [isBandRun, isChargePour, isLeaky, isOneHold, setPourStatusValue, startSettling]);
+  }, [isBandRun, isChargePour, isLeaky, isOneHold, isSiphon, setPourStatusValue, startSettling]);
 
   const submitRound = useCallback(() => {
     startSettling();
@@ -687,6 +847,14 @@ export function useSingleplayerGame({
     burstClickTimesRef.current = [];
     setBandLevels([]);
     setBandAttemptIndex(0);
+    if (nextRuleMode === GAME_RULE_MODES.TIME_ATTACK) {
+      const nextRaceRoundStartedAtElapsedMs = raceElapsedMsRef.current;
+
+      raceRoundStartedAtElapsedMsRef.current =
+        nextRaceRoundStartedAtElapsedMs;
+      setRaceRoundStartedAtElapsedMs(nextRaceRoundStartedAtElapsedMs);
+      setRaceRoundElapsedMs(0);
+    }
     onRoundResetRef.current?.(nextRuleMode);
     setLastResult(null);
     timeLeftRef.current = nextRoundDuration;
@@ -722,12 +890,14 @@ export function useSingleplayerGame({
     setLastResult(null);
     setResults([]);
     resultsRef.current = [];
+    resetRaceTimer();
+    setRoundResetNonce((value) => value + 1);
     timeLeftRef.current = firstRoundDuration;
     setTimeLeftMs(firstRoundDuration);
     onRoundResetRef.current?.(firstRuleMode);
     setPourStatusValue(POUR_STATUSES.INTRO);
     setPhaseValue(GAME_PHASES.INTRO);
-  }, [chaosModes, getRoundTarget, normalizedRuleMode, setPhaseValue, setPourStatusValue]);
+  }, [chaosModes, getRoundTarget, normalizedRuleMode, resetRaceTimer, setPhaseValue, setPourStatusValue]);
 
   const summary = useMemo(() => {
     const totalScore = normalizeTotalScore(
@@ -740,9 +910,11 @@ export function useSingleplayerGame({
     return {
       bestDiff,
       maxScore: isEndless ? null : roundCount * 10,
+      totalElapsedMs: raceElapsedMs,
+      roundElapsedMs: raceRoundElapsedMs,
       totalScore,
     };
-  }, [isEndless, results, roundCount]);
+  }, [isEndless, raceElapsedMs, raceRoundElapsedMs, results, roundCount]);
 
   return {
     chaosModes,
@@ -762,10 +934,14 @@ export function useSingleplayerGame({
     playAgain,
     pourStatus,
     chargePowerRef,
+    raceElapsedMs,
+    raceRoundElapsedMs,
+    raceRoundStartedAtElapsedMs,
     selectedGameMode: normalizedRuleMode,
     results,
     roundCount,
     roundIndex,
+    roundResetNonce,
     showTargetGuide: !isBlind,
     splitTargets,
     startPour,
@@ -773,6 +949,7 @@ export function useSingleplayerGame({
     submitRound,
     summary,
     target,
+    timeAttackFailNonce,
     timeLeftMs: isTimedRound ? timeLeftMs : null,
   };
 }

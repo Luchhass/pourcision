@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpDown,
+  ArrowDownToLine,
   BatteryCharging,
   CircleDot,
   Clipboard,
@@ -52,7 +53,9 @@ const modeIcons = {
   [GAME_RULE_MODES.FAKE_TARGET]: FlagTriangleRight,
   [GAME_RULE_MODES.INVERT]: ArrowUpDown,
   [GAME_RULE_MODES.LEAKY]: Droplets,
+  [GAME_RULE_MODES.SIPHON]: ArrowDownToLine,
   [GAME_RULE_MODES.PERFECT_OR_NOTHING]: Target,
+  [GAME_RULE_MODES.TIME_ATTACK]: Timer,
   [GAME_RULE_MODES.BAND_RUN]: ScanLine,
   [GAME_RULE_MODES.CHARGE_POUR]: BatteryCharging,
   [GAME_RULE_MODES.COLORBLIND]: Moon,

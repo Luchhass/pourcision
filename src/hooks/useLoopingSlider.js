@@ -421,6 +421,17 @@ export function useLoopingSlider(
     animateScrollTo(baseLeft + Math.sign(rawDelta) * wheelStep, wheelDuration);
   };
 
+  useEffect(() => {
+    const slider = sliderRef.current;
+    if (!slider) return undefined;
+
+    slider.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      slider.removeEventListener("wheel", handleWheel);
+    };
+  });
+
   return {
     handleClickCapture,
     handlePointerCancel: handlePointerUp,
@@ -428,7 +439,7 @@ export function useLoopingSlider(
     handlePointerMove,
     handlePointerUp,
     handleScroll,
-    handleWheel,
+    handleWheel: undefined,
     sliderRef,
   };
 }

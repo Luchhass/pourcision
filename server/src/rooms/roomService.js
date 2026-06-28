@@ -187,6 +187,9 @@ function serializeResult(result) {
 
   return {
     diff: result.diff,
+    cleared: result.cleared ?? null,
+    elapsedMs: result.elapsedMs ?? null,
+    roundElapsedMs: result.roundElapsedMs ?? null,
     fakeTarget: result.fakeTarget,
     label: result.label,
     level: result.level,
@@ -227,6 +230,7 @@ function serializePlayer(player, room = null) {
     score: normalizeTotalScore(player.score || player.totalScore || 0),
     submitted: Boolean(player.submitted),
     submittedRounds: player.results.filter(Boolean).length,
+    totalElapsedMs: player.totalElapsedMs ?? null,
     totalRounds: progress.totalRounds,
     waitingForNextGame: Boolean(player.waitingForNextGame),
     waterColorId: player.waterColorId || DEFAULT_SETTINGS.waterColorId,
@@ -787,6 +791,7 @@ function resetCompletedRoomToLobby(room) {
     player.score = 0;
     player.scoreboardReady = false;
     player.submitted = false;
+    player.totalElapsedMs = null;
     player.totalScore = 0;
     player.waitingForNextGame = false;
     player.lastSeenAt = now();
